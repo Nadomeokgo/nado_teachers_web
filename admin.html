@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>나도 Teachers 관리자</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="admin-body">
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <header class="admin-header">
+    <a class="logo" href="index.html"><span class="logo-symbol">ㄴㄷ</span><span class="logo-text">Teachers Admin</span></a>
+    <div class="admin-header-actions">
+      <a class="button ghost small" href="index.html">선생님 화면</a>
+      <button id="adminLogoutButton" class="button secondary small" type="button">로그아웃</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="page-intro admin-intro">
+      <div>
+        <p class="section-kicker">OPERATIONS DASHBOARD</p>
+        <h1>선생님 스케줄 관리</h1>
+        <p>제출된 가능 시간을 선생님별로 확인하고 CSV로 내려받을 수 있습니다.</p>
+      </div>
+      <button id="exportCsvButton" class="button primary" type="button">CSV 다운로드</button>
+    </section>
+
+    <section class="admin-stat-grid">
+      <article class="stat-panel"><span>등록 선생님</span><strong id="teacherCount">-</strong></article>
+      <article class="stat-panel"><span>제출 시간대</span><strong id="slotTotalCount">-</strong></article>
+      <article class="stat-panel"><span>최근 업데이트</span><strong id="latestUpdate">-</strong></article>
+    </section>
+
+    <section class="panel admin-filter-panel">
+      <label>선생님 검색<input id="teacherSearch" type="search" placeholder="이름 또는 이메일 검색" /></label>
+      <label>요일 필터
+        <select id="dayFilter">
+          <option value="all">전체 요일</option>
+          <option value="1">월요일</option><option value="2">화요일</option><option value="3">수요일</option>
+          <option value="4">목요일</option><option value="5">금요일</option><option value="6">토요일</option><option value="0">일요일</option>
+        </select>
+      </label>
+    </section>
+
+    <section id="adminTeacherList" class="admin-teacher-list">
+      <article class="panel skeleton-card"></article>
+    </section>
+
+    <section class="admin-content-section">
+      <div class="page-intro admin-content-title">
+        <div>
+          <p class="section-kicker">CONTENT MANAGEMENT</p>
+          <h2>사이트 콘텐츠 관리</h2>
+          <p>공지사항, 커리큘럼 링크, YouTube 교육 영상을 이 화면에서 등록할 수 있습니다.</p>
+        </div>
+      </div>
+
+      <div class="admin-content-grid">
+        <article class="panel content-manager-card">
+          <h3>공지사항 등록</h3>
+          <form id="announcementForm" class="manager-form">
+            <label>제목<input id="announcementTitle" type="text" maxlength="120" required /></label>
+            <label>내용<textarea id="announcementBody" rows="4" maxlength="1000" required></textarea></label>
+            <button class="button primary" type="submit">공지 등록</button>
+          </form>
+          <div id="adminAnnouncementList" class="manager-list"></div>
+        </article>
+
+        <article class="panel content-manager-card">
+          <h3>수업 자료 등록</h3>
+          <form id="resourceForm" class="manager-form">
+            <label>자료 제목<input id="resourceTitle" type="text" maxlength="120" required /></label>
+            <label>설명<textarea id="resourceDescription" rows="3" maxlength="500"></textarea></label>
+            <div class="manager-form-row">
+              <label>종류<select id="resourceCategory"><option>PDF</option><option>DOC</option><option>LINK</option></select></label>
+              <label>순서<input id="resourceOrder" type="number" value="1" min="0" max="999" /></label>
+            </div>
+            <label>공유 URL<input id="resourceUrl" type="url" placeholder="https://drive.google.com/..." required /></label>
+            <button class="button primary" type="submit">자료 등록</button>
+          </form>
+          <div id="adminResourceList" class="manager-list"></div>
+        </article>
+
+        <article class="panel content-manager-card">
+          <h3>교육 영상 등록</h3>
+          <form id="videoForm" class="manager-form">
+            <label>영상 제목<input id="videoTitle" type="text" maxlength="120" required /></label>
+            <label>설명<textarea id="videoDescription" rows="3" maxlength="500"></textarea></label>
+            <div class="manager-form-row">
+              <label>YouTube URL<input id="videoUrl" type="url" placeholder="https://youtu.be/..." required /></label>
+              <label>순서<input id="videoOrder" type="number" value="1" min="0" max="999" /></label>
+            </div>
+            <button class="button primary" type="submit">영상 등록</button>
+          </form>
+          <div id="adminVideoList" class="manager-list"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
