@@ -1,204 +1,469 @@
 (() => {
   "use strict";
+
   const config = window.NADO_CONFIG || {};
   const configured = config.SUPABASE_URL && config.SUPABASE_ANON_KEY && !config.SUPABASE_URL.includes("YOUR_PROJECT_ID");
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
-  const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
-  let teachers = [];
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  const pageMeta = {
+    dashboard: ["TEACHER HOME", "홈"], schedule: ["WEEKLY AVAILABILITY", "스케줄 제출"],
+    guide: ["FIRST LESSON GUIDE", "첫 수업 가이드"], curriculum: ["CURRICULUM", "커리큘럼"],
+    training: ["TRAINING VIDEOS", "교육 영상"], profile: ["MY PROFILE", "내 정보"]
+  };
+
+  let currentUser = null;
+  let profile = null;
+  let slots = [];
+  let scheduleMemo = "";
+  let logoutInProgress = false;
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
-  function toast(message, error = false) { const el = $("toast"); el.textContent = message; el.className = `toast show${error ? " error" : ""}`; setTimeout(() => el.className = "toast", 2600); }
 
-  async function initialize() {
-    if (!supabase) return toast("js/config.js에 Supabase 정보를 입력해주세요.", true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return location.replace("index.html");
-    const { data: me } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
-    if (me?.role !== "admin") { alert("관리자 권한이 없습니다."); return location.replace("index.html"); }
-    await loadData();
+  function showToast(message, type = "success") {
+    const toast = $("toast");
+    toast.textContent = message;
+    toast.className = `toast show${type === "error" ? " error" : ""}`;
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => { toast.className = "toast"; }, 2700);
   }
 
-  async function loadData() {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, email, school, major, availability(id, day_of_week, start_time, end_time, location, memo, updated_at)")
-      .neq("role", "admin")
-      .order("full_name");
-    if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
-    teachers = data || [];
-    updateStats();
-    render();
-    await loadContent();
+  function checkConfiguration() {
+    if (configured) return true;
+    showToast("먼저 js/config.js에 Supabase 주소와 키를 입력해주세요.", "error");
+    return false;
   }
 
-  function updateStats() {
-    const slots = teachers.flatMap((teacher) => teacher.availability || []);
-    const latest = slots.map((slot) => slot.updated_at).filter(Boolean).sort().at(-1);
-    $("teacherCount").textContent = `${teachers.length}명`;
-    $("slotTotalCount").textContent = `${slots.length}개`;
-    $("latestUpdate").textContent = latest ? new Date(latest).toLocaleDateString("ko-KR") : "없음";
+  function setLoading(button, loading, originalText) {
+    button.disabled = loading;
+    button.textContent = loading ? "처리 중..." : originalText;
   }
 
-  function filteredTeachers() {
-    const keyword = $("teacherSearch").value.trim().toLowerCase();
-    const day = $("dayFilter").value;
-    return teachers.map((teacher) => ({
-      ...teacher,
-      availability: (teacher.availability || []).filter((slot) => day === "all" || String(slot.day_of_week) === day)
-    })).filter((teacher) => {
-      const matchesText = !keyword || `${teacher.full_name || ""} ${teacher.email || ""}`.toLowerCase().includes(keyword);
-      const matchesDay = day === "all" || teacher.availability.length > 0;
-      return matchesText && matchesDay;
-    });
+  function switchPage(page) {
+    if (!pageMeta[page]) page = "dashboard";
+    document.querySelectorAll(".page").forEach((el) => el.classList.remove("active"));
+    document.querySelectorAll(".nav-item[data-page]").forEach((el) => el.classList.toggle("active", el.dataset.page === page));
+    $(`page-${page}`).classList.add("active");
+    $("pageEyebrow").textContent = pageMeta[page][0];
+    $("pageTitle").textContent = pageMeta[page][1];
+    location.hash = page;
+    closeSidebar();
   }
 
-  function render() {
-    const list = filteredTeachers();
-    if (!list.length) {
-      $("adminTeacherList").innerHTML = '<article class="panel empty-state">조건에 맞는 선생님이 없습니다.</article>';
+  const mobileSidebarQuery = window.matchMedia("(max-width: 820px)");
+
+  function setSidebarAccessibility(isOpen) {
+    const sidebar = $("sidebar");
+    const openButton = $("sidebarOpen");
+    openButton.setAttribute("aria-expanded", String(isOpen));
+
+    if (mobileSidebarQuery.matches) {
+      sidebar.setAttribute("aria-hidden", String(!isOpen));
+      if ("inert" in sidebar) sidebar.inert = !isOpen;
+    } else {
+      sidebar.removeAttribute("aria-hidden");
+      if ("inert" in sidebar) sidebar.inert = false;
+    }
+  }
+
+  function openSidebar() {
+    if (!mobileSidebarQuery.matches) return;
+    $("sidebar").classList.add("open");
+    $("sidebarBackdrop").classList.remove("hidden");
+    document.body.classList.add("menu-open");
+    setSidebarAccessibility(true);
+    requestAnimationFrame(() => $("sidebarClose").focus());
+  }
+
+  function closeSidebar({ restoreFocus = false } = {}) {
+    const wasOpen = $("sidebar").classList.contains("open");
+    $("sidebar").classList.remove("open");
+    $("sidebarBackdrop").classList.add("hidden");
+    document.body.classList.remove("menu-open");
+    setSidebarAccessibility(false);
+    if (restoreFocus && wasOpen && mobileSidebarQuery.matches) $("sidebarOpen").focus();
+  }
+
+  function syncSidebarForViewport() {
+    if (!mobileSidebarQuery.matches) {
+      $("sidebar").classList.remove("open");
+      $("sidebarBackdrop").classList.add("hidden");
+      document.body.classList.remove("menu-open");
+      setSidebarAccessibility(false);
       return;
     }
-    $("adminTeacherList").innerHTML = list.map((teacher) => {
-      const slots = [...(teacher.availability || [])].sort((a,b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time));
-      const latest = slots.map((s) => s.updated_at).filter(Boolean).sort().at(-1);
-      const memo = slots.find((s) => s.memo)?.memo;
-      return `<article class="panel teacher-admin-card">
-        <div class="teacher-admin-head">
-          <div class="teacher-admin-profile">
-            <span class="teacher-admin-avatar">${escapeHtml((teacher.full_name || "T").slice(0,1))}</span>
-            <div><strong>${escapeHtml(teacher.full_name || "이름 미입력")}</strong><span>${escapeHtml(teacher.email || "")} · ${escapeHtml(teacher.school || "학교 미입력")} ${teacher.major ? `· ${escapeHtml(teacher.major)}` : ""}</span></div>
-          </div>
-          <span class="updated-at">${latest ? `업데이트 ${new Date(latest).toLocaleString("ko-KR")}` : "미제출"}</span>
+    setSidebarAccessibility($("sidebar").classList.contains("open"));
+  }
+
+  async function login(event) {
+    event.preventDefault();
+    if (!checkConfiguration()) return;
+    const button = event.submitter;
+    setLoading(button, true, "로그인");
+    const { error } = await supabase.auth.signInWithPassword({
+      email: $("loginEmail").value.trim(),
+      password: $("loginPassword").value
+    });
+    setLoading(button, false, "로그인");
+    if (error) return showToast("이메일 또는 비밀번호를 확인해주세요.", "error");
+    await initializeSession();
+  }
+
+  async function resetPassword() {
+    if (!checkConfiguration()) return;
+    const email = $("loginEmail").value.trim();
+    if (!email) return showToast("먼저 이메일을 입력해주세요.", "error");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${location.origin}${location.pathname}`
+    });
+    if (error) return showToast(error.message, "error");
+    showToast("비밀번호 재설정 메일을 보냈습니다.");
+  }
+
+  function renderSignedOutState() {
+    closeSidebar();
+
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) activeElement.blur();
+
+    currentUser = null;
+    profile = null;
+    slots = [];
+    scheduleMemo = "";
+
+    $("appView").classList.add("hidden");
+    $("loginView").classList.remove("hidden");
+    $("loginPassword").value = "";
+    $("adminLink").classList.add("hidden");
+
+    // 무거운 iframe과 이전 사용자 콘텐츠를 즉시 정리합니다.
+    $("videoGrid").innerHTML = "";
+    $("resourceGrid").innerHTML = "";
+    $("announcementList").innerHTML = "";
+
+    // hashchange를 다시 발생시키지 않고 로그인 주소로 정리합니다.
+    history.replaceState(null, "", `${location.pathname}${location.search}`);
+  }
+
+  async function logout() {
+    if (!supabase || logoutInProgress) return;
+
+    logoutInProgress = true;
+    const button = $("logoutButton");
+    setLoading(button, true, "로그아웃");
+
+    try {
+      // 기본 global 로그아웃 대신 현재 브라우저 세션만 빠르게 종료합니다.
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error) throw error;
+      renderSignedOutState();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      showToast("로그아웃에 실패했습니다. 잠시 후 다시 시도해주세요.", "error");
+    } finally {
+      logoutInProgress = false;
+      setLoading(button, false, "로그아웃");
+    }
+  }
+
+  async function initializeSession() {
+    if (!checkConfiguration()) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      $("loginView").classList.remove("hidden");
+      $("appView").classList.add("hidden");
+      return;
+    }
+    currentUser = session.user;
+    $("loginView").classList.add("hidden");
+    $("appView").classList.remove("hidden");
+    await Promise.all([loadProfile(), loadAvailability(), loadAnnouncements(), loadResources(), loadVideos()]);
+    renderGuideProgress();
+    switchPage(location.hash.replace("#", "") || "dashboard");
+  }
+
+  async function loadProfile() {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", currentUser.id).maybeSingle();
+    if (error) showToast("프로필을 불러오지 못했습니다.", "error");
+    profile = data || { id: currentUser.id, full_name: currentUser.user_metadata?.full_name || "선생님", email: currentUser.email };
+    const name = profile.full_name || "선생님";
+    $("userName").textContent = name;
+    $("welcomeName").textContent = name;
+    $("userEmail").textContent = currentUser.email || "";
+    $("userAvatar").textContent = name.slice(0, 1).toUpperCase();
+    $("profileName").value = profile.full_name || "";
+    $("profileSchool").value = profile.school || "";
+    $("profileMajor").value = profile.major || "";
+    $("profilePhone").value = profile.phone || "";
+    $("profileBio").value = profile.bio || "";
+    $("adminLink").classList.toggle("hidden", profile.role !== "admin");
+  }
+
+  async function saveProfile(event) {
+    event.preventDefault();
+    const button = event.submitter;
+    setLoading(button, true, "내 정보 저장");
+    const payload = {
+      id: currentUser.id,
+      email: currentUser.email,
+      full_name: $("profileName").value.trim(),
+      school: $("profileSchool").value.trim(),
+      major: $("profileMajor").value.trim(),
+      phone: $("profilePhone").value.trim(),
+      bio: $("profileBio").value.trim(),
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await supabase.from("profiles").upsert(payload);
+    setLoading(button, false, "내 정보 저장");
+    if (error) return showToast("저장에 실패했습니다: " + error.message, "error");
+    profile = { ...profile, ...payload };
+    $("userName").textContent = payload.full_name;
+    $("welcomeName").textContent = payload.full_name;
+    showToast("내 정보가 저장되었습니다.");
+  }
+
+  async function loadAvailability() {
+    const { data, error } = await supabase
+      .from("availability")
+      .select("id, day_of_week, start_time, end_time, location, memo, updated_at")
+      .eq("teacher_id", currentUser.id)
+      .order("day_of_week")
+      .order("start_time");
+    if (error) return showToast("스케줄을 불러오지 못했습니다.", "error");
+    slots = (data || []).map((row) => ({ ...row, localId: row.id || crypto.randomUUID() }));
+    scheduleMemo = data?.[0]?.memo || "";
+    $("scheduleMemo").value = scheduleMemo;
+    renderSlots();
+    renderScheduleSummary();
+    if (data?.length) {
+      $("scheduleSaveState").textContent = "저장됨";
+      $("scheduleSaveState").classList.add("saved");
+    }
+  }
+
+  function addSlot(event) {
+    event.preventDefault();
+    const day = Number($("slotDay").value);
+    const start = $("slotStart").value;
+    const end = $("slotEnd").value;
+    const locationValue = $("slotLocation").value;
+    if (!Number.isInteger(day) || !start || !end) return showToast("요일과 시간을 모두 입력해주세요.", "error");
+    if (start >= end) return showToast("종료 시간은 시작 시간보다 늦어야 합니다.", "error");
+    const overlap = slots.some((slot) => Number(slot.day_of_week) === day && start < slot.end_time.slice(0,5) && end > slot.start_time.slice(0,5));
+    if (overlap) return showToast("같은 요일에 겹치는 시간대가 있습니다.", "error");
+    slots.push({ localId: crypto.randomUUID(), day_of_week: day, start_time: start, end_time: end, location: locationValue });
+    slots.sort((a, b) => Number(a.day_of_week) - Number(b.day_of_week) || a.start_time.localeCompare(b.start_time));
+    event.target.reset();
+    $("slotLocation").value = "IGC";
+    markScheduleDirty();
+    renderSlots();
+  }
+
+  function removeSlot(localId) {
+    slots = slots.filter((slot) => slot.localId !== localId);
+    markScheduleDirty();
+    renderSlots();
+  }
+
+  function clearSchedule() {
+    if (!slots.length && !$("scheduleMemo").value) return;
+    if (!confirm("현재 선택한 시간대를 모두 삭제할까요? 저장 버튼을 누르기 전까지 서버 데이터는 유지됩니다.")) return;
+    slots = [];
+    $("scheduleMemo").value = "";
+    markScheduleDirty();
+    renderSlots();
+  }
+
+  function markScheduleDirty() {
+    $("scheduleSaveState").textContent = "저장 필요";
+    $("scheduleSaveState").classList.remove("saved");
+  }
+
+  function renderSlots() {
+    $("slotCount").textContent = `${slots.length}개`;
+    if (!slots.length) {
+      $("slotList").innerHTML = '<div class="empty-state compact">추가된 시간대가 없습니다.</div>';
+      return;
+    }
+    $("slotList").innerHTML = slots.map((slot) => `
+      <div class="slot-item">
+        <span class="slot-day">${days[Number(slot.day_of_week)]}</span>
+        <div class="slot-main">
+          <strong>${escapeHtml(slot.start_time.slice(0,5))} – ${escapeHtml(slot.end_time.slice(0,5))}</strong>
+          <small>${escapeHtml(slot.location || "송도 내 협의")}</small>
         </div>
-        <div class="admin-slots">${slots.length ? slots.map((slot) => `<div class="admin-slot"><strong>${days[Number(slot.day_of_week)]}</strong>${escapeHtml(slot.start_time.slice(0,5))}–${escapeHtml(slot.end_time.slice(0,5))}<br>${escapeHtml(slot.location || "")}</div>`).join("") : '<div class="empty-state compact">제출된 시간이 없습니다.</div>'}</div>
-        ${memo ? `<div class="admin-memo"><strong>메모:</strong> ${escapeHtml(memo)}</div>` : ""}
+        <button class="remove-slot" data-remove-slot="${escapeHtml(slot.localId)}" type="button" aria-label="시간대 삭제">×</button>
+      </div>`).join("");
+  }
+
+  async function saveSchedule() {
+    if (!slots.length) {
+      if (!confirm("스케줄을 비워서 저장할까요? 기존 제출 내용이 모두 삭제됩니다.")) return;
+    }
+    const button = $("saveScheduleButton");
+    setLoading(button, true, "스케줄 저장하기");
+    const memo = $("scheduleMemo").value.trim();
+
+    const { error: deleteError } = await supabase.from("availability").delete().eq("teacher_id", currentUser.id);
+    if (deleteError) {
+      setLoading(button, false, "스케줄 저장하기");
+      return showToast("기존 스케줄 정리에 실패했습니다: " + deleteError.message, "error");
+    }
+
+    if (slots.length) {
+      const rows = slots.map((slot) => ({
+        teacher_id: currentUser.id,
+        day_of_week: Number(slot.day_of_week),
+        start_time: slot.start_time.slice(0,5),
+        end_time: slot.end_time.slice(0,5),
+        location: slot.location,
+        memo
+      }));
+      const { error } = await supabase.from("availability").insert(rows);
+      if (error) {
+        setLoading(button, false, "스케줄 저장하기");
+        return showToast("저장에 실패했습니다: " + error.message, "error");
+      }
+    }
+
+    setLoading(button, false, "스케줄 저장하기");
+    $("scheduleSaveState").textContent = "저장됨";
+    $("scheduleSaveState").classList.add("saved");
+    showToast("스케줄이 운영팀에 제출되었습니다.");
+    await loadAvailability();
+  }
+
+  function renderScheduleSummary() {
+    if (!slots.length) {
+      $("scheduleSummary").className = "schedule-summary empty-state";
+      $("scheduleSummary").textContent = "아직 제출된 스케줄이 없습니다.";
+      return;
+    }
+    const grouped = slots.reduce((acc, slot) => {
+      const day = days[Number(slot.day_of_week)] + "요일";
+      acc[day] ||= [];
+      acc[day].push(`${slot.start_time.slice(0,5)}–${slot.end_time.slice(0,5)}`);
+      return acc;
+    }, {});
+    $("scheduleSummary").className = "schedule-summary";
+    $("scheduleSummary").innerHTML = Object.entries(grouped).slice(0, 5).map(([day, times]) => `
+      <div class="summary-row"><strong>${day}</strong><span>${escapeHtml(times.join(", "))}</span></div>`).join("");
+  }
+
+  async function loadAnnouncements() {
+    const { data, error } = await supabase.from("announcements").select("title, body, published_at").eq("is_active", true).order("published_at", { ascending: false }).limit(5);
+    if (error || !data?.length) {
+      $("announcementList").innerHTML = '<div class="empty-state">현재 공지사항이 없습니다.</div>';
+      return;
+    }
+    $("announcementList").innerHTML = data.map((item) => {
+      const date = new Date(item.published_at).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" });
+      return `<div class="announcement-item"><span class="announcement-date">${date}</span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p></div></div>`;
+    }).join("");
+  }
+
+  async function loadResources() {
+    const { data, error } = await supabase.from("resources").select("title, description, category, file_url, sort_order").eq("is_active", true).order("sort_order");
+    if (error || !data?.length) {
+      $("resourceGrid").innerHTML = '<div class="panel empty-state">등록된 자료가 없습니다. 관리자에게 자료 URL 등록을 요청해주세요.</div>';
+      return;
+    }
+    $("resourceGrid").innerHTML = data.map((item) => `
+      <article class="resource-card">
+        <div class="resource-icon">${item.category === "PDF" ? "PDF" : "DOC"}</div>
+        <span class="resource-type">${escapeHtml(item.category || "RESOURCE")}</span>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.description || "")}</p>
+        <a href="${escapeHtml(item.file_url)}" target="_blank" rel="noopener">자료 열기 →</a>
+      </article>`).join("");
+  }
+
+  function youtubeEmbedUrl(url) {
+    if (!url) return "";
+    try {
+      const parsed = new URL(url);
+      let id = parsed.hostname.includes("youtu.be") ? parsed.pathname.slice(1) : parsed.searchParams.get("v");
+      if (parsed.pathname.includes("/embed/")) id = parsed.pathname.split("/embed/")[1];
+      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0` : "";
+    } catch { return ""; }
+  }
+
+  async function loadVideos() {
+    const { data, error } = await supabase.from("training_videos").select("title, description, video_url, sort_order").eq("is_active", true).order("sort_order");
+    if (error || !data?.length) {
+      $("videoGrid").innerHTML = '<div class="panel empty-state">등록된 교육 영상이 없습니다.</div>';
+      return;
+    }
+    $("videoGrid").innerHTML = data.map((item, index) => {
+      const embedUrl = youtubeEmbedUrl(item.video_url);
+      return `<article class="video-card">
+        <div class="video-frame">${embedUrl ? `<iframe src="${embedUrl}" title="${escapeHtml(item.title)}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>` : '<div class="empty-state">영상 URL을 확인해주세요.</div>'}</div>
+        <div class="video-info"><span class="video-order">VIDEO ${String(index + 1).padStart(2,"0")}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.description || "")}</p></div>
       </article>`;
     }).join("");
   }
 
+  function loadGuideChecks() {
+    try { return JSON.parse(localStorage.getItem(`nado-guide-${currentUser?.id || "guest"}`) || "{}"); } catch { return {}; }
+  }
+  function renderGuideProgress() {
+    const checks = loadGuideChecks();
+    document.querySelectorAll("[data-guide]").forEach((input) => { input.checked = Boolean(checks[input.dataset.guide]); });
+    const total = document.querySelectorAll("[data-guide]").length;
+    const completed = Object.values(checks).filter(Boolean).length;
+    $("guideProgressText").textContent = `${completed} / ${total} 완료`;
+    $("guideProgressBar").style.width = `${(completed / total) * 100}%`;
+  }
+  function saveGuideCheck(event) {
+    if (!event.target.matches("[data-guide]")) return;
+    const checks = loadGuideChecks();
+    checks[event.target.dataset.guide] = event.target.checked;
+    localStorage.setItem(`nado-guide-${currentUser?.id || "guest"}`, JSON.stringify(checks));
+    renderGuideProgress();
+  }
 
-
-  async function loadContent() {
-    const [announcementResult, resourceResult, videoResult] = await Promise.all([
-      supabase.from("announcements").select("id, title, body, is_active, published_at").order("published_at", { ascending: false }),
-      supabase.from("resources").select("id, title, category, file_url, sort_order, is_active").order("sort_order"),
-      supabase.from("training_videos").select("id, title, video_url, sort_order, is_active").order("sort_order")
-    ]);
-    if (announcementResult.error || resourceResult.error || videoResult.error) {
-      return toast("콘텐츠 목록 일부를 불러오지 못했습니다.", true);
+  function bindEvents() {
+    $("loginForm").addEventListener("submit", login);
+    $("resetPasswordButton").addEventListener("click", resetPassword);
+    $("logoutButton").addEventListener("click", logout);
+    $("profileForm").addEventListener("submit", saveProfile);
+    $("slotForm").addEventListener("submit", addSlot);
+    $("saveScheduleButton").addEventListener("click", saveSchedule);
+    $("clearScheduleButton").addEventListener("click", clearSchedule);
+    $("scheduleMemo").addEventListener("input", markScheduleDirty);
+    $("slotList").addEventListener("click", (e) => { const button = e.target.closest("[data-remove-slot]"); if (button) removeSlot(button.dataset.removeSlot); });
+    $("guideChecklist").addEventListener("change", saveGuideCheck);
+    document.querySelectorAll("[data-page]").forEach((el) => el.addEventListener("click", () => switchPage(el.dataset.page)));
+    document.querySelectorAll("[data-go]").forEach((el) => el.addEventListener("click", () => switchPage(el.dataset.go)));
+    $("sidebarOpen").setAttribute("aria-controls", "sidebar");
+    $("sidebarOpen").setAttribute("aria-expanded", "false");
+    $("sidebarOpen").addEventListener("click", openSidebar);
+    $("sidebarClose").addEventListener("click", () => closeSidebar({ restoreFocus: true }));
+    $("sidebarBackdrop").addEventListener("click", () => closeSidebar({ restoreFocus: true }));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && $("sidebar").classList.contains("open")) {
+        closeSidebar({ restoreFocus: true });
+      }
+    });
+    if (typeof mobileSidebarQuery.addEventListener === "function") {
+      mobileSidebarQuery.addEventListener("change", syncSidebarForViewport);
+    } else {
+      mobileSidebarQuery.addListener(syncSidebarForViewport);
     }
-    renderManagerList("adminAnnouncementList", announcementResult.data, "announcement");
-    renderManagerList("adminResourceList", resourceResult.data, "resource");
-    renderManagerList("adminVideoList", videoResult.data, "video");
+    syncSidebarForViewport();
+    window.addEventListener("hashchange", () => { if (currentUser) switchPage(location.hash.replace("#", "") || "dashboard"); });
+    if (config.SUPPORT_URL) $("supportLink").href = config.SUPPORT_URL;
   }
 
-  function renderManagerList(targetId, items = [], type) {
-    const target = $(targetId);
-    if (!items.length) {
-      target.innerHTML = '<div class="empty-state">등록된 항목이 없습니다.</div>';
-      return;
-    }
-    const table = type === "announcement" ? "announcements" : type === "resource" ? "resources" : "training_videos";
-    target.innerHTML = items.map((item) => {
-      const detail = type === "announcement"
-        ? new Date(item.published_at).toLocaleDateString("ko-KR")
-        : type === "resource" ? `${item.category} · 순서 ${item.sort_order}` : `순서 ${item.sort_order}`;
-      return `<div class="manager-item"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(detail)}</small></div><button data-delete-table="${table}" data-delete-id="${item.id}" type="button" aria-label="삭제">×</button></div>`;
-    }).join("");
-  }
-
-  async function addAnnouncement(event) {
-    event.preventDefault();
-    const button = event.submitter;
-    button.disabled = true;
-    const { error } = await supabase.from("announcements").insert({
-      title: $("announcementTitle").value.trim(),
-      body: $("announcementBody").value.trim(),
-      published_at: new Date().toISOString(),
-      is_active: true
+  bindEvents();
+  if (supabase) {
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        // Auth 이벤트 안에서 signOut 같은 비동기 Auth API를 다시 호출하면
+        // 재귀 호출 또는 교착 상태가 생길 수 있으므로 화면만 정리합니다.
+        window.setTimeout(renderSignedOutState, 0);
+      }
     });
-    button.disabled = false;
-    if (error) return toast("공지 등록 실패: " + error.message, true);
-    event.target.reset();
-    toast("공지사항을 등록했습니다.");
-    await loadContent();
+    initializeSession();
   }
-
-  async function addResource(event) {
-    event.preventDefault();
-    const button = event.submitter;
-    button.disabled = true;
-    const { error } = await supabase.from("resources").insert({
-      title: $("resourceTitle").value.trim(),
-      description: $("resourceDescription").value.trim(),
-      category: $("resourceCategory").value,
-      file_url: $("resourceUrl").value.trim(),
-      sort_order: Number($("resourceOrder").value) || 0,
-      is_active: true
-    });
-    button.disabled = false;
-    if (error) return toast("자료 등록 실패: " + error.message, true);
-    event.target.reset();
-    $("resourceOrder").value = "1";
-    toast("수업 자료를 등록했습니다.");
-    await loadContent();
-  }
-
-  async function addVideo(event) {
-    event.preventDefault();
-    const button = event.submitter;
-    button.disabled = true;
-    const { error } = await supabase.from("training_videos").insert({
-      title: $("videoTitle").value.trim(),
-      description: $("videoDescription").value.trim(),
-      video_url: $("videoUrl").value.trim(),
-      sort_order: Number($("videoOrder").value) || 0,
-      is_active: true
-    });
-    button.disabled = false;
-    if (error) return toast("영상 등록 실패: " + error.message, true);
-    event.target.reset();
-    $("videoOrder").value = "1";
-    toast("교육 영상을 등록했습니다.");
-    await loadContent();
-  }
-
-  async function deleteContent(table, id) {
-    if (!confirm("이 항목을 삭제할까요?")) return;
-    const allowed = ["announcements", "resources", "training_videos"];
-    if (!allowed.includes(table)) return;
-    const { error } = await supabase.from(table).delete().eq("id", id);
-    if (error) return toast("삭제 실패: " + error.message, true);
-    toast("삭제했습니다.");
-    await loadContent();
-  }
-
-  function exportCsv() {
-    const rows = [["선생님", "이메일", "학교", "전공", "요일", "시작", "종료", "장소", "메모", "업데이트"]];
-    teachers.forEach((teacher) => {
-      if (!(teacher.availability || []).length) rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, "미제출", "", "", "", "", ""]);
-      (teacher.availability || []).forEach((slot) => rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, days[slot.day_of_week], slot.start_time.slice(0,5), slot.end_time.slice(0,5), slot.location, slot.memo, slot.updated_at]));
-    });
-    const csv = "\ufeff" + rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `nado-teacher-schedules-${new Date().toISOString().slice(0,10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }
-
-  $("announcementForm").addEventListener("submit", addAnnouncement);
-  $("resourceForm").addEventListener("submit", addResource);
-  $("videoForm").addEventListener("submit", addVideo);
-  document.querySelector(".admin-content-grid").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-delete-table]");
-    if (button) deleteContent(button.dataset.deleteTable, button.dataset.deleteId);
-  });
-  $("teacherSearch").addEventListener("input", render);
-  $("dayFilter").addEventListener("change", render);
-  $("exportCsvButton").addEventListener("click", exportCsv);
-  $("adminLogoutButton").addEventListener("click", async () => { await supabase.auth.signOut(); location.replace("index.html"); });
-  initialize();
 })();
