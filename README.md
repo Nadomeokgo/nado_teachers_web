@@ -183,3 +183,4 @@ https://nado3.github.io/nado_teachers_web/**
 - 선생님 계정은 운영팀이 직접 생성
 - 주민등록번호, 신분증 이미지, 계좌 비밀번호 등 민감정보 저장 금지
 - 휴대전화 등 개인정보는 꼭 필요한 범위만 수집
+<!-- fresh pages deployment 2026-07-31 -->
