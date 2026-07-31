@@ -302,3 +302,293 @@ textarea { resize: vertical; }
 .manager-item button { width: 32px; height: 32px; border: 0; border-radius: 9px; background: white; color: var(--gray); }
 .manager-item button:hover { color: var(--danger); }
 @media (max-width: 1050px) { .admin-content-grid { grid-template-columns: 1fr; } }
+
+/* =========================================================
+   Mobile responsiveness hotfix
+   - Fixes the invisible backdrop blocking every tap on screens <= 820px
+   - Improves small-screen layout, touch targets, and horizontal overflow
+   ========================================================= */
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body.menu-open {
+    overflow: hidden;
+  }
+
+  .app-shell,
+  .workspace,
+  .content-wrap,
+  .page,
+  .panel,
+  .dashboard-grid,
+  .schedule-layout,
+  .slot-form,
+  .profile-form,
+  .resource-grid,
+  .video-grid,
+  .admin-main,
+  .admin-content-grid,
+  .content-manager-card {
+    min-width: 0;
+  }
+
+  .sidebar {
+    width: min(86vw, 310px);
+    max-width: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  /* The old mobile rule forced this element to display even with .hidden,
+     leaving an invisible full-screen layer over the entire site. */
+  .sidebar-backdrop {
+    display: none !important;
+    position: fixed;
+    z-index: 90;
+    inset: 0;
+    background: rgba(5, 16, 27, 0.48);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .sidebar-backdrop:not(.hidden) {
+    display: block !important;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .topbar {
+    width: 100%;
+    min-width: 0;
+    gap: 10px;
+    padding: 0 14px;
+  }
+
+  .topbar-left {
+    min-width: 0;
+  }
+
+  .topbar-left > div {
+    min-width: 0;
+  }
+
+  .topbar h1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .user-chip {
+    flex: 0 0 auto;
+  }
+
+  .content-wrap {
+    width: 100%;
+    padding: 20px 14px calc(46px + env(safe-area-inset-bottom));
+  }
+
+  .panel,
+  .welcome-card,
+  .resource-card,
+  .video-card,
+  .guide-card,
+  .quick-card,
+  .teacher-admin-card,
+  .content-manager-card {
+    max-width: 100%;
+  }
+
+  .panel-head,
+  .teacher-admin-head,
+  .schedule-actions,
+  .admin-header,
+  .admin-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .teacher-admin-profile,
+  .teacher-admin-profile > div,
+  .manager-item > div,
+  .slot-item > div {
+    min-width: 0;
+  }
+
+  .teacher-admin-profile span,
+  .manager-item strong,
+  .manager-item small,
+  .admin-memo,
+  .resource-card p,
+  .video-info p {
+    overflow-wrap: anywhere;
+  }
+
+  .manager-item small {
+    white-space: normal;
+  }
+
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  input[type="time"],
+  input[type="date"],
+  input[type="datetime-local"] {
+    min-width: 0;
+  }
+
+  .button,
+  .nav-item,
+  .icon-button,
+  .logout-button,
+  .text-button {
+    min-height: 44px;
+  }
+
+  .nav-item {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .welcome-card {
+    border-radius: 20px;
+  }
+
+  .announcement-panel,
+  .schedule-summary-panel,
+  .profile-panel,
+  .schedule-form-panel,
+  .schedule-list-panel,
+  .content-manager-card {
+    padding: 20px;
+  }
+
+  .slot-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .admin-header {
+    min-height: 78px;
+    height: auto;
+    gap: 12px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .admin-header-actions {
+    justify-content: flex-end;
+  }
+
+  .admin-filter-panel input,
+  .admin-filter-panel select {
+    width: 100%;
+  }
+
+  .admin-content-section {
+    margin-top: 38px;
+    padding-top: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-brand {
+    min-height: auto;
+    padding: 38px 20px 34px;
+  }
+
+  .auth-brand h1 {
+    font-size: clamp(2.2rem, 12vw, 2.75rem);
+  }
+
+  .auth-panel {
+    padding: 34px 18px 46px;
+  }
+
+  .auth-card h2 {
+    font-size: 1.75rem;
+  }
+
+  .content-wrap {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .topbar {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .topbar-eyebrow {
+    display: none;
+  }
+
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .welcome-card {
+    padding: 25px 20px;
+  }
+
+  .page-intro h1,
+  .page-intro h2,
+  .admin-intro h1 {
+    font-size: 1.75rem;
+  }
+
+  .slot-item {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 9px;
+    padding: 11px;
+  }
+
+  .manager-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-admin-head {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .updated-at {
+    align-self: flex-start;
+  }
+
+  .admin-header-actions {
+    width: 100%;
+  }
+
+  .admin-header-actions .button {
+    flex: 1 1 auto;
+  }
+
+  .toast {
+    right: 12px;
+    left: 12px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    width: auto;
+    text-align: center;
+    transform: translateY(30px);
+  }
+
+  .toast.show {
+    transform: translateY(0);
+  }
+}
