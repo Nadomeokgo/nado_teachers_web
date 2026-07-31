@@ -13,6 +13,8 @@ create table if not exists public.profiles (
   school text,
   major text,
   phone text,
+  bank_name text,
+  account_number text,
   bio text,
   role text not null default 'teacher' check (role in ('teacher', 'admin')),
   created_at timestamptz not null default now(),
@@ -158,7 +160,7 @@ with check (id = auth.uid() or public.is_admin());
 
 -- 일반 authenticated 사용자는 role 컬럼을 직접 수정하지 못함
 revoke update on public.profiles from authenticated;
-grant update (email, full_name, school, major, phone, bio, updated_at) on public.profiles to authenticated;
+grant update (email, full_name, school, major, phone, bank_name, account_number, bio, updated_at) on public.profiles to authenticated;
 grant select, insert on public.profiles to authenticated;
 
 -- availability: 선생님은 자신의 행만, 관리자는 전체

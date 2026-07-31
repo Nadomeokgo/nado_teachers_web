@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260731-integrated1" />
+  <link rel="stylesheet" href="css/style.css?v=20260731-profile1" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -341,12 +341,46 @@
             </div>
           </div>
           <article class="panel profile-panel">
+            <div class="profile-form-head">
+              <div>
+                <h3>기본 정보 및 정산 계좌</h3>
+                <p>아래 항목은 매칭과 첫 달 수업료 정산을 위해 모두 필수입니다.</p>
+              </div>
+              <span class="required-note"><b>*</b> 필수 입력</span>
+            </div>
             <form id="profileForm" class="profile-form">
-              <label>이름<input id="profileName" type="text" maxlength="50" required /></label>
-              <label>학교<input id="profileSchool" type="text" maxlength="100" placeholder="George Mason University Korea" /></label>
-              <label>전공<input id="profileMajor" type="text" maxlength="100" placeholder="Economics" /></label>
-              <label>휴대전화<input id="profilePhone" type="tel" maxlength="30" placeholder="010-0000-0000" /></label>
-              <label class="full-field">한 줄 소개<textarea id="profileBio" rows="4" maxlength="500" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요."></textarea></label>
+              <label>
+                <span class="field-label">이름 <b class="required-mark">*</b></span>
+                <input id="profileName" type="text" maxlength="50" autocomplete="name" required />
+              </label>
+              <label>
+                <span class="field-label">학교 <b class="required-mark">*</b></span>
+                <input id="profileSchool" type="text" maxlength="100" placeholder="George Mason University Korea" autocomplete="organization" required />
+              </label>
+              <label>
+                <span class="field-label">전공 <b class="required-mark">*</b></span>
+                <input id="profileMajor" type="text" maxlength="100" placeholder="Economics" required />
+              </label>
+              <label>
+                <span class="field-label">휴대전화 <b class="required-mark">*</b></span>
+                <input id="profilePhone" type="tel" inputmode="tel" maxlength="30" placeholder="010-0000-0000" autocomplete="tel" required />
+              </label>
+              <label>
+                <span class="field-label">은행명 <b class="required-mark">*</b></span>
+                <input id="profileBankName" type="text" maxlength="50" placeholder="예: 카카오뱅크" autocomplete="off" required />
+              </label>
+              <label>
+                <span class="field-label">계좌번호 <b class="required-mark">*</b></span>
+                <input id="profileAccountNumber" type="text" inputmode="numeric" maxlength="40" placeholder="숫자와 하이픈(-)만 입력" autocomplete="off" required />
+              </label>
+              <label class="full-field">
+                <span class="field-label">한 줄 소개 <b class="required-mark">*</b></span>
+                <textarea id="profileBio" rows="4" maxlength="500" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
+              </label>
+              <div class="profile-payment-warning full-field" role="note">
+                <strong>정산 계좌를 정확히 확인해주세요.</strong>
+                <p>은행명 또는 계좌번호가 정상적으로 입력되지 않으면 첫 달 수업료 지급이 지연되거나 차질이 발생할 수 있습니다.</p>
+              </div>
               <button class="button primary profile-save" type="submit">내 정보 저장</button>
             </form>
           </article>
@@ -357,6 +391,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/app.js?v=20260731-integrated1"></script>
+  <script src="js/app.js?v=20260731-profile1"></script>
 </body>
 </html>

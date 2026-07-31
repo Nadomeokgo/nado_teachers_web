@@ -23,7 +23,7 @@
   async function loadData() {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, school, major, availability(id, day_of_week, start_time, end_time, location, memo, updated_at)")
+      .select("id, full_name, email, school, major, phone, bio, bank_name, account_number, availability(id, day_of_week, start_time, end_time, location, memo, updated_at)")
       .neq("role", "admin")
       .order("full_name");
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
@@ -48,7 +48,7 @@
       ...teacher,
       availability: (teacher.availability || []).filter((slot) => day === "all" || String(slot.day_of_week) === day)
     })).filter((teacher) => {
-      const matchesText = !keyword || `${teacher.full_name || ""} ${teacher.email || ""}`.toLowerCase().includes(keyword);
+      const matchesText = !keyword || `${teacher.full_name || ""} ${teacher.email || ""} ${teacher.school || ""} ${teacher.major || ""} ${teacher.phone || ""}`.toLowerCase().includes(keyword);
       const matchesDay = day === "all" || teacher.availability.length > 0;
       return matchesText && matchesDay;
     });
@@ -71,6 +71,11 @@
             <div><strong>${escapeHtml(teacher.full_name || "이름 미입력")}</strong><span>${escapeHtml(teacher.email || "")} · ${escapeHtml(teacher.school || "학교 미입력")} ${teacher.major ? `· ${escapeHtml(teacher.major)}` : ""}</span></div>
           </div>
           <span class="updated-at">${latest ? `업데이트 ${new Date(latest).toLocaleString("ko-KR")}` : "미제출"}</span>
+        </div>
+        <div class="teacher-admin-details">
+          <div><span>연락처</span><strong>${escapeHtml(teacher.phone || "미입력")}</strong></div>
+          <div><span>정산 계좌</span><strong>${escapeHtml(teacher.bank_name || "은행 미입력")} ${escapeHtml(teacher.account_number || "계좌번호 미입력")}</strong></div>
+          <div class="teacher-admin-bio"><span>한 줄 소개</span><strong>${escapeHtml(teacher.bio || "미입력")}</strong></div>
         </div>
         <div class="admin-slots">${slots.length ? slots.map((slot) => `<div class="admin-slot"><strong>${days[Number(slot.day_of_week)]}</strong>${escapeHtml(slot.start_time.slice(0,5))}–${escapeHtml(slot.end_time.slice(0,5))}<br>${escapeHtml(slot.location || "")}</div>`).join("") : '<div class="empty-state compact">제출된 시간이 없습니다.</div>'}</div>
         ${memo ? `<div class="admin-memo"><strong>메모:</strong> ${escapeHtml(memo)}</div>` : ""}

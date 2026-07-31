@@ -236,31 +236,91 @@
     $("profileSchool").value = profile.school || "";
     $("profileMajor").value = profile.major || "";
     $("profilePhone").value = profile.phone || "";
+    $("profileBankName").value = profile.bank_name || "";
+    $("profileAccountNumber").value = profile.account_number || "";
     $("profileBio").value = profile.bio || "";
     $("adminLink").classList.toggle("hidden", profile.role !== "admin");
   }
 
-  async function saveProfile(event) {
-    event.preventDefault();
-    const button = event.submitter;
-    setLoading(button, true, "내 정보 저장");
-    const payload = {
-      id: currentUser.id,
-      email: currentUser.email,
+  function collectProfilePayload() {
+    return {
       full_name: $("profileName").value.trim(),
       school: $("profileSchool").value.trim(),
       major: $("profileMajor").value.trim(),
       phone: $("profilePhone").value.trim(),
+      bank_name: $("profileBankName").value.trim(),
+      account_number: $("profileAccountNumber").value.trim().replace(/\s+/g, ""),
       bio: $("profileBio").value.trim(),
       updated_at: new Date().toISOString()
     };
-    const { error } = await supabase.from("profiles").upsert(payload);
-    setLoading(button, false, "내 정보 저장");
-    if (error) return showToast("저장에 실패했습니다: " + error.message, "error");
-    profile = { ...profile, ...payload };
-    $("userName").textContent = payload.full_name;
-    $("welcomeName").textContent = payload.full_name;
-    showToast("내 정보가 저장되었습니다.");
+  }
+
+  function validateProfilePayload(payload) {
+    const requiredFields = [
+      ["profileName", payload.full_name, "이름"],
+      ["profileSchool", payload.school, "학교"],
+      ["profileMajor", payload.major, "전공"],
+      ["profilePhone", payload.phone, "휴대전화"],
+      ["profileBankName", payload.bank_name, "은행명"],
+      ["profileAccountNumber", payload.account_number, "계좌번호"],
+      ["profileBio", payload.bio, "한 줄 소개"]
+    ];
+    const missing = requiredFields.find(([, value]) => !value);
+    if (missing) {
+      $(missing[0]).focus();
+      showToast(`${missing[2]} 항목을 입력해주세요.`, "error");
+      return false;
+    }
+    if (!/^[0-9-]{8,40}$/.test(payload.account_number)) {
+      $("profileAccountNumber").focus();
+      showToast("계좌번호는 숫자와 하이픈(-)만 사용해 8자 이상 입력해주세요.", "error");
+      return false;
+    }
+    return true;
+  }
+
+  async function saveProfile(event) {
+    event.preventDefault();
+    const form = $("profileForm");
+    const button = event.submitter || form.querySelector('button[type="submit"]');
+    const payload = collectProfilePayload();
+    if (!validateProfilePayload(payload)) return;
+
+    setLoading(button, true, "내 정보 저장");
+    try {
+      let result = await supabase
+        .from("profiles")
+        .update(payload)
+        .eq("id", currentUser.id)
+        .select("id, email, full_name, school, major, phone, bank_name, account_number, bio, role, updated_at")
+        .maybeSingle();
+
+      if (!result.error && !result.data) {
+        result = await supabase
+          .from("profiles")
+          .insert({ id: currentUser.id, email: currentUser.email, ...payload })
+          .select("id, email, full_name, school, major, phone, bank_name, account_number, bio, role, updated_at")
+          .single();
+      }
+
+      if (result.error) throw result.error;
+      profile = { ...profile, ...(result.data || payload) };
+      $("userName").textContent = payload.full_name;
+      $("welcomeName").textContent = payload.full_name;
+      $("userAvatar").textContent = payload.full_name.slice(0, 1).toUpperCase();
+      showToast("내 정보가 저장되었습니다.");
+    } catch (error) {
+      console.error("Profile update failed:", error);
+      const missingColumn = /bank_name|account_number/i.test(error?.message || "");
+      showToast(
+        missingColumn
+          ? "계좌 정보 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요."
+          : "저장에 실패했습니다: " + (error?.message || "알 수 없는 오류"),
+        "error"
+      );
+    } finally {
+      setLoading(button, false, "내 정보 저장");
+    }
   }
 
   async function loadAvailability() {
