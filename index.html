@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260731-profile1" />
+  <link rel="stylesheet" href="css/style.css?v=20260731-schedulegrid1" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -176,7 +176,7 @@
             <div>
               <p class="section-kicker">WEEKLY AVAILABILITY</p>
               <h2>수업 가능 스케줄 제출</h2>
-              <p>매칭 가능한 시간을 모두 등록해주세요. 여러 시간대를 추가할 수 있으며 언제든 수정 가능합니다.</p>
+              <p>주간 시간표에서 매칭 가능한 시간을 모두 선택해주세요. 선택한 시간은 언제든 다시 수정할 수 있습니다.</p>
             </div>
             <div id="scheduleSaveState" class="save-state">저장 전</div>
           </div>
@@ -185,43 +185,38 @@
             <article class="panel schedule-form-panel">
               <div class="form-section-head">
                 <div>
-                  <h3>가능 시간 추가</h3>
-                  <p>한 번에 한 시간대를 추가한 뒤 전체 스케줄을 저장합니다.</p>
+                  <h3>가능 시간 선택</h3>
+                  <p>When2meet처럼 가능한 모든 시간 칸을 선택한 뒤 한 번에 저장해주세요.</p>
                 </div>
               </div>
 
-              <form id="slotForm" class="slot-form">
-                <label>
-                  요일
-                  <select id="slotDay" required>
-                    <option value="">요일 선택</option>
-                    <option value="1">월요일</option>
-                    <option value="2">화요일</option>
-                    <option value="3">수요일</option>
-                    <option value="4">목요일</option>
-                    <option value="5">금요일</option>
-                    <option value="6">토요일</option>
-                    <option value="0">일요일</option>
-                  </select>
-                </label>
-                <label>
-                  시작 시간
-                  <input id="slotStart" type="time" min="08:00" max="23:00" step="1800" required />
-                </label>
-                <label>
-                  종료 시간
-                  <input id="slotEnd" type="time" min="08:00" max="23:00" step="1800" required />
-                </label>
-                <label>
-                  선호 장소
-                  <select id="slotLocation" required>
-                    <option value="IGC">IGC</option>
-                    <option value="트리플스트리트">트리플스트리트</option>
-                    <option value="송도 내 협의">송도 내 협의</option>
-                  </select>
-                </label>
-                <button class="button secondary slot-add" type="submit">+ 시간대 추가</button>
-              </form>
+              <div class="availability-picker">
+                <div class="availability-picker-head">
+                  <div class="availability-legend" aria-label="시간표 선택 상태 안내">
+                    <span><i class="legend-swatch"></i> 선택 가능</span>
+                    <span><i class="legend-swatch selected"></i> 선택됨</span>
+                  </div>
+                  <strong id="availabilityCellCount" class="availability-cell-count">0칸 선택</strong>
+                </div>
+
+                <div class="availability-grid-shell" id="availabilityGridShell">
+                  <div id="availabilityGrid" class="availability-grid" role="grid" aria-label="주간 수업 가능 시간 선택표"></div>
+                </div>
+                <p class="availability-help">PC에서는 시작 칸을 누른 채 드래그하고, 모바일에서는 가능한 시간 칸을 하나씩 탭해주세요. 선택된 칸은 파란색으로 표시됩니다.</p>
+              </div>
+
+              <div class="schedule-preference-field">
+                <label for="scheduleLocation">선호 장소</label>
+                <select id="scheduleLocation" required>
+                  <option value="IGC">IGC</option>
+                  <option value="트리플스트리트">트리플스트리트</option>
+                  <option value="송도 내 협의">송도 내 협의</option>
+                </select>
+                <div class="location-assignment-notice" role="note">
+                  <strong>장소 배정 안내</strong>
+                  <p>선호 장소는 매칭 시 참고용이며 반드시 해당 장소로 배정되는 것은 아닙니다. 학생이 선택한 요금제와 선호 조건에 따라 학생의 희망 장소를 우선해 다른 장소로 조율해야 할 수 있습니다.</p>
+                </div>
+              </div>
 
               <div class="field-group">
                 <label for="scheduleMemo">운영팀에 전달할 메모</label>
@@ -391,6 +386,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/app.js?v=20260731-profile1"></script>
+  <script src="js/app.js?v=20260731-schedulegrid1"></script>
 </body>
 </html>

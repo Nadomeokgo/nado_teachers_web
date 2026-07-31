@@ -5,6 +5,10 @@
   const configured = config.SUPABASE_URL && config.SUPABASE_ANON_KEY && !config.SUPABASE_URL.includes("YOUR_PROJECT_ID");
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const days = ["일", "월", "화", "수", "목", "금", "토"];
+  const scheduleDayOrder = [1, 2, 3, 4, 5, 6, 0];
+  const scheduleStartMinutes = 8 * 60;
+  const scheduleEndMinutes = 23 * 60;
+  const scheduleStepMinutes = 30;
   const pageMeta = {
     dashboard: ["TEACHER HOME", "홈"], schedule: ["WEEKLY AVAILABILITY", "스케줄 제출"],
     guide: ["FIRST LESSON GUIDE", "첫 수업 가이드"], curriculum: ["CURRICULUM", "커리큘럼"],
@@ -14,7 +18,10 @@
   let currentUser = null;
   let profile = null;
   let slots = [];
+  let selectedAvailability = new Set();
   let scheduleMemo = "";
+  let gridDragState = null;
+  let suppressGridClick = false;
   let logoutInProgress = false;
   let loginInProgress = false;
 
@@ -146,6 +153,7 @@
     currentUser = null;
     profile = null;
     slots = [];
+    selectedAvailability = new Set();
     scheduleMemo = "";
 
     $("appView").classList.add("hidden");
@@ -323,6 +331,167 @@
     }
   }
 
+  const minutesToTime = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+  function timeToMinutes(value = "") {
+    const [hour, minute] = String(value).slice(0, 5).split(":").map(Number);
+    return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : NaN;
+  }
+
+  const availabilityKey = (day, minutes) => `${Number(day)}:${Number(minutes)}`;
+
+  function parseAvailabilityKey(key) {
+    const [day, minutes] = String(key).split(":").map(Number);
+    return { day, minutes };
+  }
+
+  function buildAvailabilityGrid() {
+    const grid = $("availabilityGrid");
+    if (!grid) return;
+
+    const headers = [
+      '<div class="availability-grid-corner" aria-hidden="true">시간</div>',
+      ...scheduleDayOrder.map((day) => `<div class="availability-day-header" role="columnheader"><strong>${days[day]}</strong><span>요일</span></div>`)
+    ];
+    const rows = [];
+
+    for (let minutes = scheduleStartMinutes; minutes < scheduleEndMinutes; minutes += scheduleStepMinutes) {
+      const fullHour = minutes % 60 === 0;
+      rows.push(`<div class="availability-time-label${fullHour ? " full-hour" : ""}" role="rowheader">${minutesToTime(minutes)}</div>`);
+      scheduleDayOrder.forEach((day) => {
+        const key = availabilityKey(day, minutes);
+        rows.push(`<button class="availability-cell${fullHour ? " full-hour" : ""}" type="button" role="gridcell" data-availability-key="${key}" aria-label="${days[day]}요일 ${minutesToTime(minutes)}부터 30분" aria-pressed="false"></button>`);
+      });
+    }
+
+    grid.innerHTML = headers.concat(rows).join("");
+    renderAvailabilityGridSelection();
+  }
+
+  function renderAvailabilityGridSelection() {
+    document.querySelectorAll("[data-availability-key]").forEach((cell) => {
+      const selected = selectedAvailability.has(cell.dataset.availabilityKey);
+      cell.classList.toggle("selected", selected);
+      cell.setAttribute("aria-pressed", String(selected));
+    });
+    updateAvailabilityCellCount();
+  }
+
+  function updateAvailabilityCellCount() {
+    const target = $("availabilityCellCount");
+    if (!target) return;
+    const minutes = selectedAvailability.size * scheduleStepMinutes;
+    const hours = minutes / 60;
+    const hoursText = Number.isInteger(hours) ? `${hours}시간` : `${hours.toFixed(1)}시간`;
+    target.textContent = `${selectedAvailability.size}칸 · ${hoursText}`;
+  }
+
+  function setAvailabilityCell(cell, shouldSelect) {
+    if (!cell?.dataset?.availabilityKey) return false;
+    const key = cell.dataset.availabilityKey;
+    const wasSelected = selectedAvailability.has(key);
+    if (wasSelected === shouldSelect) return false;
+
+    if (shouldSelect) selectedAvailability.add(key);
+    else selectedAvailability.delete(key);
+    cell.classList.toggle("selected", shouldSelect);
+    cell.setAttribute("aria-pressed", String(shouldSelect));
+    updateAvailabilityCellCount();
+    return true;
+  }
+
+  function selectionToSlots() {
+    const locationValue = $("scheduleLocation")?.value || "송도 내 협의";
+    const compacted = [];
+
+    scheduleDayOrder.forEach((day) => {
+      const times = [...selectedAvailability]
+        .map(parseAvailabilityKey)
+        .filter((item) => item.day === day)
+        .map((item) => item.minutes)
+        .sort((a, b) => a - b);
+      if (!times.length) return;
+
+      let rangeStart = times[0];
+      let previous = times[0];
+      const pushRange = () => {
+        compacted.push({
+          localId: `${day}-${rangeStart}`,
+          day_of_week: day,
+          start_time: minutesToTime(rangeStart),
+          end_time: minutesToTime(previous + scheduleStepMinutes),
+          location: locationValue
+        });
+      };
+
+      for (let index = 1; index < times.length; index += 1) {
+        const current = times[index];
+        if (current !== previous + scheduleStepMinutes) {
+          pushRange();
+          rangeStart = current;
+        }
+        previous = current;
+      }
+      pushRange();
+    });
+
+    return compacted;
+  }
+
+  function refreshScheduleFromSelection({ dirty = false } = {}) {
+    slots = selectionToSlots();
+    renderSlots();
+    renderScheduleSummary();
+    if (dirty) markScheduleDirty();
+  }
+
+  function finishGridSelectionChange() {
+    refreshScheduleFromSelection({ dirty: true });
+  }
+
+  function handleGridPointerDown(event) {
+    const cell = event.target.closest("[data-availability-key]");
+    if (!cell || event.button !== 0 || event.pointerType === "touch") return;
+
+    event.preventDefault();
+    suppressGridClick = true;
+    gridDragState = {
+      pointerId: event.pointerId,
+      shouldSelect: !selectedAvailability.has(cell.dataset.availabilityKey),
+      changed: false
+    };
+    $("availabilityGridShell").classList.add("dragging");
+    gridDragState.changed = setAvailabilityCell(cell, gridDragState.shouldSelect) || gridDragState.changed;
+  }
+
+  function handleGridPointerMove(event) {
+    if (!gridDragState || event.pointerId !== gridDragState.pointerId) return;
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.("[data-availability-key]");
+    if (!target || !$("availabilityGrid").contains(target)) return;
+    event.preventDefault();
+    gridDragState.changed = setAvailabilityCell(target, gridDragState.shouldSelect) || gridDragState.changed;
+  }
+
+  function handleGridPointerEnd(event) {
+    if (!gridDragState || event.pointerId !== gridDragState.pointerId) return;
+    const changed = gridDragState.changed;
+    gridDragState = null;
+    $("availabilityGridShell").classList.remove("dragging");
+    if (changed) finishGridSelectionChange();
+    window.setTimeout(() => { suppressGridClick = false; }, 80);
+  }
+
+  function handleGridClick(event) {
+    const cell = event.target.closest("[data-availability-key]");
+    if (!cell) return;
+    if (suppressGridClick) {
+      event.preventDefault();
+      return;
+    }
+    setAvailabilityCell(cell, !selectedAvailability.has(cell.dataset.availabilityKey));
+    finishGridSelectionChange();
+  }
+
   async function loadAvailability() {
     const { data, error } = await supabase
       .from("availability")
@@ -331,48 +500,53 @@
       .order("day_of_week")
       .order("start_time");
     if (error) return showToast("스케줄을 불러오지 못했습니다.", "error");
-    slots = (data || []).map((row) => ({ ...row, localId: row.id || crypto.randomUUID() }));
+
+    selectedAvailability = new Set();
+    (data || []).forEach((row) => {
+      const start = Math.max(scheduleStartMinutes, Math.ceil(timeToMinutes(row.start_time) / scheduleStepMinutes) * scheduleStepMinutes);
+      const end = Math.min(scheduleEndMinutes, timeToMinutes(row.end_time));
+      if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+      for (let minutes = start; minutes < end; minutes += scheduleStepMinutes) {
+        selectedAvailability.add(availabilityKey(row.day_of_week, minutes));
+      }
+    });
+
     scheduleMemo = data?.[0]?.memo || "";
     $("scheduleMemo").value = scheduleMemo;
-    renderSlots();
-    renderScheduleSummary();
+    const savedLocation = data?.find((row) => row.location)?.location || "IGC";
+    const locationSelect = $("scheduleLocation");
+    locationSelect.value = [...locationSelect.options].some((option) => option.value === savedLocation) ? savedLocation : "송도 내 협의";
+
+    renderAvailabilityGridSelection();
+    refreshScheduleFromSelection();
     if (data?.length) {
       $("scheduleSaveState").textContent = "저장됨";
       $("scheduleSaveState").classList.add("saved");
+    } else {
+      $("scheduleSaveState").textContent = "저장 전";
+      $("scheduleSaveState").classList.remove("saved");
     }
   }
 
-  function addSlot(event) {
-    event.preventDefault();
-    const day = Number($("slotDay").value);
-    const start = $("slotStart").value;
-    const end = $("slotEnd").value;
-    const locationValue = $("slotLocation").value;
-    if (!Number.isInteger(day) || !start || !end) return showToast("요일과 시간을 모두 입력해주세요.", "error");
-    if (start >= end) return showToast("종료 시간은 시작 시간보다 늦어야 합니다.", "error");
-    const overlap = slots.some((slot) => Number(slot.day_of_week) === day && start < slot.end_time.slice(0,5) && end > slot.start_time.slice(0,5));
-    if (overlap) return showToast("같은 요일에 겹치는 시간대가 있습니다.", "error");
-    slots.push({ localId: crypto.randomUUID(), day_of_week: day, start_time: start, end_time: end, location: locationValue });
-    slots.sort((a, b) => Number(a.day_of_week) - Number(b.day_of_week) || a.start_time.localeCompare(b.start_time));
-    event.target.reset();
-    $("slotLocation").value = "IGC";
-    markScheduleDirty();
-    renderSlots();
-  }
-
   function removeSlot(localId) {
-    slots = slots.filter((slot) => slot.localId !== localId);
-    markScheduleDirty();
-    renderSlots();
+    const targetSlot = slots.find((slot) => slot.localId === localId);
+    if (!targetSlot) return;
+    const start = timeToMinutes(targetSlot.start_time);
+    const end = timeToMinutes(targetSlot.end_time);
+    for (let minutes = start; minutes < end; minutes += scheduleStepMinutes) {
+      selectedAvailability.delete(availabilityKey(targetSlot.day_of_week, minutes));
+    }
+    renderAvailabilityGridSelection();
+    refreshScheduleFromSelection({ dirty: true });
   }
 
   function clearSchedule() {
-    if (!slots.length && !$("scheduleMemo").value) return;
-    if (!confirm("현재 선택한 시간대를 모두 삭제할까요? 저장 버튼을 누르기 전까지 서버 데이터는 유지됩니다.")) return;
-    slots = [];
+    if (!selectedAvailability.size && !$("scheduleMemo").value) return;
+    if (!confirm("현재 선택한 가능 시간과 메모를 모두 삭제할까요? 저장 버튼을 누르기 전까지 서버 데이터는 유지됩니다.")) return;
+    selectedAvailability.clear();
     $("scheduleMemo").value = "";
-    markScheduleDirty();
-    renderSlots();
+    renderAvailabilityGridSelection();
+    refreshScheduleFromSelection({ dirty: true });
   }
 
   function markScheduleDirty() {
@@ -381,9 +555,9 @@
   }
 
   function renderSlots() {
-    $("slotCount").textContent = `${slots.length}개`;
+    $("slotCount").textContent = `${slots.length}개 시간대`;
     if (!slots.length) {
-      $("slotList").innerHTML = '<div class="empty-state compact">추가된 시간대가 없습니다.</div>';
+      $("slotList").innerHTML = '<div class="empty-state compact">선택한 가능 시간이 없습니다.</div>';
       return;
     }
     $("slotList").innerHTML = slots.map((slot) => `
@@ -393,14 +567,21 @@
           <strong>${escapeHtml(slot.start_time.slice(0,5))} – ${escapeHtml(slot.end_time.slice(0,5))}</strong>
           <small>${escapeHtml(slot.location || "송도 내 협의")}</small>
         </div>
-        <button class="remove-slot" data-remove-slot="${escapeHtml(slot.localId)}" type="button" aria-label="시간대 삭제">×</button>
+        <button class="remove-slot" data-remove-slot="${escapeHtml(slot.localId)}" type="button" aria-label="이 시간대 선택 해제">×</button>
       </div>`).join("");
   }
 
   async function saveSchedule() {
+    slots = selectionToSlots();
     if (!slots.length) {
-      if (!confirm("스케줄을 비워서 저장할까요? 기존 제출 내용이 모두 삭제됩니다.")) return;
+      if (!confirm("가능 시간을 비워서 저장할까요? 기존 제출 내용이 모두 삭제됩니다.")) return;
     }
+    const locationValue = $("scheduleLocation").value;
+    if (!locationValue) {
+      $("scheduleLocation").focus();
+      return showToast("선호 장소를 선택해주세요.", "error");
+    }
+
     const button = $("saveScheduleButton");
     setLoading(button, true, "스케줄 저장하기");
     const memo = $("scheduleMemo").value.trim();
@@ -417,7 +598,7 @@
         day_of_week: Number(slot.day_of_week),
         start_time: slot.start_time.slice(0,5),
         end_time: slot.end_time.slice(0,5),
-        location: slot.location,
+        location: locationValue,
         memo
       }));
       const { error } = await supabase.from("availability").insert(rows);
@@ -430,7 +611,7 @@
     setLoading(button, false, "스케줄 저장하기");
     $("scheduleSaveState").textContent = "저장됨";
     $("scheduleSaveState").classList.add("saved");
-    showToast("스케줄이 운영팀에 제출되었습니다.");
+    showToast("가능 시간이 운영팀에 제출되었습니다.");
     await loadAvailability();
   }
 
@@ -528,10 +709,16 @@
     $("resetPasswordButton").addEventListener("click", resetPassword);
     $("logoutButton").addEventListener("click", logout);
     $("profileForm").addEventListener("submit", saveProfile);
-    $("slotForm").addEventListener("submit", addSlot);
+    buildAvailabilityGrid();
+    $("availabilityGrid").addEventListener("pointerdown", handleGridPointerDown);
+    $("availabilityGrid").addEventListener("click", handleGridClick);
+    document.addEventListener("pointermove", handleGridPointerMove, { passive: false });
+    document.addEventListener("pointerup", handleGridPointerEnd);
+    document.addEventListener("pointercancel", handleGridPointerEnd);
     $("saveScheduleButton").addEventListener("click", saveSchedule);
     $("clearScheduleButton").addEventListener("click", clearSchedule);
     $("scheduleMemo").addEventListener("input", markScheduleDirty);
+    $("scheduleLocation").addEventListener("change", () => refreshScheduleFromSelection({ dirty: true }));
     $("slotList").addEventListener("click", (e) => { const button = e.target.closest("[data-remove-slot]"); if (button) removeSlot(button.dataset.removeSlot); });
     $("guideChecklist").addEventListener("change", saveGuideCheck);
     document.querySelectorAll("[data-page]").forEach((el) => el.addEventListener("click", () => switchPage(el.dataset.page)));
