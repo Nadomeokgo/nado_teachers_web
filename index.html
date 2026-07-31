@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="나도 선생님 전용 수업 운영 사이트" />
+  <meta name="theme-color" content="#4A90E2" />
+  <title>나도 Teachers</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <main id="loginView" class="auth-page">
+    <section class="auth-brand">
+      <div class="brand-mark">ㄴㄷ</div>
+      <p class="eyebrow">NADO TEACHERS</p>
+      <h1>수업 준비부터<br /><em>일정 제출까지.</em></h1>
+      <p class="auth-copy">
+        선생님이 수업에만 집중할 수 있도록 필요한 정보와 업무를 한곳에 모았습니다.
+      </p>
+      <div class="auth-feature-list">
+        <div><span>01</span> 주간 가능 스케줄 제출·수정</div>
+        <div><span>02</span> 첫 수업 가이드와 커리큘럼 확인</div>
+        <div><span>03</span> 교육 영상과 공지사항 열람</div>
+      </div>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-card">
+        <p class="section-kicker">TEACHER LOGIN</p>
+        <h2>선생님 로그인</h2>
+        <p class="muted">나도에서 등록한 이메일과 비밀번호를 입력해주세요.</p>
+
+        <form id="loginForm" class="stack-form">
+          <label>
+            이메일
+            <input id="loginEmail" type="email" autocomplete="email" placeholder="teacher@example.com" required />
+          </label>
+          <label>
+            비밀번호
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="비밀번호 입력" minlength="6" required />
+          </label>
+          <button class="button primary full" type="submit">로그인</button>
+        </form>
+
+        <button id="resetPasswordButton" class="text-button" type="button">비밀번호를 잊으셨나요?</button>
+        <p class="auth-help">계정이 없거나 로그인이 되지 않으면 나도 운영팀에 문의해주세요.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="appView" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <a class="logo" href="#dashboard" aria-label="나도 Teachers 홈">
+          <span class="logo-symbol">ㄴㄷ</span>
+          <span class="logo-text">Teachers</span>
+        </a>
+        <button id="sidebarClose" class="icon-button mobile-only" type="button" aria-label="메뉴 닫기">×</button>
+      </div>
+
+      <nav class="side-nav" aria-label="선생님 메뉴">
+        <button class="nav-item active" data-page="dashboard" type="button"><span>⌂</span> 홈</button>
+        <button class="nav-item" data-page="schedule" type="button"><span>◷</span> 스케줄 제출</button>
+        <button class="nav-item" data-page="guide" type="button"><span>✓</span> 첫 수업 가이드</button>
+        <button class="nav-item" data-page="curriculum" type="button"><span>▤</span> 커리큘럼</button>
+        <button class="nav-item" data-page="training" type="button"><span>▶</span> 교육 영상</button>
+        <button class="nav-item" data-page="profile" type="button"><span>○</span> 내 정보</button>
+        <a id="adminLink" class="nav-item hidden" href="admin.html"><span>⚙</span> 관리자 페이지</a>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="support-box">
+          <strong>도움이 필요하신가요?</strong>
+          <p>수업 또는 정산 문의는 운영팀에 연락해주세요.</p>
+          <a id="supportLink" href="https://pf.kakao.com/" target="_blank" rel="noopener">운영팀 문의</a>
+        </div>
+        <button id="logoutButton" class="logout-button" type="button">로그아웃</button>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="sidebarOpen" class="icon-button mobile-only" type="button" aria-label="메뉴 열기">☰</button>
+          <div>
+            <p id="pageEyebrow" class="topbar-eyebrow">TEACHER HOME</p>
+            <h1 id="pageTitle">홈</h1>
+          </div>
+        </div>
+        <div class="user-chip">
+          <div class="user-avatar" id="userAvatar">T</div>
+          <div>
+            <strong id="userName">선생님</strong>
+            <span id="userEmail">-</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        <section id="page-dashboard" class="page active">
+          <div class="welcome-card">
+            <div>
+              <p class="section-kicker light">WELCOME TO NADO</p>
+              <h2><span id="welcomeName">선생님</span>,<br />오늘도 좋은 수업 부탁드려요.</h2>
+              <p>스케줄 제출과 수업 준비 자료를 이 페이지에서 바로 확인할 수 있습니다.</p>
+            </div>
+            <div class="welcome-graphic" aria-hidden="true">
+              <div class="graphic-card gc-one">Schedule<br /><strong>Updated</strong></div>
+              <div class="graphic-card gc-two">1:1<br /><strong>Speaking</strong></div>
+              <div class="graphic-ring"></div>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel announcement-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">NOTICE</p>
+                  <h3>공지사항</h3>
+                </div>
+                <span class="status-dot"></span>
+              </div>
+              <div id="announcementList" class="announcement-list">
+                <div class="skeleton line"></div>
+                <div class="skeleton line short"></div>
+              </div>
+            </article>
+
+            <article class="panel schedule-summary-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">MY AVAILABILITY</p>
+                  <h3>제출한 스케줄</h3>
+                </div>
+                <button class="small-link" data-go="schedule" type="button">수정하기 →</button>
+              </div>
+              <div id="scheduleSummary" class="schedule-summary empty-state">
+                아직 제출된 스케줄이 없습니다.
+              </div>
+            </article>
+          </div>
+
+          <div class="quick-grid">
+            <button class="quick-card" data-go="schedule" type="button">
+              <span class="quick-icon">◷</span>
+              <div><strong>스케줄 제출</strong><small>수업 가능한 요일과 시간 등록</small></div>
+              <b>→</b>
+            </button>
+            <button class="quick-card" data-go="guide" type="button">
+              <span class="quick-icon">✓</span>
+              <div><strong>첫 수업 가이드</strong><small>첫 만남 전 필수 체크사항</small></div>
+              <b>→</b>
+            </button>
+            <button class="quick-card" data-go="training" type="button">
+              <span class="quick-icon">▶</span>
+              <div><strong>교육 영상</strong><small>수업 운영 방법 빠르게 익히기</small></div>
+              <b>→</b>
+            </button>
+          </div>
+        </section>
+
+        <section id="page-schedule" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">WEEKLY AVAILABILITY</p>
+              <h2>수업 가능 스케줄 제출</h2>
+              <p>매칭 가능한 시간을 모두 등록해주세요. 여러 시간대를 추가할 수 있으며 언제든 수정 가능합니다.</p>
+            </div>
+            <div id="scheduleSaveState" class="save-state">저장 전</div>
+          </div>
+
+          <div class="schedule-layout">
+            <article class="panel schedule-form-panel">
+              <div class="form-section-head">
+                <div>
+                  <h3>가능 시간 추가</h3>
+                  <p>한 번에 한 시간대를 추가한 뒤 전체 스케줄을 저장합니다.</p>
+                </div>
+              </div>
+
+              <form id="slotForm" class="slot-form">
+                <label>
+                  요일
+                  <select id="slotDay" required>
+                    <option value="">요일 선택</option>
+                    <option value="1">월요일</option>
+                    <option value="2">화요일</option>
+                    <option value="3">수요일</option>
+                    <option value="4">목요일</option>
+                    <option value="5">금요일</option>
+                    <option value="6">토요일</option>
+                    <option value="0">일요일</option>
+                  </select>
+                </label>
+                <label>
+                  시작 시간
+                  <input id="slotStart" type="time" min="08:00" max="23:00" step="1800" required />
+                </label>
+                <label>
+                  종료 시간
+                  <input id="slotEnd" type="time" min="08:00" max="23:00" step="1800" required />
+                </label>
+                <label>
+                  선호 장소
+                  <select id="slotLocation" required>
+                    <option value="IGC">IGC</option>
+                    <option value="트리플스트리트">트리플스트리트</option>
+                    <option value="송도 내 협의">송도 내 협의</option>
+                  </select>
+                </label>
+                <button class="button secondary slot-add" type="submit">+ 시간대 추가</button>
+              </form>
+
+              <div class="field-group">
+                <label for="scheduleMemo">운영팀에 전달할 메모</label>
+                <textarea id="scheduleMemo" rows="4" maxlength="500" placeholder="예: 월요일은 18시 이후만 가능하며, 시험 기간에는 일정이 변경될 수 있습니다."></textarea>
+              </div>
+
+              <div class="schedule-actions">
+                <button id="clearScheduleButton" class="button ghost" type="button">전체 삭제</button>
+                <button id="saveScheduleButton" class="button primary" type="button">스케줄 저장하기</button>
+              </div>
+            </article>
+
+            <article class="panel current-slots-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">CURRENT SELECTION</p>
+                  <h3>현재 선택한 시간</h3>
+                </div>
+                <span id="slotCount" class="count-badge">0개</span>
+              </div>
+              <div id="slotList" class="slot-list">
+                <div class="empty-state compact">추가된 시간대가 없습니다.</div>
+              </div>
+              <div class="schedule-note">
+                <strong>안내</strong>
+                <p>실제 수업 일정은 학생과 매칭된 이후 조율될 수 있습니다. 가능한 시간을 넓게 제출할수록 빠른 매칭에 도움이 됩니다.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="page-guide" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">FIRST LESSON GUIDE</p>
+              <h2>첫 수업 전 필수 가이드</h2>
+              <p>처음 만나는 학생에게 좋은 경험을 제공하기 위해 아래 순서대로 준비해주세요.</p>
+            </div>
+          </div>
+
+          <div class="guide-progress panel">
+            <div>
+              <strong>첫 수업 준비도</strong>
+              <span id="guideProgressText">0 / 6 완료</span>
+            </div>
+            <div class="progress-track"><div id="guideProgressBar" class="progress-bar"></div></div>
+          </div>
+
+          <div id="guideChecklist" class="guide-list">
+            <label class="guide-card">
+              <input type="checkbox" data-guide="contact" />
+              <span class="guide-check"></span>
+              <div><b>01</b><h3>매칭 단톡방 확인</h3><p>학생 이름, 목표, 레벨, 선호 시간과 장소를 먼저 확인합니다.</p></div>
+            </label>
+            <label class="guide-card">
+              <input type="checkbox" data-guide="schedule" />
+              <span class="guide-check"></span>
+              <div><b>02</b><h3>첫 수업 날짜 공유</h3><p>일정이 확정되면 단톡방에 첫 수업 날짜와 시간을 반드시 남겨주세요.</p></div>
+            </label>
+            <label class="guide-card">
+              <input type="checkbox" data-guide="prepare" />
+              <span class="guide-check"></span>
+              <div><b>03</b><h3>학생 맞춤 질문 준비</h3><p>관심사와 목표를 바탕으로 부담 없이 답할 수 있는 질문을 준비합니다.</p></div>
+            </label>
+            <label class="guide-card">
+              <input type="checkbox" data-guide="lesson" />
+              <span class="guide-check"></span>
+              <div><b>04</b><h3>50분 대화 + 10분 피드백</h3><p>회화 중심으로 진행하고 마지막 10분에는 표현·발음·다음 목표를 정리합니다.</p></div>
+            </label>
+            <label class="guide-card">
+              <input type="checkbox" data-guide="report" />
+              <span class="guide-check"></span>
+              <div><b>05</b><h3>첫 수업 완료 보고</h3><p>수업이 끝난 후 운영팀이 확인할 수 있도록 단톡방에 완료 여부를 알려주세요.</p></div>
+            </label>
+            <label class="guide-card">
+              <input type="checkbox" data-guide="extension" />
+              <span class="guide-check"></span>
+              <div><b>06</b><h3>4회차 전 연장 여부 확인</h3><p>마지막 4번째 수업 전에 학생에게 다음 달 연장 여부를 확인하고 이후 수업료는 직접 받습니다.</p></div>
+            </label>
+          </div>
+        </section>
+
+        <section id="page-curriculum" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">CURRICULUM & RESOURCES</p>
+              <h2>수업 자료와 커리큘럼</h2>
+              <p>학생의 수준과 목표에 맞게 선택하여 활용하세요. 운영팀이 Supabase에서 자료를 추가하면 자동으로 표시됩니다.</p>
+            </div>
+          </div>
+          <div id="resourceGrid" class="resource-grid">
+            <article class="resource-card skeleton-card"></article>
+            <article class="resource-card skeleton-card"></article>
+          </div>
+        </section>
+
+        <section id="page-training" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">TRAINING VIDEOS</p>
+              <h2>선생님 교육 영상</h2>
+              <p>첫 수업 전 핵심 영상부터 순서대로 시청해주세요.</p>
+            </div>
+          </div>
+          <div id="videoGrid" class="video-grid">
+            <article class="video-card skeleton-card"></article>
+            <article class="video-card skeleton-card"></article>
+          </div>
+        </section>
+
+        <section id="page-profile" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">MY PROFILE</p>
+              <h2>내 정보</h2>
+              <p>운영팀이 매칭에 참고할 기본 정보를 관리합니다.</p>
+            </div>
+          </div>
+          <article class="panel profile-panel">
+            <form id="profileForm" class="profile-form">
+              <label>이름<input id="profileName" type="text" maxlength="50" required /></label>
+              <label>학교<input id="profileSchool" type="text" maxlength="100" placeholder="George Mason University Korea" /></label>
+              <label>전공<input id="profileMajor" type="text" maxlength="100" placeholder="Economics" /></label>
+              <label>휴대전화<input id="profilePhone" type="tel" maxlength="30" placeholder="010-0000-0000" /></label>
+              <label class="full-field">한 줄 소개<textarea id="profileBio" rows="4" maxlength="500" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요."></textarea></label>
+              <button class="button primary profile-save" type="submit">내 정보 저장</button>
+            </form>
+          </article>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
