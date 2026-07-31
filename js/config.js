@@ -1,8 +1,7 @@
-// 배포 전 아래 두 값을 본인의 Supabase 프로젝트 값으로 교체하세요.
-// Supabase Dashboard → Project Settings → API
+// 나도 Teachers Supabase 연결 설정
 window.NADO_CONFIG = {
-  SUPABASE_URL: "https://YOUR_PROJECT_ID.supabase.co",
-  SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_OR_PUBLISHABLE_KEY",
+  SUPABASE_URL: "https://ouanvcvzrjbzbpefslgd.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_CiXs7pxX70my52mglC4ecg_hTGc8G5R",
   SUPPORT_URL: "https://pf.kakao.com/",
   SITE_NAME: "나도 Teachers"
 };
