@@ -7,7 +7,7 @@
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   const scheduleDayOrder = [1, 2, 3, 4, 5, 6, 0];
   const scheduleStartMinutes = 8 * 60;
-  const scheduleEndMinutes = 23 * 60;
+  const scheduleEndMinutes = 24 * 60;
   const scheduleStepMinutes = 30;
   const pageMeta = {
     dashboard: ["TEACHER HOME", "홈"], schedule: ["WEEKLY AVAILABILITY", "스케줄 제출"],
