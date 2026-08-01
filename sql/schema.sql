@@ -37,7 +37,21 @@ create table if not exists public.availability (
 );
 create index if not exists availability_teacher_idx on public.availability(teacher_id);
 
--- 3) 공지사항
+-- 3) 학생 배정 및 첫 달 수업료 정산 예정일
+create table if not exists public.student_assignments (
+  id uuid primary key default gen_random_uuid(),
+  teacher_id uuid not null references public.profiles(id) on delete cascade,
+  student_name text not null check (char_length(btrim(student_name)) between 1 and 100),
+  first_lesson_date date not null,
+  settlement_date date not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint student_assignments_valid_dates check (settlement_date >= first_lesson_date)
+);
+create index if not exists student_assignments_teacher_idx on public.student_assignments(teacher_id);
+create index if not exists student_assignments_first_lesson_idx on public.student_assignments(first_lesson_date);
+
+-- 4) 공지사항
 create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -47,7 +61,7 @@ create table if not exists public.announcements (
   created_by uuid references public.profiles(id)
 );
 
--- 4) 커리큘럼 및 자료 링크
+-- 5) 커리큘럼 및 자료 링크
 create table if not exists public.resources (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -59,7 +73,7 @@ create table if not exists public.resources (
   created_at timestamptz not null default now()
 );
 
--- 5) 교육 영상 링크
+-- 6) 교육 영상 링크
 create table if not exists public.training_videos (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -106,6 +120,10 @@ drop trigger if exists availability_updated_at on public.availability;
 create trigger availability_updated_at before update on public.availability
 for each row execute procedure public.set_updated_at();
 
+drop trigger if exists student_assignments_updated_at on public.student_assignments;
+create trigger student_assignments_updated_at before update on public.student_assignments
+for each row execute procedure public.set_updated_at();
+
 -- 관리자 여부 확인. RLS 정책 안에서 재귀를 피하기 위해 security definer 사용
 create or replace function public.is_admin()
 returns boolean
@@ -125,6 +143,7 @@ grant execute on function public.is_admin() to authenticated;
 -- RLS 활성화
 alter table public.profiles enable row level security;
 alter table public.availability enable row level security;
+alter table public.student_assignments enable row level security;
 alter table public.announcements enable row level security;
 alter table public.resources enable row level security;
 alter table public.training_videos enable row level security;
@@ -137,6 +156,10 @@ DROP POLICY IF EXISTS "availability_own_or_admin_select" ON public.availability;
 DROP POLICY IF EXISTS "availability_own_or_admin_insert" ON public.availability;
 DROP POLICY IF EXISTS "availability_own_or_admin_update" ON public.availability;
 DROP POLICY IF EXISTS "availability_own_or_admin_delete" ON public.availability;
+DROP POLICY IF EXISTS "student_assignments_own_or_admin_select" ON public.student_assignments;
+DROP POLICY IF EXISTS "student_assignments_admin_insert" ON public.student_assignments;
+DROP POLICY IF EXISTS "student_assignments_admin_update" ON public.student_assignments;
+DROP POLICY IF EXISTS "student_assignments_admin_delete" ON public.student_assignments;
 DROP POLICY IF EXISTS "announcements_authenticated_read" ON public.announcements;
 DROP POLICY IF EXISTS "announcements_admin_all" ON public.announcements;
 DROP POLICY IF EXISTS "resources_authenticated_read" ON public.resources;
@@ -173,6 +196,17 @@ for update to authenticated using (teacher_id = auth.uid() or public.is_admin())
 create policy "availability_own_or_admin_delete" on public.availability
 for delete to authenticated using (teacher_id = auth.uid() or public.is_admin());
 grant select, insert, update, delete on public.availability to authenticated;
+
+-- student_assignments: 선생님은 자신의 배정만 조회, 관리자는 전체 CRUD
+create policy "student_assignments_own_or_admin_select" on public.student_assignments
+for select to authenticated using (teacher_id = auth.uid() or public.is_admin());
+create policy "student_assignments_admin_insert" on public.student_assignments
+for insert to authenticated with check (public.is_admin());
+create policy "student_assignments_admin_update" on public.student_assignments
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "student_assignments_admin_delete" on public.student_assignments
+for delete to authenticated using (public.is_admin());
+grant select, insert, update, delete on public.student_assignments to authenticated;
 
 -- 콘텐츠: 로그인 사용자는 활성 콘텐츠 조회, 관리자는 전체 CRUD
 create policy "announcements_authenticated_read" on public.announcements

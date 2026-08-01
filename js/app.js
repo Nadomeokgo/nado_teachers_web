@@ -18,6 +18,7 @@
   let currentUser = null;
   let profile = null;
   let slots = [];
+  let assignments = [];
   let selectedAvailability = new Set();
   let scheduleMemo = "";
   let gridDragState = null;
@@ -27,6 +28,12 @@
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+
+  function formatKoreanDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+    if (!match) return "-";
+    return `${Number(match[1])}년 ${Number(match[2])}월 ${Number(match[3])}일`;
+  }
 
   function showToast(message, type = "success") {
     const toast = $("toast");
@@ -153,6 +160,7 @@
     currentUser = null;
     profile = null;
     slots = [];
+    assignments = [];
     selectedAvailability = new Set();
     scheduleMemo = "";
 
@@ -165,6 +173,8 @@
     $("videoGrid").innerHTML = "";
     $("resourceGrid").innerHTML = "";
     $("announcementList").innerHTML = "";
+    $("assignmentList").innerHTML = "";
+    $("assignmentCount").textContent = "0명";
 
     // hashchange를 다시 발생시키지 않고 로그인 주소로 정리합니다.
     history.replaceState(null, "", `${location.pathname}${location.search}`);
@@ -218,6 +228,7 @@
     try {
       await Promise.all([
         loadProfile(),
+        loadAssignments(),
         loadAvailability(),
         loadAnnouncements(),
         loadResources(),
@@ -248,6 +259,61 @@
     $("profileAccountNumber").value = profile.account_number || "";
     $("profileBio").value = profile.bio || "";
     $("adminLink").classList.toggle("hidden", profile.role !== "admin");
+  }
+
+  async function loadAssignments() {
+    const { data, error } = await supabase
+      .from("student_assignments")
+      .select("id, student_name, first_lesson_date, settlement_date")
+      .eq("teacher_id", currentUser.id)
+      .order("first_lesson_date", { ascending: true })
+      .order("student_name", { ascending: true });
+
+    if (error) {
+      console.error("Assignment lookup failed:", error);
+      assignments = [];
+      renderAssignments("배정 학생 정보를 불러오지 못했습니다. 운영팀에 문의해주세요.");
+      return;
+    }
+
+    assignments = data || [];
+    renderAssignments();
+  }
+
+  function renderAssignments(errorMessage = "") {
+    const target = $("assignmentList");
+    $("assignmentCount").textContent = `${assignments.length}명`;
+
+    if (errorMessage) {
+      target.className = "assignment-list assignment-empty";
+      target.innerHTML = `<div class="empty-state">${escapeHtml(errorMessage)}</div>`;
+      return;
+    }
+
+    if (!assignments.length) {
+      target.className = "assignment-list assignment-empty";
+      target.innerHTML = '<div class="empty-state">현재 배정된 학생이 없습니다.</div>';
+      return;
+    }
+
+    target.className = "assignment-list";
+    target.innerHTML = assignments.map((assignment) => `
+      <article class="assignment-card">
+        <div class="assignment-student-name">
+          <span>학생 이름</span>
+          <strong>${escapeHtml(assignment.student_name)}</strong>
+        </div>
+        <dl class="assignment-date-list">
+          <div>
+            <dt>첫 수업일</dt>
+            <dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd>
+          </div>
+          <div class="settlement-date-row">
+            <dt>첫 달 수업료 정산 예정일</dt>
+            <dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd>
+          </div>
+        </dl>
+      </article>`).join("");
   }
 
   function collectProfilePayload() {

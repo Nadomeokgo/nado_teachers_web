@@ -117,6 +117,22 @@ textarea { resize: vertical; }
 .graphic-card strong { font-size: 1rem; }
 .gc-one { right: 126px; top: 20px; transform: rotate(-5deg); }
 .gc-two { right: 3px; bottom: 18px; transform: rotate(7deg); }
+.assignment-overview-panel { padding: 24px; margin-bottom: 20px; overflow: hidden; }
+.assignment-overview-head { align-items: center; }
+.assignment-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 12px; margin-top: 18px; }
+.assignment-list.assignment-empty { display: block; }
+.assignment-list.assignment-empty .empty-state { min-height: 90px; border: 1px dashed #d9e1e9; border-radius: 15px; background: var(--page); }
+.assignment-card { min-width: 0; padding: 18px; border: 1px solid #dce9f6; border-radius: 17px; background: linear-gradient(145deg, #f8fbff, #eef6ff); }
+.assignment-student-name { display: grid; gap: 4px; padding-bottom: 14px; border-bottom: 1px solid rgba(74,144,226,.14); }
+.assignment-student-name span { color: var(--gray); font-size: .7rem; font-weight: 800; }
+.assignment-student-name strong { color: var(--navy); font-size: 1.15rem; overflow-wrap: anywhere; }
+.assignment-date-list { display: grid; gap: 10px; margin: 14px 0 0; }
+.assignment-date-list > div { display: grid; gap: 4px; }
+.assignment-date-list dt { color: var(--gray); font-size: .7rem; font-weight: 800; }
+.assignment-date-list dd { margin: 0; color: var(--dark-gray); font-size: .86rem; font-weight: 800; }
+.assignment-date-list .settlement-date-row { padding: 11px 12px; border-radius: 12px; background: white; }
+.assignment-date-list .settlement-date-row dd { color: var(--accent-deep); }
+.assignment-skeleton { min-height: 132px; border-radius: 17px; }
 .dashboard-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 20px; margin-top: 20px; }
 .announcement-panel, .schedule-summary-panel { padding: 25px; min-height: 245px; }
 .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #4fd197; box-shadow: 0 0 0 5px rgba(79,209,151,.13); margin: 8px; }
@@ -255,7 +271,7 @@ textarea { resize: vertical; }
 .admin-main { max-width: 1250px; margin: 0 auto; padding: 42px 4vw 80px; }
 .admin-intro { align-items: center; }
 .admin-intro h1 { font-size: 2.35rem; }
-.admin-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 18px; }
+.admin-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 18px; }
 .stat-panel { display: grid; gap: 10px; background: white; border: 1px solid rgba(22,50,79,.07); border-radius: 18px; padding: 22px; }
 .stat-panel span { color: var(--gray); font-size: .82rem; font-weight: 700; }
 .stat-panel strong { font-size: 1.7rem; letter-spacing: -.04em; }
@@ -280,8 +296,33 @@ textarea { resize: vertical; }
 .admin-slot strong { display: block; margin-bottom: 4px; color: var(--navy); }
 .admin-memo { margin-top: 15px; padding-top: 15px; border-top: 1px solid #edf1f5; color: var(--gray); font-size: .8rem; line-height: 1.55; }
 
+/* Student assignment and settlement management */
+.admin-assignment-section { margin: 30px 0 42px; }
+.admin-assignment-title { margin-bottom: 18px; }
+.admin-assignment-layout { display: grid; grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr); gap: 18px; align-items: start; }
+.assignment-manager-form-card, .assignment-manager-list-card { padding: 24px; }
+.assignment-manager-form-card > h3 { margin: 0 0 18px; }
+.assignment-date-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.assignment-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+.admin-assignment-list { display: grid; gap: 10px; margin-top: 18px; max-height: 520px; overflow: auto; }
+.admin-assignment-list > .empty-state { min-height: 180px; border: 1px dashed #d9e1e9; border-radius: 15px; background: var(--page); line-height: 1.65; }
+.admin-assignment-item { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(240px, .85fr) auto; gap: 14px; align-items: center; padding: 15px; border: 1px solid #e4ebf2; border-radius: 15px; background: #fbfcfe; }
+.admin-assignment-person { min-width: 0; }
+.assignment-student-label { display: inline-flex; margin-bottom: 5px; padding: 4px 7px; border-radius: 999px; color: var(--accent-deep); background: var(--accent-light); font-size: .65rem; font-weight: 900; }
+.admin-assignment-person strong { display: block; color: var(--navy); font-size: .98rem; overflow-wrap: anywhere; }
+.admin-assignment-person small { display: block; margin-top: 4px; color: var(--gray); font-size: .73rem; overflow-wrap: anywhere; }
+.admin-assignment-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.admin-assignment-dates > div { min-width: 0; padding: 10px; border-radius: 11px; background: white; }
+.admin-assignment-dates dt { color: var(--gray); font-size: .66rem; font-weight: 800; }
+.admin-assignment-dates dd { margin: 4px 0 0; color: var(--dark-gray); font-size: .78rem; font-weight: 800; overflow-wrap: anywhere; }
+.admin-assignment-actions { display: flex; gap: 7px; }
+.assignment-delete-button:hover { color: var(--danger); }
+.admin-schedule-title { margin-top: 12px; margin-bottom: 18px; }
+
 @media (max-width: 1050px) {
   .welcome-card { grid-template-columns: 1fr 280px; }
+  .admin-stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .admin-assignment-layout { grid-template-columns: 1fr; }
   .resource-grid, .video-grid { grid-template-columns: repeat(2, 1fr); }
   .quick-grid { grid-template-columns: 1fr; }
   .admin-slots { grid-template-columns: repeat(2, 1fr); }
@@ -319,7 +360,12 @@ textarea { resize: vertical; }
   .admin-filter-panel { grid-template-columns: 1fr; }
   .admin-filter-panel label { grid-template-columns: 1fr; }
   .admin-slots { grid-template-columns: 1fr; }
+  .assignment-list { grid-template-columns: minmax(0, 1fr); }
+  .assignment-manager-form-card, .assignment-manager-list-card { padding: 20px; }
+  .admin-assignment-item { grid-template-columns: minmax(0, 1fr); }
+  .admin-assignment-actions { justify-content: flex-end; }
 }
+
 @media (max-width: 480px) {
   .auth-brand { min-height: 45vh; }
   .auth-brand h1 { font-size: 2.55rem; }
@@ -492,4 +538,15 @@ input[type="time"], input[type="date"], input[type="datetime-local"] {
   .availability-grid-shell { margin-inline: -4px; border-radius: 13px; }
   .availability-help { font-size: .72rem; }
   .location-assignment-notice { padding: 12px 13px; }
+}
+
+
+/* Assignment update responsive safeguards */
+@media (max-width: 560px) {
+  .assignment-overview-panel { padding: 19px; }
+  .assignment-date-fields, .admin-assignment-dates { grid-template-columns: minmax(0, 1fr); }
+  .assignment-form-actions { flex-direction: column-reverse; }
+  .assignment-form-actions .button { width: 100%; }
+  .admin-assignment-actions { justify-content: stretch; }
+  .admin-assignment-actions .button { flex: 1; }
 }

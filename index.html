@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260731-schedulegrid1" />
+  <link rel="stylesheet" href="css/style.css?v=20260801-assignments1" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -110,6 +110,19 @@
 
       <div class="content-wrap">
         <section id="page-dashboard" class="page active">
+          <article class="panel assignment-overview-panel">
+            <div class="panel-head assignment-overview-head">
+              <div>
+                <p class="section-kicker">MY STUDENTS &amp; PAYOUT</p>
+                <h3>내 배정 학생</h3>
+              </div>
+              <span id="assignmentCount" class="count-badge">0명</span>
+            </div>
+            <div id="assignmentList" class="assignment-list">
+              <div class="skeleton assignment-skeleton"></div>
+            </div>
+          </article>
+
           <div class="welcome-card">
             <div>
               <p class="section-kicker light">WELCOME TO NADO</p>
@@ -386,6 +399,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/app.js?v=20260731-schedulegrid1"></script>
+  <script src="js/app.js?v=20260801-assignments1"></script>
 </body>
 </html>

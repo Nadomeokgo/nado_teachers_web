@@ -5,11 +5,19 @@
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   let teachers = [];
+  let assignments = [];
+  let editingAssignmentId = null;
   let adminLogoutInProgress = false;
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   function toast(message, error = false) { const el = $("toast"); el.textContent = message; el.className = `toast show${error ? " error" : ""}`; setTimeout(() => el.className = "toast", 2600); }
+
+  function formatKoreanDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+    if (!match) return "-";
+    return `${Number(match[1])}년 ${Number(match[2])}월 ${Number(match[3])}일`;
+  }
 
   async function initialize() {
     if (!supabase) return toast("js/config.js에 Supabase 정보를 입력해주세요.", true);
@@ -28,9 +36,21 @@
       .order("full_name");
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
     teachers = data || [];
+    populateTeacherOptions();
     updateStats();
     render();
-    await loadContent();
+    await Promise.all([loadAssignments(), loadContent()]);
+  }
+
+  function populateTeacherOptions() {
+    const select = $("assignmentTeacher");
+    const previousValue = select.value;
+    select.innerHTML = '<option value="">선생님을 선택해주세요</option>' + teachers.map((teacher) =>
+      `<option value="${escapeHtml(teacher.id)}">${escapeHtml(teacher.full_name || "이름 미입력")} · ${escapeHtml(teacher.email || "")}</option>`
+    ).join("");
+    if (teachers.some((teacher) => teacher.id === previousValue)) select.value = previousValue;
+    select.disabled = teachers.length === 0;
+    $("assignmentSubmitButton").disabled = teachers.length === 0;
   }
 
   function updateStats() {
@@ -39,6 +59,7 @@
     $("teacherCount").textContent = `${teachers.length}명`;
     $("slotTotalCount").textContent = `${slots.length}개`;
     $("latestUpdate").textContent = latest ? new Date(latest).toLocaleDateString("ko-KR") : "없음";
+    $("assignmentTotalCount").textContent = `${assignments.length}명`;
   }
 
   function filteredTeachers() {
@@ -83,7 +104,126 @@
     }).join("");
   }
 
+  async function loadAssignments() {
+    const { data, error } = await supabase
+      .from("student_assignments")
+      .select("id, teacher_id, student_name, first_lesson_date, settlement_date, created_at, updated_at")
+      .order("first_lesson_date", { ascending: true })
+      .order("student_name", { ascending: true });
 
+    if (error) {
+      console.error("Assignment lookup failed:", error);
+      assignments = [];
+      $("adminAssignmentCount").textContent = "0건";
+      $("assignmentTotalCount").textContent = "-";
+      $("adminAssignmentList").innerHTML = '<div class="empty-state">학생 배정 테이블을 불러오지 못했습니다.<br>Supabase에서 학생 배정 SQL을 먼저 실행해주세요.</div>';
+      return;
+    }
+
+    assignments = data || [];
+    updateStats();
+    renderAssignmentList();
+  }
+
+  function teacherById(id) {
+    return teachers.find((teacher) => teacher.id === id) || null;
+  }
+
+  function renderAssignmentList() {
+    const target = $("adminAssignmentList");
+    $("adminAssignmentCount").textContent = `${assignments.length}건`;
+    if (!assignments.length) {
+      target.innerHTML = '<div class="empty-state">아직 등록된 학생 배정이 없습니다.</div>';
+      return;
+    }
+
+    target.innerHTML = assignments.map((assignment) => {
+      const teacher = teacherById(assignment.teacher_id);
+      return `<article class="admin-assignment-item">
+        <div class="admin-assignment-person">
+          <span class="assignment-student-label">학생</span>
+          <strong>${escapeHtml(assignment.student_name)}</strong>
+          <small>담당: ${escapeHtml(teacher?.full_name || "삭제된 선생님")} ${teacher?.email ? `· ${escapeHtml(teacher.email)}` : ""}</small>
+        </div>
+        <dl class="admin-assignment-dates">
+          <div><dt>첫 수업일</dt><dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd></div>
+          <div><dt>정산 예정일</dt><dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd></div>
+        </dl>
+        <div class="admin-assignment-actions">
+          <button class="button secondary small" data-edit-assignment="${escapeHtml(assignment.id)}" type="button">수정</button>
+          <button class="button ghost small assignment-delete-button" data-delete-assignment="${escapeHtml(assignment.id)}" type="button">삭제</button>
+        </div>
+      </article>`;
+    }).join("");
+  }
+
+  function resetAssignmentForm() {
+    editingAssignmentId = null;
+    $("assignmentForm").reset();
+    $("assignmentFormTitle").textContent = "새 학생 배정";
+    $("assignmentSubmitButton").textContent = "학생 배정 등록";
+    $("assignmentCancelButton").classList.add("hidden");
+  }
+
+  function startAssignmentEdit(id) {
+    const assignment = assignments.find((item) => item.id === id);
+    if (!assignment) return;
+    editingAssignmentId = id;
+    $("assignmentTeacher").value = assignment.teacher_id;
+    $("assignmentStudentName").value = assignment.student_name;
+    $("assignmentFirstLessonDate").value = assignment.first_lesson_date;
+    $("assignmentSettlementDate").value = assignment.settlement_date;
+    $("assignmentFormTitle").textContent = "학생 배정 수정";
+    $("assignmentSubmitButton").textContent = "배정 정보 수정";
+    $("assignmentCancelButton").classList.remove("hidden");
+    $("assignmentForm").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  async function saveAssignment(event) {
+    event.preventDefault();
+    const button = event.submitter || $("assignmentSubmitButton");
+    const payload = {
+      teacher_id: $("assignmentTeacher").value,
+      student_name: $("assignmentStudentName").value.trim(),
+      first_lesson_date: $("assignmentFirstLessonDate").value,
+      settlement_date: $("assignmentSettlementDate").value
+    };
+
+    if (!payload.teacher_id || !payload.student_name || !payload.first_lesson_date || !payload.settlement_date) {
+      return toast("모든 학생 배정 정보를 입력해주세요.", true);
+    }
+    if (payload.settlement_date < payload.first_lesson_date) {
+      $("assignmentSettlementDate").focus();
+      return toast("정산 예정일은 첫 수업일과 같거나 이후여야 합니다.", true);
+    }
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = editingAssignmentId ? "수정 중..." : "등록 중...";
+
+    const result = editingAssignmentId
+      ? await supabase.from("student_assignments").update(payload).eq("id", editingAssignmentId)
+      : await supabase.from("student_assignments").insert(payload);
+
+    button.disabled = false;
+    button.textContent = originalText;
+    if (result.error) return toast("학생 배정 저장 실패: " + result.error.message, true);
+
+    toast(editingAssignmentId ? "학생 배정 정보를 수정했습니다." : "학생을 선생님에게 배정했습니다.");
+    resetAssignmentForm();
+    await loadAssignments();
+  }
+
+  async function deleteAssignment(id) {
+    const assignment = assignments.find((item) => item.id === id);
+    if (!assignment) return;
+    if (!confirm(`${assignment.student_name} 학생의 배정 정보를 삭제할까요?`)) return;
+    const { error } = await supabase.from("student_assignments").delete().eq("id", id);
+    if (error) return toast("학생 배정 삭제 실패: " + error.message, true);
+    if (editingAssignmentId === id) resetAssignmentForm();
+    toast("학생 배정 정보를 삭제했습니다.");
+    await loadAssignments();
+  }
 
   async function loadContent() {
     const [announcementResult, resourceResult, videoResult] = await Promise.all([
@@ -195,6 +335,14 @@
     URL.revokeObjectURL(link.href);
   }
 
+  $("assignmentForm").addEventListener("submit", saveAssignment);
+  $("assignmentCancelButton").addEventListener("click", resetAssignmentForm);
+  $("adminAssignmentList").addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-assignment]");
+    if (editButton) return startAssignmentEdit(editButton.dataset.editAssignment);
+    const deleteButton = event.target.closest("[data-delete-assignment]");
+    if (deleteButton) deleteAssignment(deleteButton.dataset.deleteAssignment);
+  });
   $("announcementForm").addEventListener("submit", addAnnouncement);
   $("resourceForm").addEventListener("submit", addResource);
   $("videoForm").addEventListener("submit", addVideo);
