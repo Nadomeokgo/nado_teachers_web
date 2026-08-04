@@ -669,3 +669,40 @@ input[type="time"], input[type="date"], input[type="datetime-local"] {
   .assignment-filter-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .assignment-filter-tab { justify-content: center; padding-inline: 8px; }
 }
+
+
+/* NADO bilingual language selector */
+.nado-language-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 10020;
+  display: inline-flex;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid rgba(28, 50, 74, .14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 8px 24px rgba(20, 41, 66, .14);
+  backdrop-filter: blur(12px);
+}
+.nado-language-toggle button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: #667085;
+  background: transparent;
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.nado-language-toggle button:hover { color: #245f9e; background: #eef6ff; }
+.nado-language-toggle button.active { color: #fff; background: #2f80d1; }
+@media (max-width: 620px) {
+  .nado-language-toggle { top: 9px; right: 9px; }
+  .nado-language-toggle button { padding: 6px 9px; font-size: .66rem; }
+  .topbar { padding-right: 118px; }
+}
