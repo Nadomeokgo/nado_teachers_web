@@ -260,7 +260,28 @@ textarea { resize: vertical; }
 .guide-card b { color: var(--accent); font-size: .72rem; letter-spacing: .08em; }
 .guide-card h3 { margin: 4px 0 7px; font-size: 1rem; }
 .guide-card p { margin: 0; color: var(--gray); font-weight: 400; font-size: .85rem; line-height: 1.55; }
-.guide-card:has(input:checked) { border-color: rgba(74,144,226,.28); background: #fbfdff; }
+.guide-card:has(> input:checked) { border-color: rgba(74,144,226,.28); background: #fbfdff; }
+
+/* Guide message examples (always visible) */
+.guide-message-example { margin-top: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 13px; background: var(--page); }
+.guide-message-example-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; color: var(--accent-deep); font-weight: 800; font-size: .78rem; }
+.guide-message-example-label span { color: var(--gray); font-weight: 500; font-size: .74rem; }
+.guide-message-example p:not(.guide-message-example-label) { margin: 0; padding-top: 12px; border-top: 1px solid rgba(74,144,226,.1); color: var(--dark-gray); font-weight: 500; font-size: .82rem; line-height: 1.7; }
+
+/* Guide sub-checklist (optional self-tracking, not counted in main progress) */
+.guide-subchecklist { display: grid; gap: 7px; margin: 10px 0 0; padding: 0; list-style: none; }
+.guide-subchecklist li label { display: flex; align-items: center; gap: 9px; cursor: pointer; font-weight: 600; }
+.guide-subchecklist input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.guide-subchecklist span { color: var(--dark-gray); font-size: .82rem; }
+.guide-subchecklist input:checked + span { color: var(--gray); text-decoration: line-through; }
+
+/* Guide example image */
+.guide-example-image { margin-top: 12px; }
+.guide-example-image img { display: block; width: 100%; max-width: 360px; border: 1px solid var(--border); border-radius: 13px; }
+
+/* Guide curriculum tab link */
+.guide-curriculum-link { margin-top: 12px; border: 0; background: var(--accent-light); color: var(--accent-deep); font-weight: 800; font-size: .8rem; padding: 10px 14px; border-radius: 11px; }
+.guide-curriculum-link:hover { background: #d7ebff; }
 
 /* Resources */
 .resource-grid, .video-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
