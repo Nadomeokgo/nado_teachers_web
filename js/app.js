@@ -25,6 +25,8 @@
   let suppressGridClick = false;
   let logoutInProgress = false;
   let loginInProgress = false;
+  let onboardingRequired = false;
+  let dashboardInitialized = false;
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -55,6 +57,7 @@
   }
 
   function switchPage(page) {
+    if (onboardingRequired) return;
     if (!pageMeta[page]) page = "dashboard";
     document.querySelectorAll(".page").forEach((el) => el.classList.remove("active"));
     document.querySelectorAll(".nav-item[data-page]").forEach((el) => el.classList.toggle("active", el.dataset.page === page));
@@ -163,7 +166,11 @@
     assignments = [];
     selectedAvailability = new Set();
     scheduleMemo = "";
+    onboardingRequired = false;
+    dashboardInitialized = false;
 
+    document.body.classList.remove("onboarding-open");
+    $("onboardingView").classList.add("hidden");
     $("appView").classList.add("hidden");
     $("loginView").classList.remove("hidden");
     $("loginPassword").value = "";
@@ -201,6 +208,69 @@
     }
   }
 
+  function isProfileOnboardingRequired() {
+    return profile?.role !== "admin" && !profile?.profile_completed_at;
+  }
+
+  function syncProfileFields(data = {}) {
+    const values = {
+      Name: data.full_name || "",
+      School: data.school || "",
+      Major: data.major || "",
+      Phone: data.phone || "",
+      BankName: data.bank_name || "",
+      AccountNumber: data.account_number || "",
+      Bio: data.bio || ""
+    };
+
+    Object.entries(values).forEach(([key, value]) => {
+      const profileField = $(`profile${key}`);
+      const onboardingField = $(`onboarding${key}`);
+      if (profileField) profileField.value = value;
+      if (onboardingField) onboardingField.value = value;
+    });
+  }
+
+  function updateProfileHeader(data = {}) {
+    const name = data.full_name || "선생님";
+    $("userName").textContent = name;
+    $("welcomeName").textContent = name;
+    $("userEmail").textContent = currentUser?.email || "";
+    $("userAvatar").textContent = name.slice(0, 1).toUpperCase();
+  }
+
+  function showOnboarding() {
+    onboardingRequired = true;
+    $("onboardingEmail").textContent = currentUser?.email || "-";
+    $("loginView").classList.add("hidden");
+    $("appView").classList.add("hidden");
+    $("onboardingView").classList.remove("hidden");
+    document.body.classList.add("onboarding-open");
+    window.setTimeout(() => $("onboardingName").focus(), 0);
+  }
+
+  function hideOnboarding() {
+    onboardingRequired = false;
+    $("onboardingView").classList.add("hidden");
+    document.body.classList.remove("onboarding-open");
+  }
+
+  async function initializeDashboardData(requestedPage = "dashboard") {
+    $("appView").classList.remove("hidden");
+    if (!dashboardInitialized) {
+      await Promise.all([
+        loadAssignments(),
+        loadAvailability(),
+        loadAnnouncements(),
+        loadResources(),
+        loadVideos()
+      ]);
+      renderGuideProgress();
+      dashboardInitialized = true;
+    }
+    switchPage(requestedPage);
+  }
+
   async function initializeSession(existingSession = null) {
     if (!checkConfiguration()) return;
 
@@ -222,42 +292,45 @@
     }
 
     currentUser = session.user;
+    dashboardInitialized = false;
     $("loginView").classList.add("hidden");
-    $("appView").classList.remove("hidden");
+    $("appView").classList.add("hidden");
+    $("onboardingView").classList.add("hidden");
 
     try {
-      await Promise.all([
-        loadProfile(),
-        loadAssignments(),
-        loadAvailability(),
-        loadAnnouncements(),
-        loadResources(),
-        loadVideos()
-      ]);
-      renderGuideProgress();
-      switchPage(location.hash.replace("#", "") || "dashboard");
+      await loadProfile();
+    } catch (error) {
+      console.error("Profile initialization failed:", error);
+      renderSignedOutState();
+      showToast("프로필 정보를 불러오지 못했습니다. 잠시 후 다시 로그인해주세요.", "error");
+      return;
+    }
+
+    if (isProfileOnboardingRequired()) {
+      showOnboarding();
+      return;
+    }
+
+    hideOnboarding();
+    try {
+      await initializeDashboardData(location.hash.replace("#", "") || "dashboard");
     } catch (error) {
       console.error("Dashboard initialization failed:", error);
+      $("appView").classList.remove("hidden");
+      switchPage("dashboard");
       showToast("일부 정보를 불러오지 못했습니다. 페이지를 새로고침해주세요.", "error");
     }
   }
 
   async function loadProfile() {
     const { data, error } = await supabase.from("profiles").select("*").eq("id", currentUser.id).maybeSingle();
-    if (error) showToast("프로필을 불러오지 못했습니다.", "error");
-    profile = data || { id: currentUser.id, full_name: currentUser.user_metadata?.full_name || "선생님", email: currentUser.email };
-    const name = profile.full_name || "선생님";
-    $("userName").textContent = name;
-    $("welcomeName").textContent = name;
-    $("userEmail").textContent = currentUser.email || "";
-    $("userAvatar").textContent = name.slice(0, 1).toUpperCase();
-    $("profileName").value = profile.full_name || "";
-    $("profileSchool").value = profile.school || "";
-    $("profileMajor").value = profile.major || "";
-    $("profilePhone").value = profile.phone || "";
-    $("profileBankName").value = profile.bank_name || "";
-    $("profileAccountNumber").value = profile.account_number || "";
-    $("profileBio").value = profile.bio || "";
+    if (error) {
+      console.error("Profile lookup failed:", error);
+      throw error;
+    }
+    profile = data || { id: currentUser.id, full_name: currentUser.user_metadata?.full_name || "선생님", email: currentUser.email, role: "teacher", profile_completed_at: null };
+    updateProfileHeader(profile);
+    syncProfileFields(profile);
     $("adminLink").classList.toggle("hidden", profile.role !== "admin");
   }
 
@@ -316,84 +389,153 @@
       </article>`).join("");
   }
 
-  function collectProfilePayload() {
+  const profileFieldIds = {
+    full_name: "profileName",
+    school: "profileSchool",
+    major: "profileMajor",
+    phone: "profilePhone",
+    bank_name: "profileBankName",
+    account_number: "profileAccountNumber",
+    bio: "profileBio"
+  };
+
+  const onboardingFieldIds = {
+    full_name: "onboardingName",
+    school: "onboardingSchool",
+    major: "onboardingMajor",
+    phone: "onboardingPhone",
+    bank_name: "onboardingBankName",
+    account_number: "onboardingAccountNumber",
+    bio: "onboardingBio"
+  };
+
+  const profileFieldLabels = {
+    full_name: "이름",
+    school: "학교",
+    major: "전공",
+    phone: "휴대전화",
+    bank_name: "은행명",
+    account_number: "계좌번호",
+    bio: "한 줄 소개"
+  };
+
+  function collectProfilePayload(fieldIds = profileFieldIds) {
     return {
-      full_name: $("profileName").value.trim(),
-      school: $("profileSchool").value.trim(),
-      major: $("profileMajor").value.trim(),
-      phone: $("profilePhone").value.trim(),
-      bank_name: $("profileBankName").value.trim(),
-      account_number: $("profileAccountNumber").value.trim().replace(/\s+/g, ""),
-      bio: $("profileBio").value.trim(),
+      full_name: $(fieldIds.full_name).value.trim(),
+      school: $(fieldIds.school).value.trim(),
+      major: $(fieldIds.major).value.trim(),
+      phone: $(fieldIds.phone).value.trim(),
+      bank_name: $(fieldIds.bank_name).value.trim(),
+      account_number: $(fieldIds.account_number).value.trim().replace(/\s+/g, ""),
+      bio: $(fieldIds.bio).value.trim(),
       updated_at: new Date().toISOString()
     };
   }
 
-  function validateProfilePayload(payload) {
-    const requiredFields = [
-      ["profileName", payload.full_name, "이름"],
-      ["profileSchool", payload.school, "학교"],
-      ["profileMajor", payload.major, "전공"],
-      ["profilePhone", payload.phone, "휴대전화"],
-      ["profileBankName", payload.bank_name, "은행명"],
-      ["profileAccountNumber", payload.account_number, "계좌번호"],
-      ["profileBio", payload.bio, "한 줄 소개"]
-    ];
-    const missing = requiredFields.find(([, value]) => !value);
-    if (missing) {
-      $(missing[0]).focus();
-      showToast(`${missing[2]} 항목을 입력해주세요.`, "error");
+  function validateProfilePayload(payload, fieldIds = profileFieldIds) {
+    const missingKey = Object.keys(profileFieldLabels).find((key) => !payload[key]);
+    if (missingKey) {
+      $(fieldIds[missingKey]).focus();
+      showToast(`${profileFieldLabels[missingKey]} 항목을 입력해주세요.`, "error");
       return false;
     }
     if (!/^[0-9-]{8,40}$/.test(payload.account_number)) {
-      $("profileAccountNumber").focus();
+      $(fieldIds.account_number).focus();
       showToast("계좌번호는 숫자와 하이픈(-)만 사용해 8자 이상 입력해주세요.", "error");
       return false;
     }
     return true;
   }
 
+  async function persistProfile(payload) {
+    const columns = "id, email, full_name, school, major, phone, bank_name, account_number, bio, role, profile_completed_at, updated_at";
+    let result = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", currentUser.id)
+      .select(columns)
+      .maybeSingle();
+
+    if (!result.error && !result.data) {
+      result = await supabase
+        .from("profiles")
+        .insert({ id: currentUser.id, email: currentUser.email, ...payload })
+        .select(columns)
+        .single();
+    }
+    if (result.error) throw result.error;
+    return result.data || payload;
+  }
+
+  function applySavedProfile(savedProfile) {
+    profile = { ...profile, ...savedProfile };
+    updateProfileHeader(profile);
+    syncProfileFields(profile);
+  }
+
   async function saveProfile(event) {
     event.preventDefault();
     const form = $("profileForm");
     const button = event.submitter || form.querySelector('button[type="submit"]');
-    const payload = collectProfilePayload();
-    if (!validateProfilePayload(payload)) return;
+    const payload = collectProfilePayload(profileFieldIds);
+    if (!validateProfilePayload(payload, profileFieldIds)) return;
 
     setLoading(button, true, "내 정보 저장");
     try {
-      let result = await supabase
-        .from("profiles")
-        .update(payload)
-        .eq("id", currentUser.id)
-        .select("id, email, full_name, school, major, phone, bank_name, account_number, bio, role, updated_at")
-        .maybeSingle();
-
-      if (!result.error && !result.data) {
-        result = await supabase
-          .from("profiles")
-          .insert({ id: currentUser.id, email: currentUser.email, ...payload })
-          .select("id, email, full_name, school, major, phone, bank_name, account_number, bio, role, updated_at")
-          .single();
-      }
-
-      if (result.error) throw result.error;
-      profile = { ...profile, ...(result.data || payload) };
-      $("userName").textContent = payload.full_name;
-      $("welcomeName").textContent = payload.full_name;
-      $("userAvatar").textContent = payload.full_name.slice(0, 1).toUpperCase();
+      const savedProfile = await persistProfile(payload);
+      applySavedProfile(savedProfile);
       showToast("내 정보가 저장되었습니다.");
     } catch (error) {
       console.error("Profile update failed:", error);
-      const missingColumn = /bank_name|account_number/i.test(error?.message || "");
+      const missingColumn = /bank_name|account_number|profile_completed_at/i.test(error?.message || "");
       showToast(
         missingColumn
-          ? "계좌 정보 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요."
+          ? "프로필 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요."
           : "저장에 실패했습니다: " + (error?.message || "알 수 없는 오류"),
         "error"
       );
     } finally {
       setLoading(button, false, "내 정보 저장");
+    }
+  }
+
+  async function completeOnboarding(event) {
+    event.preventDefault();
+    const form = $("onboardingForm");
+    const button = event.submitter || form.querySelector('button[type="submit"]');
+    const payload = {
+      ...collectProfilePayload(onboardingFieldIds),
+      profile_completed_at: new Date().toISOString()
+    };
+    if (!validateProfilePayload(payload, onboardingFieldIds)) return;
+
+    setLoading(button, true, "프로필 저장하고 시작하기");
+    try {
+      const savedProfile = await persistProfile(payload);
+      applySavedProfile(savedProfile);
+    } catch (error) {
+      console.error("Profile onboarding failed:", error);
+      const missingColumn = /profile_completed_at/i.test(error?.message || "");
+      showToast(
+        missingColumn
+          ? "최초 프로필 설정용 데이터베이스 업데이트가 필요합니다."
+          : "프로필 저장에 실패했습니다: " + (error?.message || "알 수 없는 오류"),
+        "error"
+      );
+      setLoading(button, false, "프로필 저장하고 시작하기");
+      return;
+    }
+
+    hideOnboarding();
+    setLoading(button, false, "프로필 저장하고 시작하기");
+    showToast("프로필 작성이 완료되었습니다.");
+    try {
+      await initializeDashboardData("dashboard");
+    } catch (error) {
+      console.error("Post-onboarding dashboard initialization failed:", error);
+      $("appView").classList.remove("hidden");
+      switchPage("dashboard");
+      showToast("프로필은 저장되었지만 일부 정보를 불러오지 못했습니다. 새로고침해주세요.", "error");
     }
   }
 
@@ -701,13 +843,43 @@
   async function loadAnnouncements() {
     const { data, error } = await supabase.from("announcements").select("title, body, published_at").eq("is_active", true).order("published_at", { ascending: false }).limit(5);
     if (error || !data?.length) {
-      $("announcementList").innerHTML = '<div class="empty-state">현재 공지사항이 없습니다.</div>';
+      $("announcementList").innerHTML = '<div class="empty-state announcement-empty">현재 등록된 공지사항이 없습니다.</div>';
       return;
     }
-    $("announcementList").innerHTML = data.map((item) => {
-      const date = new Date(item.published_at).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" });
-      return `<div class="announcement-item"><span class="announcement-date">${date}</span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p></div></div>`;
-    }).join("");
+
+    const formatDate = (value) => {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime())
+        ? "-"
+        : date.toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" });
+    };
+
+    const [latest, ...previous] = data;
+    const latestDate = new Date(latest.published_at);
+    const daysSincePublished = Number.isNaN(latestDate.getTime())
+      ? Infinity
+      : (Date.now() - latestDate.getTime()) / 86400000;
+    const latestLabel = daysSincePublished <= 7 ? "NEW" : "LATEST";
+
+    const featured = `
+      <article class="announcement-featured">
+        <div class="announcement-featured-meta">
+          <span class="announcement-label">${latestLabel}</span>
+          <time datetime="${escapeHtml(latest.published_at || "")}">${escapeHtml(formatDate(latest.published_at))}</time>
+        </div>
+        <h4>${escapeHtml(latest.title)}</h4>
+        <p>${escapeHtml(latest.body)}</p>
+      </article>`;
+
+    const archive = previous.length
+      ? `<div class="announcement-archive">${previous.map((item) => `
+          <article class="announcement-item">
+            <time class="announcement-date" datetime="${escapeHtml(item.published_at || "")}">${escapeHtml(formatDate(item.published_at))}</time>
+            <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p></div>
+          </article>`).join("")}</div>`
+      : "";
+
+    $("announcementList").innerHTML = featured + archive;
   }
 
   async function loadResources() {
@@ -775,6 +947,8 @@
     $("resetPasswordButton").addEventListener("click", resetPassword);
     $("logoutButton").addEventListener("click", logout);
     $("profileForm").addEventListener("submit", saveProfile);
+    $("onboardingForm").addEventListener("submit", completeOnboarding);
+    $("onboardingLogoutButton").addEventListener("click", logout);
     buildAvailabilityGrid();
     $("availabilityGrid").addEventListener("pointerdown", handleGridPointerDown);
     $("availabilityGrid").addEventListener("click", handleGridClick);
