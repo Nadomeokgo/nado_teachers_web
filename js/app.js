@@ -992,10 +992,9 @@
   }
   function renderGuideProgress() {
     const checks = loadGuideChecks();
-    const guideInputs = document.querySelectorAll("[data-guide]");
-    guideInputs.forEach((input) => { input.checked = Boolean(checks[input.dataset.guide]); });
-    const total = guideInputs.length;
-    const completed = [...guideInputs].filter((input) => input.checked).length;
+    document.querySelectorAll("[data-guide]").forEach((input) => { input.checked = Boolean(checks[input.dataset.guide]); });
+    const total = document.querySelectorAll("[data-guide]").length;
+    const completed = Object.values(checks).filter(Boolean).length;
     $("guideProgressText").textContent = `${completed} / ${total} 완료`;
     $("guideProgressBar").style.width = `${(completed / total) * 100}%`;
   }
