@@ -63,6 +63,7 @@ create table if not exists public.student_assignments (
   id uuid primary key default gen_random_uuid(),
   teacher_id uuid not null references public.profiles(id) on delete cascade,
   student_name text not null check (char_length(btrim(student_name)) between 1 and 100),
+  plan text check (plan in ('economy', 'standard', 'premium')),
   first_lesson_date date not null,
   settlement_date date not null,
   created_at timestamptz not null default now(),
@@ -71,6 +72,7 @@ create table if not exists public.student_assignments (
 );
 create index if not exists student_assignments_teacher_idx on public.student_assignments(teacher_id);
 create index if not exists student_assignments_first_lesson_idx on public.student_assignments(first_lesson_date);
+create index if not exists student_assignments_settlement_idx on public.student_assignments(settlement_date);
 
 -- 4) 공지사항
 create table if not exists public.announcements (

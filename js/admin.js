@@ -4,8 +4,10 @@
   const configured = config.SUPABASE_URL && config.SUPABASE_ANON_KEY && !config.SUPABASE_URL.includes("YOUR_PROJECT_ID");
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
+  const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
   let teachers = [];
   let assignments = [];
+  let assignmentFilter = "current";
   let editingAssignmentId = null;
   let adminLogoutInProgress = false;
 
@@ -17,6 +19,25 @@
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
     if (!match) return "-";
     return `${Number(match[1])}년 ${Number(match[2])}월 ${Number(match[3])}일`;
+  }
+
+  function localDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function planLabel(plan) {
+    return planLabels[plan] || "플랜 미지정";
+  }
+
+  function assignmentGroups() {
+    const today = localDateKey();
+    return {
+      current: assignments.filter((item) => item.settlement_date >= today),
+      history: assignments.filter((item) => item.settlement_date < today)
+    };
   }
 
   async function initialize() {
@@ -59,7 +80,8 @@
     $("teacherCount").textContent = `${teachers.length}명`;
     $("slotTotalCount").textContent = `${slots.length}개`;
     $("latestUpdate").textContent = latest ? new Date(latest).toLocaleDateString("ko-KR") : "없음";
-    $("assignmentTotalCount").textContent = `${assignments.length}명`;
+    const { current } = assignmentGroups();
+    $("assignmentTotalCount").textContent = `${current.length}명`;
   }
 
   function filteredTeachers() {
@@ -107,7 +129,7 @@
   async function loadAssignments() {
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, teacher_id, student_name, first_lesson_date, settlement_date, created_at, updated_at")
+      .select("id, teacher_id, student_name, plan, first_lesson_date, settlement_date, created_at, updated_at")
       .order("first_lesson_date", { ascending: true })
       .order("student_name", { ascending: true });
 
@@ -131,23 +153,45 @@
 
   function renderAssignmentList() {
     const target = $("adminAssignmentList");
-    $("adminAssignmentCount").textContent = `${assignments.length}건`;
-    if (!assignments.length) {
-      target.innerHTML = '<div class="empty-state">아직 등록된 학생 배정이 없습니다.</div>';
+    const { current, history } = assignmentGroups();
+    $("adminCurrentAssignmentCount").textContent = current.length;
+    $("adminHistoryAssignmentCount").textContent = history.length;
+    $("adminAllAssignmentCount").textContent = assignments.length;
+
+    const source = assignmentFilter === "current" ? current : assignmentFilter === "history" ? history : assignments;
+    const visible = [...source].sort((a, b) => {
+      const direction = assignmentFilter === "history" ? -1 : 1;
+      return direction * a.settlement_date.localeCompare(b.settlement_date) || a.student_name.localeCompare(b.student_name, "ko");
+    });
+
+    $("adminAssignmentCount").textContent = `${visible.length}건`;
+    document.querySelectorAll("[data-assignment-filter]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.assignmentFilter === assignmentFilter);
+    });
+
+    if (!visible.length) {
+      const message = assignmentFilter === "current" ? "현재 관리 중인 학생이 없습니다." : assignmentFilter === "history" ? "아직 학생 기록이 없습니다." : "아직 등록된 학생 배정이 없습니다.";
+      target.innerHTML = `<div class="empty-state">${message}</div>`;
       return;
     }
 
-    target.innerHTML = assignments.map((assignment) => {
+    const today = localDateKey();
+    target.innerHTML = visible.map((assignment) => {
       const teacher = teacherById(assignment.teacher_id);
-      return `<article class="admin-assignment-item">
+      const isHistory = assignment.settlement_date < today;
+      const plan = assignment.plan || "unassigned";
+      return `<article class="admin-assignment-item${isHistory ? " is-history" : ""}">
         <div class="admin-assignment-person">
-          <span class="assignment-student-label">학생</span>
+          <div class="admin-assignment-badges">
+            <span class="plan-badge plan-${escapeHtml(plan)}">${escapeHtml(planLabel(assignment.plan))}</span>
+            <span class="assignment-status-badge ${isHistory ? "completed" : "current"}">${isHistory ? "학생 기록" : "현재 학생"}</span>
+          </div>
           <strong>${escapeHtml(assignment.student_name)}</strong>
           <small>담당: ${escapeHtml(teacher?.full_name || "삭제된 선생님")} ${teacher?.email ? `· ${escapeHtml(teacher.email)}` : ""}</small>
         </div>
         <dl class="admin-assignment-dates">
           <div><dt>첫 수업일</dt><dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd></div>
-          <div><dt>정산 예정일</dt><dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd></div>
+          <div><dt>${isHistory ? "정산일" : "정산 예정일"}</dt><dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd></div>
         </dl>
         <div class="admin-assignment-actions">
           <button class="button secondary small" data-edit-assignment="${escapeHtml(assignment.id)}" type="button">수정</button>
@@ -171,6 +215,7 @@
     editingAssignmentId = id;
     $("assignmentTeacher").value = assignment.teacher_id;
     $("assignmentStudentName").value = assignment.student_name;
+    $("assignmentPlan").value = assignment.plan || "";
     $("assignmentFirstLessonDate").value = assignment.first_lesson_date;
     $("assignmentSettlementDate").value = assignment.settlement_date;
     $("assignmentFormTitle").textContent = "학생 배정 수정";
@@ -185,11 +230,12 @@
     const payload = {
       teacher_id: $("assignmentTeacher").value,
       student_name: $("assignmentStudentName").value.trim(),
+      plan: $("assignmentPlan").value,
       first_lesson_date: $("assignmentFirstLessonDate").value,
       settlement_date: $("assignmentSettlementDate").value
     };
 
-    if (!payload.teacher_id || !payload.student_name || !payload.first_lesson_date || !payload.settlement_date) {
+    if (!payload.teacher_id || !payload.student_name || !payload.plan || !payload.first_lesson_date || !payload.settlement_date) {
       return toast("모든 학생 배정 정보를 입력해주세요.", true);
     }
     if (payload.settlement_date < payload.first_lesson_date) {
@@ -337,6 +383,12 @@
 
   $("assignmentForm").addEventListener("submit", saveAssignment);
   $("assignmentCancelButton").addEventListener("click", resetAssignmentForm);
+  document.querySelectorAll("[data-assignment-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      assignmentFilter = button.dataset.assignmentFilter;
+      renderAssignmentList();
+    });
+  });
   $("adminAssignmentList").addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-edit-assignment]");
     if (editButton) return startAssignmentEdit(editButton.dataset.editAssignment);

@@ -10,15 +10,22 @@
   const scheduleEndMinutes = 24 * 60;
   const scheduleStepMinutes = 30;
   const pageMeta = {
-    dashboard: ["TEACHER HOME", "홈"], schedule: ["WEEKLY AVAILABILITY", "스케줄 제출"],
-    guide: ["FIRST LESSON GUIDE", "첫 수업 가이드"], curriculum: ["CURRICULUM", "커리큘럼"],
-    training: ["TRAINING VIDEOS", "교육 영상"], profile: ["MY PROFILE", "내 정보"]
+    dashboard: ["TEACHER HOME", "홈"], history: ["STUDENT HISTORY", "학생 기록"],
+    schedule: ["WEEKLY AVAILABILITY", "스케줄 제출"], guide: ["FIRST LESSON GUIDE", "첫 수업 가이드"],
+    curriculum: ["CURRICULUM", "커리큘럼"], training: ["TRAINING VIDEOS", "교육 영상"],
+    profile: ["MY PROFILE", "내 정보"]
+  };
+  const planLabels = {
+    economy: "이코노미",
+    standard: "스탠다드",
+    premium: "프리미엄"
   };
 
   let currentUser = null;
   let profile = null;
   let slots = [];
   let assignments = [];
+  let assignmentDateRefreshTimer = null;
   let selectedAvailability = new Set();
   let scheduleMemo = "";
   let gridDragState = null;
@@ -35,6 +42,35 @@
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
     if (!match) return "-";
     return `${Number(match[1])}년 ${Number(match[2])}월 ${Number(match[3])}일`;
+  }
+
+  function localDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function planLabel(plan) {
+    return planLabels[plan] || "플랜 미지정";
+  }
+
+  function assignmentGroups() {
+    const today = localDateKey();
+    return {
+      current: assignments.filter((item) => item.settlement_date >= today),
+      history: assignments.filter((item) => item.settlement_date < today)
+    };
+  }
+
+  function scheduleAssignmentDateRefresh() {
+    if (assignmentDateRefreshTimer) clearTimeout(assignmentDateRefreshTimer);
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 2);
+    assignmentDateRefreshTimer = window.setTimeout(() => {
+      renderAssignments();
+      scheduleAssignmentDateRefresh();
+    }, Math.max(1000, nextMidnight.getTime() - now.getTime()));
   }
 
   function showToast(message, type = "success") {
@@ -164,6 +200,8 @@
     profile = null;
     slots = [];
     assignments = [];
+    if (assignmentDateRefreshTimer) clearTimeout(assignmentDateRefreshTimer);
+    assignmentDateRefreshTimer = null;
     selectedAvailability = new Set();
     scheduleMemo = "";
     onboardingRequired = false;
@@ -181,7 +219,9 @@
     $("resourceGrid").innerHTML = "";
     $("announcementList").innerHTML = "";
     $("assignmentList").innerHTML = "";
+    $("historyAssignmentList").innerHTML = "";
     $("assignmentCount").textContent = "0명";
+    $("historyAssignmentCount").textContent = "0명";
 
     // hashchange를 다시 발생시키지 않고 로그인 주소로 정리합니다.
     history.replaceState(null, "", `${location.pathname}${location.search}`);
@@ -337,41 +377,31 @@
   async function loadAssignments() {
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, student_name, first_lesson_date, settlement_date")
+      .select("id, student_name, plan, first_lesson_date, settlement_date")
       .eq("teacher_id", currentUser.id)
-      .order("first_lesson_date", { ascending: true })
+      .order("settlement_date", { ascending: true })
       .order("student_name", { ascending: true });
 
     if (error) {
       console.error("Assignment lookup failed:", error);
       assignments = [];
-      renderAssignments("배정 학생 정보를 불러오지 못했습니다. 운영팀에 문의해주세요.");
+      renderAssignments("학생 정보를 불러오지 못했습니다. 운영팀에 문의해주세요.");
       return;
     }
 
     assignments = data || [];
     renderAssignments();
+    scheduleAssignmentDateRefresh();
   }
 
-  function renderAssignments(errorMessage = "") {
-    const target = $("assignmentList");
-    $("assignmentCount").textContent = `${assignments.length}명`;
-
-    if (errorMessage) {
-      target.className = "assignment-list assignment-empty";
-      target.innerHTML = `<div class="empty-state">${escapeHtml(errorMessage)}</div>`;
-      return;
-    }
-
-    if (!assignments.length) {
-      target.className = "assignment-list assignment-empty";
-      target.innerHTML = '<div class="empty-state">현재 배정된 학생이 없습니다.</div>';
-      return;
-    }
-
-    target.className = "assignment-list";
-    target.innerHTML = assignments.map((assignment) => `
-      <article class="assignment-card">
+  function assignmentCard(assignment, isHistory = false) {
+    const plan = assignment.plan || "unassigned";
+    return `
+      <article class="assignment-card${isHistory ? " assignment-card-history" : ""}">
+        <div class="assignment-card-topline">
+          <span class="plan-badge plan-${escapeHtml(plan)}">${escapeHtml(planLabel(assignment.plan))}</span>
+          ${isHistory ? '<span class="assignment-status-badge completed">정산 완료</span>' : '<span class="assignment-status-badge current">현재 학생</span>'}
+        </div>
         <div class="assignment-student-name">
           <span>학생 이름</span>
           <strong>${escapeHtml(assignment.student_name)}</strong>
@@ -382,11 +412,45 @@
             <dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd>
           </div>
           <div class="settlement-date-row">
-            <dt>첫 달 수업료 정산 예정일</dt>
+            <dt>${isHistory ? "첫 달 수업료 정산일" : "첫 달 수업료 정산 예정일"}</dt>
             <dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd>
           </div>
         </dl>
-      </article>`).join("");
+      </article>`;
+  }
+
+  function renderAssignmentGroup(targetId, items, emptyMessage, isHistory = false) {
+    const target = $(targetId);
+    if (!items.length) {
+      target.className = `assignment-list${isHistory ? " assignment-history-list" : ""} assignment-empty`;
+      target.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
+      return;
+    }
+    target.className = `assignment-list${isHistory ? " assignment-history-list" : ""}`;
+    target.innerHTML = items.map((assignment) => assignmentCard(assignment, isHistory)).join("");
+  }
+
+  function renderAssignments(errorMessage = "") {
+    const currentTarget = $("assignmentList");
+    const historyTarget = $("historyAssignmentList");
+
+    if (errorMessage) {
+      $("assignmentCount").textContent = "0명";
+      $("historyAssignmentCount").textContent = "0명";
+      currentTarget.className = "assignment-list assignment-empty";
+      historyTarget.className = "assignment-list assignment-history-list assignment-empty";
+      currentTarget.innerHTML = `<div class="empty-state">${escapeHtml(errorMessage)}</div>`;
+      historyTarget.innerHTML = `<div class="empty-state">${escapeHtml(errorMessage)}</div>`;
+      return;
+    }
+
+    const { current, history } = assignmentGroups();
+    current.sort((a, b) => a.settlement_date.localeCompare(b.settlement_date) || a.student_name.localeCompare(b.student_name, "ko"));
+    history.sort((a, b) => b.settlement_date.localeCompare(a.settlement_date) || a.student_name.localeCompare(b.student_name, "ko"));
+    $("assignmentCount").textContent = `${current.length}명`;
+    $("historyAssignmentCount").textContent = `${history.length}명`;
+    renderAssignmentGroup("assignmentList", current, "현재 나도에서 관리 중인 학생이 없습니다.");
+    renderAssignmentGroup("historyAssignmentList", history, "아직 지난 학생 기록이 없습니다.", true);
   }
 
   const profileFieldIds = {
@@ -968,6 +1032,9 @@
     $("sidebarOpen").addEventListener("click", openSidebar);
     $("sidebarClose").addEventListener("click", () => closeSidebar({ restoreFocus: true }));
     $("sidebarBackdrop").addEventListener("click", () => closeSidebar({ restoreFocus: true }));
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && currentUser) renderAssignments();
+    });
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && $("sidebar").classList.contains("open")) {
         closeSidebar({ restoreFocus: true });

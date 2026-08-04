@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="NADO Teachers" />
   <title>나도 Teachers 관리자</title>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260801-assignments1" />
+  <link rel="stylesheet" href="css/style.css?v=20260804-planhistory1" />
 </head>
 <body class="admin-body">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -38,7 +38,7 @@
       <article class="stat-panel"><span>등록 선생님</span><strong id="teacherCount">-</strong></article>
       <article class="stat-panel"><span>제출 시간대</span><strong id="slotTotalCount">-</strong></article>
       <article class="stat-panel"><span>최근 업데이트</span><strong id="latestUpdate">-</strong></article>
-      <article class="stat-panel"><span>배정 학생</span><strong id="assignmentTotalCount">-</strong></article>
+      <article class="stat-panel"><span>현재 학생</span><strong id="assignmentTotalCount">-</strong></article>
     </section>
 
     <section class="admin-assignment-section">
@@ -46,7 +46,7 @@
         <div>
           <p class="section-kicker">STUDENT ASSIGNMENT</p>
           <h2>학생 배정 및 정산 관리</h2>
-          <p>담당 선생님, 학생 이름, 첫 수업일, 첫 달 수업료 정산 예정일을 등록하세요.</p>
+          <p>담당 선생님, 학생 플랜, 첫 수업일과 첫 달 수업료 정산 예정일을 등록하세요.</p>
         </div>
       </div>
 
@@ -61,6 +61,14 @@
             </label>
             <label>학생 이름
               <input id="assignmentStudentName" type="text" maxlength="100" placeholder="학생 이름 입력" required />
+            </label>
+            <label>학생 플랜
+              <select id="assignmentPlan" required>
+                <option value="">플랜을 선택해주세요</option>
+                <option value="economy">이코노미</option>
+                <option value="standard">스탠다드</option>
+                <option value="premium">프리미엄</option>
+              </select>
             </label>
             <div class="assignment-date-fields">
               <label>첫 수업일
@@ -81,10 +89,16 @@
           <div class="panel-head">
             <div>
               <p class="section-kicker">ASSIGNMENT LIST</p>
-              <h3>등록된 배정</h3>
+              <h3>학생 관리 목록</h3>
             </div>
             <span id="adminAssignmentCount" class="count-badge">0건</span>
           </div>
+          <div class="assignment-filter-tabs" role="tablist" aria-label="학생 상태 필터">
+            <button class="assignment-filter-tab active" data-assignment-filter="current" type="button">현재 학생 <span id="adminCurrentAssignmentCount">0</span></button>
+            <button class="assignment-filter-tab" data-assignment-filter="history" type="button">학생 기록 <span id="adminHistoryAssignmentCount">0</span></button>
+            <button class="assignment-filter-tab" data-assignment-filter="all" type="button">전체 <span id="adminAllAssignmentCount">0</span></button>
+          </div>
+          <p class="assignment-manager-note">정산 예정일 당일까지 현재 학생으로 표시되며, 다음 날 학생 기록으로 자동 분류됩니다.</p>
           <div id="adminAssignmentList" class="admin-assignment-list">
             <div class="skeleton assignment-skeleton"></div>
           </div>
@@ -169,6 +183,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/admin.js?v=20260801-assignments1"></script>
+  <script src="js/admin.js?v=20260804-planhistory1"></script>
 </body>
 </html>

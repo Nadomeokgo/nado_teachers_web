@@ -9,6 +9,7 @@ create table if not exists public.student_assignments (
   id uuid primary key default gen_random_uuid(),
   teacher_id uuid not null references public.profiles(id) on delete cascade,
   student_name text not null check (char_length(btrim(student_name)) between 1 and 100),
+  plan text check (plan in ('economy', 'standard', 'premium')),
   first_lesson_date date not null,
   settlement_date date not null,
   created_at timestamptz not null default now(),
@@ -16,11 +17,24 @@ create table if not exists public.student_assignments (
   constraint student_assignments_valid_dates check (settlement_date >= first_lesson_date)
 );
 
+alter table public.student_assignments
+  add column if not exists plan text;
+
+alter table public.student_assignments
+  drop constraint if exists student_assignments_plan_check;
+
+alter table public.student_assignments
+  add constraint student_assignments_plan_check
+  check (plan is null or plan in ('economy', 'standard', 'premium'));
+
 create index if not exists student_assignments_teacher_idx
 on public.student_assignments(teacher_id);
 
 create index if not exists student_assignments_first_lesson_idx
 on public.student_assignments(first_lesson_date);
+
+create index if not exists student_assignments_settlement_idx
+on public.student_assignments(settlement_date);
 
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$

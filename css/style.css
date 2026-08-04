@@ -612,3 +612,39 @@ input[type="time"], input[type="date"], input[type="datetime-local"] {
   .announcement-featured-meta { align-items: flex-start; }
   .announcement-item { grid-template-columns: minmax(0, 1fr); gap: 5px; }
 }
+
+
+/* Plan labels and automatic current/history student views */
+.assignment-overview-copy { margin: 6px 0 0; color: var(--gray); font-size: .78rem; line-height: 1.5; }
+.assignment-head-actions { display: flex; align-items: center; gap: 12px; }
+.assignment-card-topline, .admin-assignment-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 12px; }
+.plan-badge, .assignment-status-badge { display: inline-flex; align-items: center; width: fit-content; padding: 5px 9px; border-radius: 999px; font-size: .66rem; font-weight: 900; line-height: 1; }
+.plan-badge { color: #425466; background: #eef2f6; }
+.plan-economy { color: #276749; background: #e6f7ee; }
+.plan-standard { color: #245f9e; background: #e8f3ff; }
+.plan-premium { color: #7b4b00; background: #fff2cf; }
+.plan-unassigned { color: #667085; background: #f0f2f5; }
+.assignment-status-badge.current { color: #17663a; background: #e7f8ee; }
+.assignment-status-badge.completed { color: #5f6873; background: #eceff2; }
+.assignment-card-history { border-color: #e3e7eb; background: linear-gradient(145deg, #fbfcfd, #f2f4f6); }
+.assignment-card-history .settlement-date-row { background: #f9fafb; }
+.assignment-history-panel { padding: 24px; }
+.assignment-history-list { margin-top: 18px; }
+.history-auto-note { margin-top: 16px; padding: 13px 15px; border: 1px solid #dfe7ee; border-radius: 13px; background: #f7f9fb; }
+.history-auto-note strong { color: var(--navy); font-size: .78rem; }
+.history-auto-note p { margin: 5px 0 0; color: var(--gray); font-size: .75rem; line-height: 1.55; }
+.assignment-filter-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
+.assignment-filter-tab { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #dce4eb; border-radius: 999px; padding: 8px 12px; color: var(--gray); background: white; font-size: .74rem; font-weight: 850; cursor: pointer; }
+.assignment-filter-tab span { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; color: inherit; background: #f0f3f6; font-size: .68rem; }
+.assignment-filter-tab:hover, .assignment-filter-tab.active { color: var(--accent-deep); border-color: #b8d4f2; background: #f2f8ff; }
+.assignment-filter-tab.active span { background: #dceeff; }
+.assignment-manager-note { margin: 10px 0 0; color: var(--gray); font-size: .72rem; line-height: 1.5; }
+.admin-assignment-item.is-history { background: #f7f8fa; }
+
+@media (max-width: 620px) {
+  .assignment-overview-head { align-items: flex-start; flex-direction: column; }
+  .assignment-head-actions { width: 100%; justify-content: space-between; }
+  .assignment-history-panel { padding: 19px; }
+  .assignment-filter-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .assignment-filter-tab { justify-content: center; padding-inline: 8px; }
+}
