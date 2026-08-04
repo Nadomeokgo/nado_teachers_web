@@ -987,23 +987,37 @@
     }).join("");
   }
 
-  function loadGuideChecks() {
+function loadGuideChecks() {
     try { return JSON.parse(localStorage.getItem(`nado-guide-${currentUser?.id || "guest"}`) || "{}"); } catch { return {}; }
+  }
+  function loadSubGuideChecks() {
+    try { return JSON.parse(localStorage.getItem(`nado-subguide-${currentUser?.id || "guest"}`) || "{}"); } catch { return {}; }
   }
   function renderGuideProgress() {
     const checks = loadGuideChecks();
-    document.querySelectorAll("[data-guide]").forEach((input) => { input.checked = Boolean(checks[input.dataset.guide]); });
-    const total = document.querySelectorAll("[data-guide]").length;
-    const completed = Object.values(checks).filter(Boolean).length;
+    const guideInputs = document.querySelectorAll("[data-guide]");
+    guideInputs.forEach((input) => { input.checked = Boolean(checks[input.dataset.guide]); });
+    const total = guideInputs.length;
+    const completed = [...guideInputs].filter((input) => input.checked).length;
     $("guideProgressText").textContent = `${completed} / ${total} 완료`;
     $("guideProgressBar").style.width = `${(completed / total) * 100}%`;
+
+    const subChecks = loadSubGuideChecks();
+    document.querySelectorAll("[data-subguide]").forEach((input) => { input.checked = Boolean(subChecks[input.dataset.subguide]); });
   }
   function saveGuideCheck(event) {
-    if (!event.target.matches("[data-guide]")) return;
-    const checks = loadGuideChecks();
-    checks[event.target.dataset.guide] = event.target.checked;
-    localStorage.setItem(`nado-guide-${currentUser?.id || "guest"}`, JSON.stringify(checks));
-    renderGuideProgress();
+    if (event.target.matches("[data-guide]")) {
+      const checks = loadGuideChecks();
+      checks[event.target.dataset.guide] = event.target.checked;
+      localStorage.setItem(`nado-guide-${currentUser?.id || "guest"}`, JSON.stringify(checks));
+      renderGuideProgress();
+      return;
+    }
+    if (event.target.matches("[data-subguide]")) {
+      const subChecks = loadSubGuideChecks();
+      subChecks[event.target.dataset.subguide] = event.target.checked;
+      localStorage.setItem(`nado-subguide-${currentUser?.id || "guest"}`, JSON.stringify(subChecks));
+    }
   }
 
   function bindEvents() {
