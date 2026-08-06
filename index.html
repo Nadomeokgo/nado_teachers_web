@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260804-bilingual-fixed2" />
+  <link rel="stylesheet" href="css/style.css?v=20260806-language-header1" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -35,6 +35,9 @@
     </section>
 
     <section class="auth-panel">
+      <div class="auth-language-row">
+        <div class="language-slot" data-nado-language-slot></div>
+      </div>
       <div class="auth-card">
         <p class="section-kicker">TEACHER LOGIN</p>
         <h2>선생님 로그인</h2>
@@ -78,7 +81,10 @@
             <h2 id="onboardingTitle">필수 프로필 작성</h2>
             <p>모든 항목을 입력해야 나도 Teachers를 이용할 수 있습니다.</p>
           </div>
-          <span class="required-note"><b>*</b> 필수 입력</span>
+          <div class="onboarding-head-actions">
+            <div class="language-slot" data-nado-language-slot></div>
+            <span class="required-note"><b>*</b> 필수 입력</span>
+          </div>
         </div>
 
         <form id="onboardingForm" class="profile-form onboarding-form">
@@ -165,11 +171,14 @@
             <h1 id="pageTitle">홈</h1>
           </div>
         </div>
-        <div class="user-chip">
-          <div class="user-avatar" id="userAvatar">T</div>
-          <div>
-            <strong id="userName">선생님</strong>
-            <span id="userEmail">-</span>
+        <div class="topbar-actions">
+          <div class="language-slot" data-nado-language-slot></div>
+          <div class="user-chip">
+            <div class="user-avatar" id="userAvatar">T</div>
+            <div>
+              <strong id="userName">선생님</strong>
+              <span id="userEmail">-</span>
+            </div>
           </div>
         </div>
       </header>
@@ -525,7 +534,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/i18n.js?v=20260804-fixed2"></script>
+  <script src="js/i18n.js?v=20260806-language-header1"></script>
   <script src="js/app.js?v=20260804-planhistory1"></script>
 </body>
 </html>

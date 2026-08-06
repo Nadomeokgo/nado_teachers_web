@@ -467,10 +467,11 @@
     observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRIBUTES });
   }
 
-  function createToggle() {
-    if (document.getElementById("nadoLanguageToggle")) return;
+  function buildToggle(slot, index) {
+    if (slot.querySelector(".nado-language-toggle")) return;
+
     const wrapper = document.createElement("div");
-    wrapper.id = "nadoLanguageToggle";
+    wrapper.id = `nadoLanguageToggle-${index + 1}`;
     wrapper.className = "nado-language-toggle";
     wrapper.setAttribute("role", "group");
     wrapper.setAttribute("aria-label", "언어 선택");
@@ -481,18 +482,33 @@
       const button = event.target.closest("[data-nado-language]");
       if (button) setLanguage(button.dataset.nadoLanguage);
     });
-    document.body.appendChild(wrapper);
+    slot.appendChild(wrapper);
+  }
+
+  function createToggle() {
+    let slots = Array.from(document.querySelectorAll("[data-nado-language-slot]"));
+
+    // Older pages without an explicit slot still receive a non-floating fallback.
+    if (!slots.length) {
+      const fallback = document.createElement("div");
+      fallback.className = "language-slot language-slot-fallback";
+      fallback.setAttribute("data-nado-language-slot", "");
+      document.body.prepend(fallback);
+      slots = [fallback];
+    }
+
+    slots.forEach(buildToggle);
   }
 
   function updateToggle() {
-    const toggle = document.getElementById("nadoLanguageToggle");
-    if (!toggle) return;
-    toggle.querySelectorAll("[data-nado-language]").forEach((button) => {
-      const active = button.dataset.nadoLanguage === currentLanguage;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", String(active));
+    document.querySelectorAll(".nado-language-toggle").forEach((toggle) => {
+      toggle.querySelectorAll("[data-nado-language]").forEach((button) => {
+        const active = button.dataset.nadoLanguage === currentLanguage;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      toggle.setAttribute("aria-label", currentLanguage === "en" ? "Select language" : "언어 선택");
     });
-    toggle.setAttribute("aria-label", currentLanguage === "en" ? "Select language" : "언어 선택");
   }
 
   function setLanguage(language) {
