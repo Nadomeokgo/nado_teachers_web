@@ -16,6 +16,7 @@ create table if not exists public.profiles (
   bank_name text,
   account_number text,
   bio text,
+  profile_photo_path text,
   profile_completed_at timestamptz,
   role text not null default 'teacher' check (role in ('teacher', 'admin')),
   created_at timestamptz not null default now(),
@@ -24,6 +25,8 @@ create table if not exists public.profiles (
 
 alter table public.profiles
   add column if not exists profile_completed_at timestamptz;
+alter table public.profiles
+  add column if not exists profile_photo_path text;
 
 -- 프로필 완료 시 모든 필수 정보가 입력되어 있어야 함
 alter table public.profiles
@@ -163,6 +166,36 @@ $$;
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
 
+-- 프로필 사진용 비공개 Storage 버킷
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('profile-photos', 'profile-photos', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "profile_photos_select_own_or_admin" on storage.objects;
+drop policy if exists "profile_photos_insert_own" on storage.objects;
+drop policy if exists "profile_photos_update_own" on storage.objects;
+drop policy if exists "profile_photos_delete_own" on storage.objects;
+
+create policy "profile_photos_select_own_or_admin" on storage.objects
+for select to authenticated
+using (bucket_id = 'profile-photos' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+
+create policy "profile_photos_insert_own" on storage.objects
+for insert to authenticated
+with check (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "profile_photos_update_own" on storage.objects
+for update to authenticated
+using (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text)
+with check (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "profile_photos_delete_own" on storage.objects
+for delete to authenticated
+using (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
 -- RLS 활성화
 alter table public.profiles enable row level security;
 alter table public.availability enable row level security;
@@ -206,7 +239,7 @@ with check (id = auth.uid() or public.is_admin());
 
 -- 일반 authenticated 사용자는 role 컬럼을 직접 수정하지 못함
 revoke update on public.profiles from authenticated;
-grant update (email, full_name, school, major, phone, bank_name, account_number, bio, profile_completed_at, updated_at) on public.profiles to authenticated;
+grant update (email, full_name, school, major, phone, bank_name, account_number, bio, profile_photo_path, profile_completed_at, updated_at) on public.profiles to authenticated;
 grant select, insert on public.profiles to authenticated;
 
 -- availability: 선생님은 자신의 행만, 관리자는 전체

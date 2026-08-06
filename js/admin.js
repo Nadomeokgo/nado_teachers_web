@@ -3,6 +3,8 @@
   const config = window.NADO_CONFIG || {};
   const configured = config.SUPABASE_URL && config.SUPABASE_ANON_KEY && !config.SUPABASE_URL.includes("YOUR_PROJECT_ID");
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
+  const PROFILE_PHOTO_BUCKET = "profile-photos";
+  const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
   let teachers = [];
@@ -13,6 +15,25 @@
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+
+  async function signedProfilePhotoUrl(photoPath) {
+    if (!photoPath) return "";
+    const { data, error } = await supabase.storage
+      .from(PROFILE_PHOTO_BUCKET)
+      .createSignedUrl(photoPath, PROFILE_PHOTO_SIGNED_URL_SECONDS);
+    if (error) {
+      console.warn("Admin profile photo signed URL failed:", error);
+      return "";
+    }
+    return data?.signedUrl || "";
+  }
+
+  async function hydrateTeacherPhotos() {
+    await Promise.all(teachers.map(async (teacher) => {
+      teacher.profile_photo_url = await signedProfilePhotoUrl(teacher.profile_photo_path);
+    }));
+  }
+
   function toast(message, error = false) { const el = $("toast"); el.textContent = message; el.className = `toast show${error ? " error" : ""}`; setTimeout(() => el.className = "toast", 2600); }
 
   function formatKoreanDate(value) {
@@ -52,11 +73,12 @@
   async function loadData() {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, school, major, phone, bio, bank_name, account_number, availability(id, day_of_week, start_time, end_time, location, memo, updated_at)")
+      .select("id, full_name, email, school, major, phone, bio, bank_name, account_number, profile_photo_path, availability(id, day_of_week, start_time, end_time, location, memo, updated_at)")
       .neq("role", "admin")
       .order("full_name");
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
     teachers = data || [];
+    await hydrateTeacherPhotos();
     populateTeacherOptions();
     updateStats();
     render();
@@ -110,7 +132,9 @@
       return `<article class="panel teacher-admin-card">
         <div class="teacher-admin-head">
           <div class="teacher-admin-profile">
-            <span class="teacher-admin-avatar">${escapeHtml((teacher.full_name || "T").slice(0,1))}</span>
+            <span class="teacher-admin-avatar">${teacher.profile_photo_url
+              ? `<img src="${escapeHtml(teacher.profile_photo_url)}" alt="${escapeHtml(teacher.full_name || "선생님")} 프로필 사진" loading="lazy" />`
+              : `<b>${escapeHtml((teacher.full_name || "T").slice(0,1).toUpperCase())}</b>`}</span>
             <div><strong>${escapeHtml(teacher.full_name || "이름 미입력")}</strong><span>${escapeHtml(teacher.email || "")} · ${escapeHtml(teacher.school || "학교 미입력")} ${teacher.major ? `· ${escapeHtml(teacher.major)}` : ""}</span></div>
           </div>
           <span class="updated-at">${latest ? `업데이트 ${new Date(latest).toLocaleString("ko-KR")}` : "미제출"}</span>

@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260806-language-header1" />
+  <link rel="stylesheet" href="css/style.css?v=20260806-profile-photo1" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -88,6 +88,25 @@
         </div>
 
         <form id="onboardingForm" class="profile-form onboarding-form">
+          <div class="profile-photo-field full-field">
+            <div class="profile-photo-preview" aria-hidden="true">
+              <img id="onboardingPhotoImage" alt="프로필 사진 미리보기" hidden />
+              <span id="onboardingPhotoFallback">T</span>
+            </div>
+            <div class="profile-photo-copy">
+              <div class="profile-photo-title-row">
+                <strong>프로필 사진</strong>
+                <span class="optional-badge">선택</span>
+              </div>
+              <p>본인을 확인할 수 있는 사진을 등록해주세요. JPG, PNG, WEBP 형식으로 최대 5MB까지 업로드할 수 있습니다.</p>
+              <div class="profile-photo-actions">
+                <label class="button ghost small file-button" for="onboardingPhotoInput">사진 선택</label>
+                <button id="onboardingPhotoClearButton" class="button ghost small" type="button" disabled>선택 취소</button>
+              </div>
+              <input id="onboardingPhotoInput" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" />
+              <span id="onboardingPhotoStatus" class="profile-photo-status">등록된 사진이 없습니다.</span>
+            </div>
+          </div>
           <label>
             <span class="field-label">이름 <b class="required-mark">*</b></span>
             <input id="onboardingName" type="text" maxlength="50" autocomplete="name" required />
@@ -174,7 +193,10 @@
         <div class="topbar-actions">
           <div class="language-slot" data-nado-language-slot></div>
           <div class="user-chip">
-            <div class="user-avatar" id="userAvatar">T</div>
+            <div class="user-avatar" id="userAvatar">
+              <img id="userAvatarImage" alt="선생님 프로필 사진" hidden />
+              <span id="userAvatarFallback">T</span>
+            </div>
             <div>
               <strong id="userName">선생님</strong>
               <span id="userEmail">-</span>
@@ -492,6 +514,26 @@
               <span class="required-note"><b>*</b> 필수 입력</span>
             </div>
             <form id="profileForm" class="profile-form">
+              <div class="profile-photo-field full-field">
+                <div class="profile-photo-preview">
+                  <img id="profilePhotoImage" alt="프로필 사진 미리보기" hidden />
+                  <span id="profilePhotoFallback">T</span>
+                </div>
+                <div class="profile-photo-copy">
+                  <div class="profile-photo-title-row">
+                    <strong>프로필 사진</strong>
+                    <span class="optional-badge">선택</span>
+                  </div>
+                  <p>등록한 사진은 내 화면과 관리자 선생님 정보 카드에 표시됩니다. JPG, PNG, WEBP / 최대 5MB</p>
+                  <div class="profile-photo-actions">
+                    <label class="button ghost small file-button" for="profilePhotoInput">사진 선택</label>
+                    <button id="profilePhotoUploadButton" class="button secondary small" type="button" disabled>사진 업로드</button>
+                    <button id="profilePhotoRemoveButton" class="button ghost small danger-text" type="button" disabled>사진 삭제</button>
+                  </div>
+                  <input id="profilePhotoInput" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" />
+                  <span id="profilePhotoStatus" class="profile-photo-status">등록된 사진이 없습니다.</span>
+                </div>
+              </div>
               <label>
                 <span class="field-label">이름 <b class="required-mark">*</b></span>
                 <input id="profileName" type="text" maxlength="50" autocomplete="name" required />
@@ -534,7 +576,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/i18n.js?v=20260806-language-header1"></script>
-  <script src="js/app.js?v=20260804-planhistory1"></script>
+  <script src="js/i18n.js?v=20260806-profile-photo1"></script>
+  <script src="js/app.js?v=20260806-profile-photo1"></script>
 </body>
 </html>

@@ -4,6 +4,10 @@
   const config = window.NADO_CONFIG || {};
   const configured = config.SUPABASE_URL && config.SUPABASE_ANON_KEY && !config.SUPABASE_URL.includes("YOUR_PROJECT_ID");
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
+  const PROFILE_PHOTO_BUCKET = "profile-photos";
+  const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+  const PROFILE_PHOTO_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+  const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   const scheduleDayOrder = [1, 2, 3, 4, 5, 6, 0];
   const scheduleStartMinutes = 8 * 60;
@@ -34,9 +38,213 @@
   let loginInProgress = false;
   let onboardingRequired = false;
   let dashboardInitialized = false;
+  let pendingProfilePhotoFile = null;
+  let pendingOnboardingPhotoFile = null;
+  let profilePhotoPreviewObjectUrl = "";
+  let onboardingPhotoPreviewObjectUrl = "";
+  let currentProfilePhotoSignedUrl = "";
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+
+  function profileInitial(name = "") {
+    return String(name || "선생님").trim().slice(0, 1).toUpperCase() || "T";
+  }
+
+  function photoElements(scope) {
+    const prefix = scope === "onboarding" ? "onboarding" : "profile";
+    return {
+      image: $(`${prefix}PhotoImage`),
+      fallback: $(`${prefix}PhotoFallback`),
+      input: $(`${prefix}PhotoInput`),
+      status: $(`${prefix}PhotoStatus`),
+      clear: scope === "onboarding" ? $("onboardingPhotoClearButton") : null,
+      upload: scope === "profile" ? $("profilePhotoUploadButton") : null,
+      remove: scope === "profile" ? $("profilePhotoRemoveButton") : null
+    };
+  }
+
+  function revokePreviewUrl(scope) {
+    const key = scope === "onboarding" ? "onboardingPhotoPreviewObjectUrl" : "profilePhotoPreviewObjectUrl";
+    const value = scope === "onboarding" ? onboardingPhotoPreviewObjectUrl : profilePhotoPreviewObjectUrl;
+    if (value) URL.revokeObjectURL(value);
+    if (key === "onboardingPhotoPreviewObjectUrl") onboardingPhotoPreviewObjectUrl = "";
+    else profilePhotoPreviewObjectUrl = "";
+  }
+
+  function renderPhotoPreview(scope, url = "") {
+    const elements = photoElements(scope);
+    if (!elements.image || !elements.fallback) return;
+    elements.fallback.textContent = profileInitial(profile?.full_name || currentUser?.user_metadata?.full_name);
+    if (url) {
+      elements.image.src = url;
+      elements.image.hidden = false;
+      elements.fallback.hidden = true;
+    } else {
+      elements.image.removeAttribute("src");
+      elements.image.hidden = true;
+      elements.fallback.hidden = false;
+    }
+  }
+
+  function updateTopbarPhoto(url = "") {
+    const image = $("userAvatarImage");
+    const fallback = $("userAvatarFallback");
+    if (!image || !fallback) return;
+    fallback.textContent = profileInitial(profile?.full_name);
+    if (url) {
+      image.src = url;
+      image.hidden = false;
+      fallback.hidden = true;
+    } else {
+      image.removeAttribute("src");
+      image.hidden = true;
+      fallback.hidden = false;
+    }
+  }
+
+  function setPhotoStatus(scope, message) {
+    const status = photoElements(scope).status;
+    if (status) status.textContent = message;
+  }
+
+  async function createProfilePhotoSignedUrl(photoPath) {
+    if (!photoPath) return "";
+    const { data, error } = await supabase.storage
+      .from(PROFILE_PHOTO_BUCKET)
+      .createSignedUrl(photoPath, PROFILE_PHOTO_SIGNED_URL_SECONDS);
+    if (error) {
+      console.warn("Profile photo signed URL failed:", error);
+      return "";
+    }
+    return data?.signedUrl || "";
+  }
+
+  async function refreshProfilePhoto() {
+    currentProfilePhotoSignedUrl = await createProfilePhotoSignedUrl(profile?.profile_photo_path);
+    updateTopbarPhoto(currentProfilePhotoSignedUrl);
+    renderPhotoPreview("profile", currentProfilePhotoSignedUrl);
+    renderPhotoPreview("onboarding", currentProfilePhotoSignedUrl);
+    setPhotoStatus("profile", profile?.profile_photo_path ? "현재 프로필 사진이 등록되어 있습니다." : "등록된 사진이 없습니다.");
+    setPhotoStatus("onboarding", profile?.profile_photo_path ? "현재 프로필 사진이 등록되어 있습니다." : "등록된 사진이 없습니다.");
+    const profileElements = photoElements("profile");
+    if (profileElements.remove) profileElements.remove.disabled = !profile?.profile_photo_path;
+  }
+
+  function validateProfilePhotoFile(file) {
+    if (!file) return false;
+    if (!PROFILE_PHOTO_EXTENSIONS[file.type]) {
+      showToast("JPG, PNG 또는 WEBP 사진만 업로드할 수 있습니다.", "error");
+      return false;
+    }
+    if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+      showToast("프로필 사진은 5MB 이하만 업로드할 수 있습니다.", "error");
+      return false;
+    }
+    return true;
+  }
+
+  function selectProfilePhoto(scope, file) {
+    if (!validateProfilePhotoFile(file)) {
+      const input = photoElements(scope).input;
+      if (input) input.value = "";
+      return;
+    }
+    revokePreviewUrl(scope);
+    const objectUrl = URL.createObjectURL(file);
+    if (scope === "onboarding") {
+      pendingOnboardingPhotoFile = file;
+      onboardingPhotoPreviewObjectUrl = objectUrl;
+    } else {
+      pendingProfilePhotoFile = file;
+      profilePhotoPreviewObjectUrl = objectUrl;
+    }
+    renderPhotoPreview(scope, objectUrl);
+    setPhotoStatus(scope, "선택한 사진을 확인해주세요.");
+    const elements = photoElements(scope);
+    if (elements.clear) elements.clear.disabled = false;
+    if (elements.upload) elements.upload.disabled = false;
+  }
+
+  function clearSelectedProfilePhoto(scope) {
+    revokePreviewUrl(scope);
+    if (scope === "onboarding") pendingOnboardingPhotoFile = null;
+    else pendingProfilePhotoFile = null;
+    const elements = photoElements(scope);
+    if (elements.input) elements.input.value = "";
+    if (elements.clear) elements.clear.disabled = true;
+    if (elements.upload) elements.upload.disabled = true;
+    renderPhotoPreview(scope, currentProfilePhotoSignedUrl);
+    setPhotoStatus(scope, profile?.profile_photo_path ? "현재 프로필 사진이 등록되어 있습니다." : "등록된 사진이 없습니다.");
+  }
+
+  async function uploadProfilePhotoFile(file) {
+    if (!validateProfilePhotoFile(file)) throw new Error("Invalid profile photo file");
+    const extension = PROFILE_PHOTO_EXTENSIONS[file.type];
+    const newPath = `${currentUser.id}/profile-${Date.now()}.${extension}`;
+    const previousPath = profile?.profile_photo_path || "";
+    const { error: uploadError } = await supabase.storage
+      .from(PROFILE_PHOTO_BUCKET)
+      .upload(newPath, file, { cacheControl: "3600", contentType: file.type, upsert: false });
+    if (uploadError) throw uploadError;
+
+    try {
+      const savedProfile = await persistProfile({ profile_photo_path: newPath, updated_at: new Date().toISOString() });
+      profile = { ...profile, ...savedProfile, profile_photo_path: newPath };
+    } catch (error) {
+      await supabase.storage.from(PROFILE_PHOTO_BUCKET).remove([newPath]);
+      throw error;
+    }
+
+    if (previousPath && previousPath !== newPath) {
+      const { error: removeError } = await supabase.storage.from(PROFILE_PHOTO_BUCKET).remove([previousPath]);
+      if (removeError) console.warn("Old profile photo cleanup failed:", removeError);
+    }
+    await refreshProfilePhoto();
+    return newPath;
+  }
+
+  async function uploadSelectedProfilePhoto() {
+    if (!pendingProfilePhotoFile) return showToast("먼저 업로드할 사진을 선택해주세요.", "error");
+    const button = $("profilePhotoUploadButton");
+    setLoading(button, true, "사진 업로드");
+    try {
+      await uploadProfilePhotoFile(pendingProfilePhotoFile);
+      clearSelectedProfilePhoto("profile");
+      showToast("프로필 사진이 저장되었습니다.");
+    } catch (error) {
+      console.error("Profile photo upload failed:", error);
+      const setupMissing = /bucket|profile_photo_path|row-level security|policy/i.test(error?.message || "");
+      showToast(setupMissing ? "프로필 사진용 Supabase 설정이 필요합니다." : "사진 업로드에 실패했습니다: " + (error?.message || "알 수 없는 오류"), "error");
+    } finally {
+      setLoading(button, false, "사진 업로드");
+    }
+  }
+
+  async function removeProfilePhoto() {
+    if (!profile?.profile_photo_path) return;
+    if (!window.confirm("등록된 프로필 사진을 삭제할까요?")) return;
+    const button = $("profilePhotoRemoveButton");
+    setLoading(button, true, "사진 삭제");
+    const previousPath = profile.profile_photo_path;
+    try {
+      const savedProfile = await persistProfile({ profile_photo_path: null, updated_at: new Date().toISOString() });
+      profile = { ...profile, ...savedProfile, profile_photo_path: null };
+      const { error: removeError } = await supabase.storage.from(PROFILE_PHOTO_BUCKET).remove([previousPath]);
+      if (removeError) console.warn("Profile photo file cleanup failed:", removeError);
+      currentProfilePhotoSignedUrl = "";
+      clearSelectedProfilePhoto("profile");
+      updateTopbarPhoto("");
+      renderPhotoPreview("onboarding", "");
+      showToast("프로필 사진이 삭제되었습니다.");
+    } catch (error) {
+      console.error("Profile photo removal failed:", error);
+      showToast("사진 삭제에 실패했습니다: " + (error?.message || "알 수 없는 오류"), "error");
+    } finally {
+      setLoading(button, false, "사진 삭제");
+      button.disabled = !profile?.profile_photo_path;
+    }
+  }
 
   function formatKoreanDate(value) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
@@ -206,6 +414,11 @@
     scheduleMemo = "";
     onboardingRequired = false;
     dashboardInitialized = false;
+    pendingProfilePhotoFile = null;
+    pendingOnboardingPhotoFile = null;
+    currentProfilePhotoSignedUrl = "";
+    revokePreviewUrl("profile");
+    revokePreviewUrl("onboarding");
 
     document.body.classList.remove("onboarding-open");
     $("onboardingView").classList.add("hidden");
@@ -276,7 +489,11 @@
     $("userName").textContent = name;
     $("welcomeName").textContent = name;
     $("userEmail").textContent = currentUser?.email || "";
-    $("userAvatar").textContent = name.slice(0, 1).toUpperCase();
+    $("userAvatarFallback").textContent = profileInitial(name);
+    ["profile", "onboarding"].forEach((scope) => {
+      const fallback = photoElements(scope).fallback;
+      if (fallback) fallback.textContent = profileInitial(name);
+    });
   }
 
   function showOnboarding() {
@@ -368,9 +585,10 @@
       console.error("Profile lookup failed:", error);
       throw error;
     }
-    profile = data || { id: currentUser.id, full_name: currentUser.user_metadata?.full_name || "선생님", email: currentUser.email, role: "teacher", profile_completed_at: null };
+    profile = data || { id: currentUser.id, full_name: currentUser.user_metadata?.full_name || "선생님", email: currentUser.email, role: "teacher", profile_completed_at: null, profile_photo_path: null };
     updateProfileHeader(profile);
     syncProfileFields(profile);
+    await refreshProfilePhoto();
     $("adminLink").classList.toggle("hidden", profile.role !== "admin");
   }
 
@@ -512,7 +730,7 @@
   }
 
   async function persistProfile(payload) {
-    const columns = "id, email, full_name, school, major, phone, bank_name, account_number, bio, role, profile_completed_at, updated_at";
+    const columns = "id, email, full_name, school, major, phone, bank_name, account_number, bio, profile_photo_path, role, profile_completed_at, updated_at";
     let result = await supabase
       .from("profiles")
       .update(payload)
@@ -551,7 +769,7 @@
       showToast("내 정보가 저장되었습니다.");
     } catch (error) {
       console.error("Profile update failed:", error);
-      const missingColumn = /bank_name|account_number|profile_completed_at/i.test(error?.message || "");
+      const missingColumn = /bank_name|account_number|profile_completed_at|profile_photo_path/i.test(error?.message || "");
       showToast(
         missingColumn
           ? "프로필 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요."
@@ -577,6 +795,15 @@
     try {
       const savedProfile = await persistProfile(payload);
       applySavedProfile(savedProfile);
+      if (pendingOnboardingPhotoFile) {
+        try {
+          await uploadProfilePhotoFile(pendingOnboardingPhotoFile);
+          clearSelectedProfilePhoto("onboarding");
+        } catch (photoError) {
+          console.error("Onboarding profile photo upload failed:", photoError);
+          showToast("프로필은 저장되었지만 사진 업로드에 실패했습니다. 내 정보에서 다시 등록해주세요.", "error");
+        }
+      }
     } catch (error) {
       console.error("Profile onboarding failed:", error);
       const missingColumn = /profile_completed_at/i.test(error?.message || "");
@@ -1027,6 +1254,14 @@ function loadGuideChecks() {
     $("profileForm").addEventListener("submit", saveProfile);
     $("onboardingForm").addEventListener("submit", completeOnboarding);
     $("onboardingLogoutButton").addEventListener("click", logout);
+    $("profilePhotoInput").addEventListener("change", (event) => selectProfilePhoto("profile", event.target.files?.[0]));
+    $("onboardingPhotoInput").addEventListener("change", (event) => selectProfilePhoto("onboarding", event.target.files?.[0]));
+    $("profilePhotoUploadButton").addEventListener("click", uploadSelectedProfilePhoto);
+    $("profilePhotoRemoveButton").addEventListener("click", removeProfilePhoto);
+    $("onboardingPhotoClearButton").addEventListener("click", () => clearSelectedProfilePhoto("onboarding"));
+    $("userAvatarImage").addEventListener("error", () => updateTopbarPhoto(""));
+    $("profilePhotoImage").addEventListener("error", () => renderPhotoPreview("profile", ""));
+    $("onboardingPhotoImage").addEventListener("error", () => renderPhotoPreview("onboarding", ""));
     buildAvailabilityGrid();
     $("availabilityGrid").addEventListener("pointerdown", handleGridPointerDown);
     $("availabilityGrid").addEventListener("click", handleGridClick);
