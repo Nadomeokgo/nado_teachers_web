@@ -59,7 +59,6 @@
       input: $(`${prefix}PhotoInput`),
       status: $(`${prefix}PhotoStatus`),
       clear: scope === "onboarding" ? $("onboardingPhotoClearButton") : null,
-      upload: scope === "profile" ? $("profilePhotoUploadButton") : null,
       remove: scope === "profile" ? $("profilePhotoRemoveButton") : null
     };
   }
@@ -160,10 +159,11 @@
       profilePhotoPreviewObjectUrl = objectUrl;
     }
     renderPhotoPreview(scope, objectUrl);
-    setPhotoStatus(scope, "선택한 사진을 확인해주세요.");
+    setPhotoStatus(scope, scope === "profile"
+      ? "선택한 사진은 아래의 내 정보 저장 버튼을 누르면 함께 저장됩니다."
+      : "선택한 사진을 확인해주세요.");
     const elements = photoElements(scope);
     if (elements.clear) elements.clear.disabled = false;
-    if (elements.upload) elements.upload.disabled = false;
   }
 
   function clearSelectedProfilePhoto(scope) {
@@ -173,7 +173,6 @@
     const elements = photoElements(scope);
     if (elements.input) elements.input.value = "";
     if (elements.clear) elements.clear.disabled = true;
-    if (elements.upload) elements.upload.disabled = true;
     renderPhotoPreview(scope, currentProfilePhotoSignedUrl);
     setPhotoStatus(scope, profile?.profile_photo_path ? "현재 프로필 사진이 등록되어 있습니다." : "등록된 사진이 없습니다.");
   }
@@ -204,22 +203,6 @@
     return newPath;
   }
 
-  async function uploadSelectedProfilePhoto() {
-    if (!pendingProfilePhotoFile) return showToast("먼저 업로드할 사진을 선택해주세요.", "error");
-    const button = $("profilePhotoUploadButton");
-    setLoading(button, true, "사진 업로드");
-    try {
-      await uploadProfilePhotoFile(pendingProfilePhotoFile);
-      clearSelectedProfilePhoto("profile");
-      showToast("프로필 사진이 저장되었습니다.");
-    } catch (error) {
-      console.error("Profile photo upload failed:", error);
-      const setupMissing = /bucket|profile_photo_path|row-level security|policy/i.test(error?.message || "");
-      showToast(setupMissing ? "프로필 사진용 Supabase 설정이 필요합니다." : "사진 업로드에 실패했습니다: " + (error?.message || "알 수 없는 오류"), "error");
-    } finally {
-      setLoading(button, false, "사진 업로드");
-    }
-  }
 
   async function removeProfilePhoto() {
     if (!profile?.profile_photo_path) return;
@@ -760,13 +743,34 @@
     const form = $("profileForm");
     const button = event.submitter || form.querySelector('button[type="submit"]');
     const payload = collectProfilePayload(profileFieldIds);
+    const selectedPhotoFile = pendingProfilePhotoFile;
     if (!validateProfilePayload(payload, profileFieldIds)) return;
 
     setLoading(button, true, "내 정보 저장");
     try {
       const savedProfile = await persistProfile(payload);
       applySavedProfile(savedProfile);
-      showToast("내 정보가 저장되었습니다.");
+
+      if (selectedPhotoFile) {
+        try {
+          await uploadProfilePhotoFile(selectedPhotoFile);
+          clearSelectedProfilePhoto("profile");
+        } catch (photoError) {
+          console.error("Profile photo save failed:", photoError);
+          const setupMissing = /bucket|profile_photo_path|row-level security|policy/i.test(photoError?.message || "");
+          showToast(
+            setupMissing
+              ? "내 정보는 저장되었지만 프로필 사진용 Supabase 설정이 필요합니다."
+              : "내 정보는 저장되었지만 사진 저장에 실패했습니다. 사진을 확인한 뒤 다시 저장해주세요.",
+            "error"
+          );
+          return;
+        }
+      }
+
+      showToast(selectedPhotoFile
+        ? "내 정보와 프로필 사진이 함께 저장되었습니다."
+        : "내 정보가 저장되었습니다.");
     } catch (error) {
       console.error("Profile update failed:", error);
       const missingColumn = /bank_name|account_number|profile_completed_at|profile_photo_path/i.test(error?.message || "");
@@ -1256,7 +1260,6 @@ function loadGuideChecks() {
     $("onboardingLogoutButton").addEventListener("click", logout);
     $("profilePhotoInput").addEventListener("change", (event) => selectProfilePhoto("profile", event.target.files?.[0]));
     $("onboardingPhotoInput").addEventListener("change", (event) => selectProfilePhoto("onboarding", event.target.files?.[0]));
-    $("profilePhotoUploadButton").addEventListener("click", uploadSelectedProfilePhoto);
     $("profilePhotoRemoveButton").addEventListener("click", removeProfilePhoto);
     $("onboardingPhotoClearButton").addEventListener("click", () => clearSelectedProfilePhoto("onboarding"));
     $("userAvatarImage").addEventListener("error", () => updateTopbarPhoto(""));
