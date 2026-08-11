@@ -55,6 +55,35 @@
     }));
   }
 
+  function safeDownloadName(value = "teacher") {
+    return String(value || "teacher").trim().replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_") || "teacher";
+  }
+
+  async function downloadTeacherProfilePhoto(teacherId, button) {
+    const teacher = teachers.find((item) => item.id === teacherId);
+    if (!teacher?.profile_photo_path) return toast("등록된 프로필 사진이 없습니다.", true);
+    const originalText = button?.textContent || "사진 다운로드";
+    if (button) { button.disabled = true; button.textContent = "다운로드 중..."; }
+    try {
+      const { data, error } = await supabase.storage.from(PROFILE_PHOTO_BUCKET).download(teacher.profile_photo_path);
+      if (error) throw error;
+      const extension = teacher.profile_photo_path.split(".").pop()?.toLowerCase() || "jpg";
+      const url = URL.createObjectURL(data);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${safeDownloadName(teacher.full_name || teacher.email)}_profile.${extension}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (error) {
+      console.error("Profile photo download failed:", error);
+      toast("프로필 사진 다운로드에 실패했습니다.", true);
+    } finally {
+      if (button) { button.disabled = false; button.textContent = originalText; }
+    }
+  }
+
   function toast(message, error = false) { const el = $("toast"); el.textContent = message; el.className = `toast show${error ? " error" : ""}`; setTimeout(() => el.className = "toast", 2600); }
 
   function formatKoreanDate(value) {
@@ -158,7 +187,10 @@
               : `<b>${escapeHtml((teacher.full_name || "T").slice(0,1).toUpperCase())}</b>`}</span>
             <div><strong>${escapeHtml(teacher.full_name || "이름 미입력")}</strong><span>${escapeHtml(teacher.email || "")} · ${escapeHtml(teacher.school || "학교 미입력")} ${teacher.major ? `· ${escapeHtml(teacher.major)}` : ""}</span></div>
           </div>
-          <span class="updated-at">${latest ? `업데이트 ${new Date(latest).toLocaleString("ko-KR")}` : "미제출"}</span>
+          <div class="teacher-admin-head-actions">
+            ${teacher.profile_photo_path ? `<button class="button ghost small teacher-photo-download" type="button" data-download-teacher-photo="${escapeHtml(teacher.id)}">사진 다운로드</button>` : ""}
+            <span class="updated-at">${latest ? `업데이트 ${new Date(latest).toLocaleString(currentLocale())}` : "미제출"}</span>
+          </div>
         </div>
         <div class="teacher-admin-details">
           <div><span>연락처</span><strong>${escapeHtml(teacher.phone || "미입력")}</strong></div>
@@ -621,6 +653,10 @@
     renderManagerList("adminAnnouncementList", contentCache.announcement, "announcement");
     renderManagerList("adminResourceList", contentCache.resource, "resource");
     renderManagerList("adminVideoList", contentCache.video, "video");
+  });
+  $("adminTeacherList").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-download-teacher-photo]");
+    if (button) downloadTeacherProfilePhoto(button.dataset.downloadTeacherPhoto, button);
   });
   $("teacherSearch").addEventListener("input", render);
   $("dayFilter").addEventListener("change", render);

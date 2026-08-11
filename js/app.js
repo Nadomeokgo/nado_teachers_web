@@ -50,6 +50,7 @@
   let selectedAvailability = new Set();
   let scheduleMemo = "";
   let gridDragState = null;
+  let mobileScheduleDay = 1;
   let suppressGridClick = false;
   let logoutInProgress = false;
   let loginInProgress = false;
@@ -806,25 +807,46 @@
     event.preventDefault();
     const form = $("onboardingForm");
     const button = event.submitter || form.querySelector('button[type="submit"]');
-    const payload = {
-      ...collectProfilePayload(onboardingFieldIds),
-      profile_completed_at: new Date().toISOString()
-    };
-    if (!validateProfilePayload(payload, onboardingFieldIds)) return;
+    const basePayload = collectProfilePayload(onboardingFieldIds);
+    if (!validateProfilePayload(basePayload, onboardingFieldIds)) return;
+
+    if (!pendingOnboardingPhotoFile && !profile?.profile_photo_path) {
+      $("onboardingPhotoInput")?.focus();
+      showToast("프로필 사진을 선택해주세요. 최초 프로필 설정 시 사진은 필수입니다.", "error");
+      return;
+    }
 
     setLoading(button, true, "프로필 저장하고 시작하기");
     try {
-      const savedProfile = await persistProfile(payload);
-      applySavedProfile(savedProfile);
+      // Save text/account fields first, but do not mark onboarding complete yet.
+      const savedBaseProfile = await persistProfile({ ...basePayload, updated_at: new Date().toISOString() });
+      applySavedProfile(savedBaseProfile);
+
       if (pendingOnboardingPhotoFile) {
         try {
           await uploadProfilePhotoFile(pendingOnboardingPhotoFile);
           clearSelectedProfilePhoto("onboarding");
         } catch (photoError) {
           console.error("Onboarding profile photo upload failed:", photoError);
-          showToast("프로필은 저장되었지만 사진 업로드에 실패했습니다. 내 정보에서 다시 등록해주세요.", "error");
+          showToast("프로필 사진 저장에 실패했습니다. 사진을 다시 확인한 뒤 저장해주세요.", "error");
+          setLoading(button, false, "프로필 저장하고 시작하기");
+          return;
         }
       }
+
+      if (!profile?.profile_photo_path) {
+        showToast("프로필 사진 저장을 확인할 수 없습니다. 다시 사진을 선택해주세요.", "error");
+        setLoading(button, false, "프로필 저장하고 시작하기");
+        return;
+      }
+
+      const completedProfile = await persistProfile({
+        ...basePayload,
+        profile_photo_path: profile.profile_photo_path,
+        profile_completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      applySavedProfile(completedProfile);
     } catch (error) {
       console.error("Profile onboarding failed:", error);
       const missingColumn = /profile_completed_at/i.test(error?.message || "");
@@ -865,13 +887,18 @@
     return { day, minutes };
   }
 
+  function scheduleDayShortLabel(day) {
+    if (currentLanguage() === "en") return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][Number(day)] || "";
+    return days[Number(day)] || "";
+  }
+
   function buildAvailabilityGrid() {
     const grid = $("availabilityGrid");
     if (!grid) return;
 
     const headers = [
       '<div class="availability-grid-corner" aria-hidden="true">시간</div>',
-      ...scheduleDayOrder.map((day) => `<div class="availability-day-header" role="columnheader"><strong>${days[day]}</strong><span>요일</span></div>`)
+      ...scheduleDayOrder.map((day) => `<div class="availability-day-header" role="columnheader"><strong>${scheduleDayShortLabel(day)}</strong><span>${currentLanguage() === "en" ? "" : "요일"}</span></div>`)
     ];
     const rows = [];
 
@@ -880,12 +907,39 @@
       rows.push(`<div class="availability-time-label${fullHour ? " full-hour" : ""}" role="rowheader">${minutesToTime(minutes)}</div>`);
       scheduleDayOrder.forEach((day) => {
         const key = availabilityKey(day, minutes);
-        rows.push(`<button class="availability-cell${fullHour ? " full-hour" : ""}" type="button" role="gridcell" data-availability-key="${key}" aria-label="${days[day]}요일 ${minutesToTime(minutes)}부터 30분" aria-pressed="false"></button>`);
+        const dayLabel = currentLanguage() === "en" ? scheduleDayShortLabel(day) : `${scheduleDayShortLabel(day)}요일`;
+        rows.push(`<button class="availability-cell${fullHour ? " full-hour" : ""}" type="button" role="gridcell" data-availability-key="${key}" aria-label="${dayLabel} ${minutesToTime(minutes)}" aria-pressed="false"></button>`);
       });
     }
 
     grid.innerHTML = headers.concat(rows).join("");
+    buildMobileAvailabilityPicker();
     renderAvailabilityGridSelection();
+  }
+
+  function buildMobileAvailabilityPicker() {
+    const picker = $("availabilityMobilePicker");
+    if (!picker) return;
+    const activeDay = scheduleDayOrder.includes(Number(mobileScheduleDay)) ? Number(mobileScheduleDay) : 1;
+    mobileScheduleDay = activeDay;
+    const dayTabs = scheduleDayOrder.map((day) => `
+      <button class="availability-mobile-day${day === activeDay ? " active" : ""}" type="button" data-mobile-schedule-day="${day}" aria-pressed="${day === activeDay}">${scheduleDayShortLabel(day)}</button>
+    `).join("");
+    const hourGroups = [];
+    for (let hour = scheduleStartMinutes / 60; hour < scheduleEndMinutes / 60; hour += 1) {
+      const startMinutes = hour * 60;
+      hourGroups.push(`
+        <div class="availability-mobile-hour">
+          <strong>${String(hour).padStart(2, "0")}</strong>
+          <div class="availability-mobile-half-buttons">
+            <button type="button" data-availability-key="${availabilityKey(activeDay, startMinutes)}" aria-pressed="false" aria-label="${scheduleDayShortLabel(activeDay)} ${minutesToTime(startMinutes)}"><span>:00</span></button>
+            <button type="button" data-availability-key="${availabilityKey(activeDay, startMinutes + 30)}" aria-pressed="false" aria-label="${scheduleDayShortLabel(activeDay)} ${minutesToTime(startMinutes + 30)}"><span>:30</span></button>
+          </div>
+        </div>`);
+    }
+    picker.innerHTML = `
+      <div class="availability-mobile-days" role="tablist" aria-label="${currentLanguage() === "en" ? "Select day" : "요일 선택"}">${dayTabs}</div>
+      <div class="availability-mobile-hours">${hourGroups.join("")}</div>`;
   }
 
   function renderAvailabilityGridSelection() {
@@ -914,9 +968,7 @@
 
     if (shouldSelect) selectedAvailability.add(key);
     else selectedAvailability.delete(key);
-    cell.classList.toggle("selected", shouldSelect);
-    cell.setAttribute("aria-pressed", String(shouldSelect));
-    updateAvailabilityCellCount();
+    renderAvailabilityGridSelection();
     return true;
   }
 
@@ -1008,6 +1060,20 @@
       event.preventDefault();
       return;
     }
+    setAvailabilityCell(cell, !selectedAvailability.has(cell.dataset.availabilityKey));
+    finishGridSelectionChange();
+  }
+
+  function handleMobileAvailabilityClick(event) {
+    const dayButton = event.target.closest("[data-mobile-schedule-day]");
+    if (dayButton) {
+      mobileScheduleDay = Number(dayButton.dataset.mobileScheduleDay);
+      buildMobileAvailabilityPicker();
+      renderAvailabilityGridSelection();
+      return;
+    }
+    const cell = event.target.closest("[data-availability-key]");
+    if (!cell || !$("availabilityMobilePicker").contains(cell)) return;
     setAvailabilityCell(cell, !selectedAvailability.has(cell.dataset.availabilityKey));
     finishGridSelectionChange();
   }
@@ -1268,6 +1334,7 @@ function loadGuideChecks() {
     $("loginForm").addEventListener("submit", login);
     $("resetPasswordButton").addEventListener("click", resetPassword);
   document.addEventListener("nado:languagechange", () => {
+    buildAvailabilityGrid();
     if (!dashboardInitialized || !currentUser) return;
     Promise.all([loadAnnouncements(), loadResources(), loadVideos()]).catch((error) => {
       console.warn("Localized content refresh failed:", error);
@@ -1287,6 +1354,7 @@ function loadGuideChecks() {
     buildAvailabilityGrid();
     $("availabilityGrid").addEventListener("pointerdown", handleGridPointerDown);
     $("availabilityGrid").addEventListener("click", handleGridClick);
+    $("availabilityMobilePicker").addEventListener("click", handleMobileAvailabilityClick);
     document.addEventListener("pointermove", handleGridPointerMove, { passive: false });
     document.addEventListener("pointerup", handleGridPointerEnd);
     document.addEventListener("pointercancel", handleGridPointerEnd);
