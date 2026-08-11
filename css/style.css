@@ -911,3 +911,46 @@ input[type="time"], input[type="date"], input[type="datetime-local"] {
 }
 .calendar-event-first .calendar-event-type { color: #2f80d1; }
 .calendar-event-settlement .calendar-event-type { color: #c86e1d; }
+
+/* Mobile availability picker cache-fix hardening */
+@media (max-width: 620px) {
+  .availability-mobile-picker,
+  .availability-mobile-days,
+  .availability-mobile-hours { width: 100%; min-width: 0; }
+
+  .availability-mobile-days {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 4px;
+  }
+
+  .availability-mobile-day {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0;
+    white-space: nowrap;
+  }
+
+  .availability-mobile-hours {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px;
+  }
+
+  .availability-mobile-hour {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 4px;
+    padding: 5px;
+  }
+
+  .availability-mobile-half-buttons,
+  .availability-mobile-half-buttons button { min-width: 0; }
+
+  .availability-mobile-half-buttons button {
+    width: 100%;
+    min-height: 32px;
+    padding-inline: 2px;
+  }
+}
