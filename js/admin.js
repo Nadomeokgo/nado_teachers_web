@@ -12,9 +12,30 @@
   let assignmentFilter = "current";
   let editingAssignmentId = null;
   let adminLogoutInProgress = false;
+  let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const contentCache = { announcement: [], resource: [], video: [] };
+  const editingContentId = { announcement: null, resource: null, video: null };
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+
+  function currentLanguage() {
+    return window.NADO_I18N?.getLanguage?.() || "ko";
+  }
+
+  function currentLocale() {
+    return currentLanguage() === "en" ? "en-US" : "ko-KR";
+  }
+
+  function stringHash(value = "") {
+    let hash = 0;
+    for (const char of String(value)) hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+    return Math.abs(hash);
+  }
+
+  function hueFor(value, offset = 0) {
+    return (stringHash(value) * 47 + offset) % 360;
+  }
 
   async function signedProfilePhotoUrl(photoPath) {
     if (!photoPath) return "";
@@ -169,10 +190,88 @@
     assignments = data || [];
     updateStats();
     renderAssignmentList();
+    renderAssignmentCalendar();
   }
 
   function teacherById(id) {
     return teachers.find((teacher) => teacher.id === id) || null;
+  }
+
+  function calendarDateKey(year, monthIndex, day) {
+    return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  function studentHueForAssignment(assignment) {
+    const ordered = [...assignments].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const index = Math.max(0, ordered.findIndex((item) => item.id === assignment.id));
+    return Math.round((18 + index * 137.508) % 360);
+  }
+
+  function teacherHueForId(teacherId, teacherName = "") {
+    const teacherIds = teachers.map((teacher) => teacher.id).sort();
+    const index = Math.max(0, teacherIds.indexOf(teacherId));
+    if (!teacherId || !teacherIds.includes(teacherId)) return hueFor(teacherName, 191);
+    return Math.round((205 + index * 137.508) % 360);
+  }
+
+  function calendarEventsForDate(dateKey) {
+    const events = [];
+    assignments.forEach((assignment) => {
+      const teacher = teacherById(assignment.teacher_id);
+      const teacherName = teacher?.full_name || "삭제된 선생님";
+      const studentHue = studentHueForAssignment(assignment);
+      const teacherHue = teacherHueForId(assignment.teacher_id, teacherName);
+      if (assignment.first_lesson_date === dateKey) {
+        events.push({ assignment, teacherName, studentHue, teacherHue, type: "first" });
+      }
+      if (assignment.settlement_date === dateKey) {
+        events.push({ assignment, teacherName, studentHue, teacherHue, type: "settlement" });
+      }
+    });
+    return events.sort((a, b) => a.assignment.student_name.localeCompare(b.assignment.student_name, "ko"));
+  }
+
+  function renderCalendarEvent(event) {
+    const typeLabel = event.type === "first" ? "첫 수업" : "정산";
+    return `<div class="calendar-event calendar-event-${event.type}" data-calendar-assignment="${escapeHtml(event.assignment.id)}">
+      <span class="calendar-event-type">${typeLabel}</span>
+      <strong class="calendar-student-name" style="--calendar-name-hue:${event.studentHue}">${escapeHtml(event.assignment.student_name)}</strong>
+      <span class="calendar-teacher-name" style="--calendar-name-hue:${event.teacherHue}">${escapeHtml(event.teacherName)}</span>
+    </div>`;
+  }
+
+  function renderAssignmentCalendar() {
+    const calendar = $("adminCalendar");
+    if (!calendar) return;
+    const year = calendarCursor.getFullYear();
+    const month = calendarCursor.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const todayKey = localDateKey();
+    const weekLabels = currentLanguage() === "en"
+      ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+      : ["일", "월", "화", "수", "목", "금", "토"];
+
+    $("calendarMonthTitle").textContent = firstDay.toLocaleDateString(currentLocale(), { year: "numeric", month: "long" });
+
+    const cells = weekLabels.map((label) => `<div class="calendar-weekday" role="columnheader">${label}</div>`);
+    for (let blank = 0; blank < firstDay.getDay(); blank += 1) {
+      cells.push('<div class="calendar-day calendar-day-empty" aria-hidden="true"></div>');
+    }
+    for (let day = 1; day <= lastDay.getDate(); day += 1) {
+      const dateKey = calendarDateKey(year, month, day);
+      const events = calendarEventsForDate(dateKey);
+      cells.push(`<div class="calendar-day${dateKey === todayKey ? " is-today" : ""}" role="gridcell" data-calendar-date="${dateKey}">
+        <div class="calendar-day-number"><span>${day}</span>${events.length ? `<b>${events.length}</b>` : ""}</div>
+        <div class="calendar-events">${events.map(renderCalendarEvent).join("")}</div>
+      </div>`);
+    }
+    calendar.innerHTML = cells.join("");
+  }
+
+  function moveCalendarMonth(amount) {
+    calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + amount, 1);
+    renderAssignmentCalendar();
   }
 
   function renderAssignmentList() {
@@ -297,16 +396,19 @@
 
   async function loadContent() {
     const [announcementResult, resourceResult, videoResult] = await Promise.all([
-      supabase.from("announcements").select("id, title, body, is_active, published_at").order("published_at", { ascending: false }),
-      supabase.from("resources").select("id, title, category, file_url, sort_order, is_active").order("sort_order"),
-      supabase.from("training_videos").select("id, title, video_url, sort_order, is_active").order("sort_order")
+      supabase.from("announcements").select("id, title, body, title_en, body_en, is_active, published_at").order("published_at", { ascending: false }),
+      supabase.from("resources").select("id, title, description, title_en, description_en, category, file_url, sort_order, is_active").order("sort_order"),
+      supabase.from("training_videos").select("id, title, description, title_en, description_en, video_url, sort_order, is_active").order("sort_order")
     ]);
     if (announcementResult.error || resourceResult.error || videoResult.error) {
       return toast("콘텐츠 목록 일부를 불러오지 못했습니다.", true);
     }
-    renderManagerList("adminAnnouncementList", announcementResult.data, "announcement");
-    renderManagerList("adminResourceList", resourceResult.data, "resource");
-    renderManagerList("adminVideoList", videoResult.data, "video");
+    contentCache.announcement = announcementResult.data || [];
+    contentCache.resource = resourceResult.data || [];
+    contentCache.video = videoResult.data || [];
+    renderManagerList("adminAnnouncementList", contentCache.announcement, "announcement");
+    renderManagerList("adminResourceList", contentCache.resource, "resource");
+    renderManagerList("adminVideoList", contentCache.video, "video");
   }
 
   function renderManagerList(targetId, items = [], type) {
@@ -318,65 +420,141 @@
     const table = type === "announcement" ? "announcements" : type === "resource" ? "resources" : "training_videos";
     target.innerHTML = items.map((item) => {
       const detail = type === "announcement"
-        ? new Date(item.published_at).toLocaleDateString("ko-KR")
+        ? new Date(item.published_at).toLocaleDateString(currentLocale())
         : type === "resource" ? `${item.category} · 순서 ${item.sort_order}` : `순서 ${item.sort_order}`;
-      return `<div class="manager-item"><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(detail)}</small></div><button data-delete-table="${table}" data-delete-id="${item.id}" type="button" aria-label="삭제">×</button></div>`;
+      const missingEnglishLabel = currentLanguage() === "en" ? "EN · Not entered" : "EN · 미입력";
+      const englishTitle = item.title_en ? `<small class="manager-item-en">EN · ${escapeHtml(item.title_en)}</small>` : `<small class="manager-item-en muted">${missingEnglishLabel}</small>`;
+      return `<div class="manager-item">
+        <div><strong>${escapeHtml(item.title)}</strong>${englishTitle}<small>${escapeHtml(detail)}</small></div>
+        <div class="manager-item-actions">
+          <button data-edit-content="${type}" data-edit-id="${item.id}" type="button" aria-label="수정">수정</button>
+          <button data-delete-table="${table}" data-delete-id="${item.id}" type="button" aria-label="삭제">×</button>
+        </div>
+      </div>`;
     }).join("");
+  }
+
+  function resetContentForm(type) {
+    editingContentId[type] = null;
+    if (type === "announcement") {
+      $("announcementForm").reset();
+      $("announcementCancelButton").classList.add("hidden");
+      $("announcementSubmitButton").textContent = "공지 등록";
+    } else if (type === "resource") {
+      $("resourceForm").reset();
+      $("resourceOrder").value = "1";
+      $("resourceCancelButton").classList.add("hidden");
+      $("resourceSubmitButton").textContent = "자료 등록";
+    } else {
+      $("videoForm").reset();
+      $("videoOrder").value = "1";
+      $("videoCancelButton").classList.add("hidden");
+      $("videoSubmitButton").textContent = "영상 등록";
+    }
+  }
+
+  function startContentEdit(type, id) {
+    const item = contentCache[type].find((entry) => String(entry.id) === String(id));
+    if (!item) return;
+    editingContentId[type] = item.id;
+    if (type === "announcement") {
+      $("announcementTitle").value = item.title || "";
+      $("announcementBody").value = item.body || "";
+      $("announcementTitleEn").value = item.title_en || "";
+      $("announcementBodyEn").value = item.body_en || "";
+      $("announcementCancelButton").classList.remove("hidden");
+      $("announcementSubmitButton").textContent = "공지 수정";
+      $("announcementForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    } else if (type === "resource") {
+      $("resourceTitle").value = item.title || "";
+      $("resourceDescription").value = item.description || "";
+      $("resourceTitleEn").value = item.title_en || "";
+      $("resourceDescriptionEn").value = item.description_en || "";
+      $("resourceCategory").value = item.category || "PDF";
+      $("resourceUrl").value = item.file_url || "";
+      $("resourceOrder").value = item.sort_order ?? 1;
+      $("resourceCancelButton").classList.remove("hidden");
+      $("resourceSubmitButton").textContent = "자료 수정";
+      $("resourceForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      $("videoTitle").value = item.title || "";
+      $("videoDescription").value = item.description || "";
+      $("videoTitleEn").value = item.title_en || "";
+      $("videoDescriptionEn").value = item.description_en || "";
+      $("videoUrl").value = item.video_url || "";
+      $("videoOrder").value = item.sort_order ?? 1;
+      $("videoCancelButton").classList.remove("hidden");
+      $("videoSubmitButton").textContent = "영상 수정";
+      $("videoForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   }
 
   async function addAnnouncement(event) {
     event.preventDefault();
-    const button = event.submitter;
+    const button = event.submitter || $("announcementSubmitButton");
     button.disabled = true;
-    const { error } = await supabase.from("announcements").insert({
+    const payload = {
       title: $("announcementTitle").value.trim(),
       body: $("announcementBody").value.trim(),
-      published_at: new Date().toISOString(),
+      title_en: $("announcementTitleEn").value.trim() || null,
+      body_en: $("announcementBodyEn").value.trim() || null,
       is_active: true
-    });
+    };
+    if (!editingContentId.announcement) payload.published_at = new Date().toISOString();
+    const result = editingContentId.announcement
+      ? await supabase.from("announcements").update(payload).eq("id", editingContentId.announcement)
+      : await supabase.from("announcements").insert(payload);
     button.disabled = false;
-    if (error) return toast("공지 등록 실패: " + error.message, true);
-    event.target.reset();
-    toast("공지사항을 등록했습니다.");
+    if (result.error) return toast("공지 등록 실패: " + result.error.message, true);
+    toast(editingContentId.announcement ? "공지사항을 수정했습니다." : "공지사항을 등록했습니다.");
+    resetContentForm("announcement");
     await loadContent();
   }
 
   async function addResource(event) {
     event.preventDefault();
-    const button = event.submitter;
+    const button = event.submitter || $("resourceSubmitButton");
     button.disabled = true;
-    const { error } = await supabase.from("resources").insert({
+    const payload = {
       title: $("resourceTitle").value.trim(),
       description: $("resourceDescription").value.trim(),
+      title_en: $("resourceTitleEn").value.trim() || null,
+      description_en: $("resourceDescriptionEn").value.trim() || null,
       category: $("resourceCategory").value,
       file_url: $("resourceUrl").value.trim(),
       sort_order: Number($("resourceOrder").value) || 0,
       is_active: true
-    });
+    };
+    const result = editingContentId.resource
+      ? await supabase.from("resources").update(payload).eq("id", editingContentId.resource)
+      : await supabase.from("resources").insert(payload);
     button.disabled = false;
-    if (error) return toast("자료 등록 실패: " + error.message, true);
-    event.target.reset();
-    $("resourceOrder").value = "1";
-    toast("수업 자료를 등록했습니다.");
+    if (result.error) return toast("자료 등록 실패: " + result.error.message, true);
+    toast(editingContentId.resource ? "수업 자료를 수정했습니다." : "수업 자료를 등록했습니다.");
+    resetContentForm("resource");
     await loadContent();
   }
 
   async function addVideo(event) {
     event.preventDefault();
-    const button = event.submitter;
+    const button = event.submitter || $("videoSubmitButton");
     button.disabled = true;
-    const { error } = await supabase.from("training_videos").insert({
+    const payload = {
       title: $("videoTitle").value.trim(),
       description: $("videoDescription").value.trim(),
+      title_en: $("videoTitleEn").value.trim() || null,
+      description_en: $("videoDescriptionEn").value.trim() || null,
       video_url: $("videoUrl").value.trim(),
       sort_order: Number($("videoOrder").value) || 0,
       is_active: true
-    });
+    };
+    const result = editingContentId.video
+      ? await supabase.from("training_videos").update(payload).eq("id", editingContentId.video)
+      : await supabase.from("training_videos").insert(payload);
     button.disabled = false;
-    if (error) return toast("영상 등록 실패: " + error.message, true);
-    event.target.reset();
-    $("videoOrder").value = "1";
-    toast("교육 영상을 등록했습니다.");
+    if (result.error) return toast("영상 등록 실패: " + result.error.message, true);
+    toast(editingContentId.video ? "교육 영상을 수정했습니다." : "교육 영상을 등록했습니다.");
+    resetContentForm("video");
     await loadContent();
   }
 
@@ -419,12 +597,30 @@
     const deleteButton = event.target.closest("[data-delete-assignment]");
     if (deleteButton) deleteAssignment(deleteButton.dataset.deleteAssignment);
   });
+  $("calendarPrevButton").addEventListener("click", () => moveCalendarMonth(-1));
+  $("calendarNextButton").addEventListener("click", () => moveCalendarMonth(1));
+  $("calendarTodayButton").addEventListener("click", () => {
+    const now = new Date();
+    calendarCursor = new Date(now.getFullYear(), now.getMonth(), 1);
+    renderAssignmentCalendar();
+  });
   $("announcementForm").addEventListener("submit", addAnnouncement);
   $("resourceForm").addEventListener("submit", addResource);
   $("videoForm").addEventListener("submit", addVideo);
+  $("announcementCancelButton").addEventListener("click", () => resetContentForm("announcement"));
+  $("resourceCancelButton").addEventListener("click", () => resetContentForm("resource"));
+  $("videoCancelButton").addEventListener("click", () => resetContentForm("video"));
   document.querySelector(".admin-content-grid").addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-content]");
+    if (editButton) return startContentEdit(editButton.dataset.editContent, editButton.dataset.editId);
     const button = event.target.closest("[data-delete-table]");
     if (button) deleteContent(button.dataset.deleteTable, button.dataset.deleteId);
+  });
+  document.addEventListener("nado:languagechange", () => {
+    renderAssignmentCalendar();
+    renderManagerList("adminAnnouncementList", contentCache.announcement, "announcement");
+    renderManagerList("adminResourceList", contentCache.resource, "resource");
+    renderManagerList("adminVideoList", contentCache.video, "video");
   });
   $("teacherSearch").addEventListener("input", render);
   $("dayFilter").addEventListener("change", render);

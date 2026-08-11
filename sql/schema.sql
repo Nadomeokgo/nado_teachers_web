@@ -82,6 +82,8 @@ create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   body text not null,
+  title_en text,
+  body_en text,
   is_active boolean not null default true,
   published_at timestamptz not null default now(),
   created_by uuid references public.profiles(id)
@@ -92,6 +94,8 @@ create table if not exists public.resources (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   description text,
+  title_en text,
+  description_en text,
   category text not null default 'PDF',
   file_url text not null,
   sort_order integer not null default 0,
@@ -104,11 +108,24 @@ create table if not exists public.training_videos (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   description text,
+  title_en text,
+  description_en text,
   video_url text not null,
   sort_order integer not null default 0,
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+-- 다국어 콘텐츠 필드 (기존 프로젝트에도 안전하게 추가)
+alter table public.announcements
+  add column if not exists title_en text,
+  add column if not exists body_en text;
+alter table public.resources
+  add column if not exists title_en text,
+  add column if not exists description_en text;
+alter table public.training_videos
+  add column if not exists title_en text,
+  add column if not exists description_en text;
 
 -- 신규 Auth 사용자가 생성되면 profile 자동 생성
 create or replace function public.handle_new_user()

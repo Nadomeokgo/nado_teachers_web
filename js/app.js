@@ -25,6 +25,23 @@
     premium: "프리미엄"
   };
 
+  function currentLanguage() {
+    return window.NADO_I18N?.getLanguage?.() || "ko";
+  }
+
+  function currentLocale() {
+    return currentLanguage() === "en" ? "en-US" : "ko-KR";
+  }
+
+  function localizedContent(item, field) {
+    if (!item) return "";
+    if (currentLanguage() === "en") {
+      const english = item[`${field}_en`];
+      if (english && String(english).trim()) return String(english).trim();
+    }
+    return String(item[field] || "").trim();
+  }
+
   let currentUser = null;
   let profile = null;
   let slots = [];
@@ -1136,7 +1153,12 @@
   }
 
   async function loadAnnouncements() {
-    const { data, error } = await supabase.from("announcements").select("title, body, published_at").eq("is_active", true).order("published_at", { ascending: false }).limit(5);
+    const { data, error } = await supabase
+      .from("announcements")
+      .select("title, body, title_en, body_en, published_at")
+      .eq("is_active", true)
+      .order("published_at", { ascending: false })
+      .limit(5);
     if (error || !data?.length) {
       $("announcementList").innerHTML = '<div class="empty-state announcement-empty">현재 등록된 공지사항이 없습니다.</div>';
       return;
@@ -1146,7 +1168,7 @@
       const date = new Date(value);
       return Number.isNaN(date.getTime())
         ? "-"
-        : date.toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" });
+        : date.toLocaleDateString(currentLocale(), { year: "numeric", month: "2-digit", day: "2-digit" });
     };
 
     const [latest, ...previous] = data;
@@ -1162,15 +1184,15 @@
           <span class="announcement-label">${latestLabel}</span>
           <time datetime="${escapeHtml(latest.published_at || "")}">${escapeHtml(formatDate(latest.published_at))}</time>
         </div>
-        <h4>${escapeHtml(latest.title)}</h4>
-        <p>${escapeHtml(latest.body)}</p>
+        <h4>${escapeHtml(localizedContent(latest, "title"))}</h4>
+        <p>${escapeHtml(localizedContent(latest, "body"))}</p>
       </article>`;
 
     const archive = previous.length
       ? `<div class="announcement-archive">${previous.map((item) => `
           <article class="announcement-item">
             <time class="announcement-date" datetime="${escapeHtml(item.published_at || "")}">${escapeHtml(formatDate(item.published_at))}</time>
-            <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p></div>
+            <div><strong>${escapeHtml(localizedContent(item, "title"))}</strong><p>${escapeHtml(localizedContent(item, "body"))}</p></div>
           </article>`).join("")}</div>`
       : "";
 
@@ -1178,7 +1200,11 @@
   }
 
   async function loadResources() {
-    const { data, error } = await supabase.from("resources").select("title, description, category, file_url, sort_order").eq("is_active", true).order("sort_order");
+    const { data, error } = await supabase
+      .from("resources")
+      .select("title, description, title_en, description_en, category, file_url, sort_order")
+      .eq("is_active", true)
+      .order("sort_order");
     if (error || !data?.length) {
       $("resourceGrid").innerHTML = '<div class="panel empty-state">등록된 자료가 없습니다. 관리자에게 자료 URL 등록을 요청해주세요.</div>';
       return;
@@ -1187,35 +1213,22 @@
       <article class="resource-card">
         <div class="resource-icon">${item.category === "PDF" ? "PDF" : "DOC"}</div>
         <span class="resource-type">${escapeHtml(item.category || "RESOURCE")}</span>
-        <h3>${escapeHtml(item.title)}</h3>
-        <p>${escapeHtml(item.description || "")}</p>
+        <h3>${escapeHtml(localizedContent(item, "title"))}</h3>
+        <p>${escapeHtml(localizedContent(item, "description"))}</p>
         <a href="${escapeHtml(item.file_url)}" target="_blank" rel="noopener">자료 열기 →</a>
       </article>`).join("");
   }
 
-  function youtubeEmbedUrl(url) {
-    if (!url) return "";
-    try {
-      const parsed = new URL(url);
-      let id = parsed.hostname.includes("youtu.be") ? parsed.pathname.slice(1) : parsed.searchParams.get("v");
-      if (parsed.pathname.includes("/embed/")) id = parsed.pathname.split("/embed/")[1];
-      return id ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0` : "";
-    } catch { return ""; }
-  }
-
   async function loadVideos() {
-    const { data, error } = await supabase.from("training_videos").select("title, description, video_url, sort_order").eq("is_active", true).order("sort_order");
-    if (error || !data?.length) {
-      $("videoGrid").innerHTML = '<div class="panel empty-state">등록된 교육 영상이 없습니다.</div>';
-      return;
-    }
-    $("videoGrid").innerHTML = data.map((item, index) => {
-      const embedUrl = youtubeEmbedUrl(item.video_url);
-      return `<article class="video-card">
-        <div class="video-frame">${embedUrl ? `<iframe src="${embedUrl}" title="${escapeHtml(item.title)}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>` : '<div class="empty-state">영상 URL을 확인해주세요.</div>'}</div>
-        <div class="video-info"><span class="video-order">VIDEO ${String(index + 1).padStart(2,"0")}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.description || "")}</p></div>
+    // Training videos are temporarily hidden while the section is being revised.
+    $("videoGrid").innerHTML = `
+      <article class="panel training-maintenance-card">
+        <span class="training-maintenance-icon">↻</span>
+        <div>
+          <strong>현재 수정 중입니다.</strong>
+          <p>더 나은 교육 자료를 준비하고 있습니다. 준비가 완료되는 대로 이 페이지에 업데이트하겠습니다.</p>
+        </div>
       </article>`;
-    }).join("");
   }
 
 function loadGuideChecks() {
@@ -1254,6 +1267,12 @@ function loadGuideChecks() {
   function bindEvents() {
     $("loginForm").addEventListener("submit", login);
     $("resetPasswordButton").addEventListener("click", resetPassword);
+  document.addEventListener("nado:languagechange", () => {
+    if (!dashboardInitialized || !currentUser) return;
+    Promise.all([loadAnnouncements(), loadResources(), loadVideos()]).catch((error) => {
+      console.warn("Localized content refresh failed:", error);
+    });
+  });
     $("logoutButton").addEventListener("click", logout);
     $("profileForm").addEventListener("submit", saveProfile);
     $("onboardingForm").addEventListener("submit", completeOnboarding);

@@ -307,7 +307,38 @@
   "종료": "End",
   "장소": "Location",
   "메모": "Note",
-  "업데이트": "Updated"
+  "업데이트": "Updated",
+  "현재 수정 중": "Currently being updated",
+  "교육 영상은 현재 수정 중입니다. 준비가 완료되는 대로 업데이트하겠습니다.": "Training videos are currently being updated. We will publish them here once they are ready.",
+  "현재 수정 중입니다.": "Currently being updated.",
+  "더 나은 교육 자료를 준비하고 있습니다. 준비가 완료되는 대로 이 페이지에 업데이트하겠습니다.": "We are preparing improved training materials and will update this page when they are ready.",
+  "학생 일정 캘린더": "Student Schedule Calendar",
+  "학생별 첫 수업일과 정산 예정일을 한눈에 확인할 수 있습니다.": "View each student's first lesson and scheduled payout dates at a glance.",
+  "이전 달": "Previous month",
+  "다음 달": "Next month",
+  "오늘": "Today",
+  "일정 종류": "Event type",
+  "학생 이름은 학생별 고유 색상, 선생님 이름은 같은 선생님끼리 같은 색상으로 표시됩니다.": "Student names use unique colors, while the same teacher always uses the same teacher color.",
+  "첫 수업": "First lesson",
+  "정산": "Payout",
+  "한국어 제목": "Korean title",
+  "한국어 내용": "Korean content",
+  "영문 제목": "English title",
+  "영문 내용": "English content",
+  "영어 화면에서는 영문 입력값이 표시되며, 비어 있으면 한국어가 대신 표시됩니다.": "English fields are shown in English mode. If an English field is empty, the Korean version is shown instead.",
+  "한국어 자료 제목": "Korean material title",
+  "한국어 설명": "Korean description",
+  "영문 자료 제목": "English material title",
+  "영문 설명": "English description",
+  "한국어 영상 제목": "Korean video title",
+  "영문 영상 제목": "English video title",
+  "공지 수정": "Update Notice",
+  "자료 수정": "Update Material",
+  "영상 수정": "Update Video",
+  "공지사항을 수정했습니다.": "Notice updated.",
+  "수업 자료를 수정했습니다.": "Lesson material updated.",
+  "교육 영상을 수정했습니다.": "Training video updated.",
+  "EN · 미입력": "EN · Not entered"
 };
   const partials = {
   " 항목을 입력해주세요.": " field is required.",
@@ -382,9 +413,10 @@
   function isUserAuthoredContent(element) {
     return Boolean(element?.closest?.(
       "#announcementList h4, #announcementList p, #announcementList .announcement-item strong, " +
-      "#resourceGrid h3, #resourceGrid p, #videoGrid h3, #videoGrid p, " +
+      "#resourceGrid h3, #resourceGrid p, " +
       ".assignment-student-name strong, .admin-assignment-person > strong, " +
-      ".teacher-admin-profile strong, .teacher-admin-profile span, .teacher-admin-bio strong, .admin-memo"
+      ".teacher-admin-profile strong, .teacher-admin-profile span, .teacher-admin-bio strong, .admin-memo, " +
+      ".calendar-student-name, .calendar-teacher-name, .manager-item strong, .manager-item-en"
     ));
   }
 
