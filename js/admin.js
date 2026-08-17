@@ -5,6 +5,7 @@
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const PROFILE_PHOTO_BUCKET = "profile-photos";
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
+  const CURRENT_AGREEMENT_VERSION = "v1.0";
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
   let teachers = [];
@@ -53,6 +54,20 @@
     await Promise.all(teachers.map(async (teacher) => {
       teacher.profile_photo_url = await signedProfilePhotoUrl(teacher.profile_photo_path);
     }));
+  }
+
+
+  async function hydrateTeacherAgreements() {
+    const { data, error } = await supabase
+      .from("teacher_agreements")
+      .select("teacher_id, teacher_name, agreement_version, agreed_at")
+      .eq("agreement_version", CURRENT_AGREEMENT_VERSION);
+    if (error) {
+      console.error("Teacher agreement lookup failed:", error);
+      throw error;
+    }
+    const agreementMap = new Map((data || []).map((item) => [item.teacher_id, item]));
+    teachers.forEach((teacher) => { teacher.agreement = agreementMap.get(teacher.id) || null; });
   }
 
   function safeDownloadName(value = "teacher") {
@@ -128,7 +143,12 @@
       .order("full_name");
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
     teachers = data || [];
-    await hydrateTeacherPhotos();
+    try {
+      await Promise.all([hydrateTeacherPhotos(), hydrateTeacherAgreements()]);
+    } catch (error) {
+      toast("전자계약 데이터를 불러오지 못했습니다. Supabase 계약 업데이트 SQL을 확인해주세요.", true);
+      return;
+    }
     populateTeacherOptions();
     updateStats();
     render();
@@ -154,6 +174,8 @@
     $("latestUpdate").textContent = latest ? new Date(latest).toLocaleDateString("ko-KR") : "없음";
     const { current } = assignmentGroups();
     $("assignmentTotalCount").textContent = `${current.length}명`;
+    const acceptedCount = teachers.filter((teacher) => teacher.agreement?.agreement_version === CURRENT_AGREEMENT_VERSION).length;
+    $("agreementAcceptedCount").textContent = `${acceptedCount}/${teachers.length}명`;
   }
 
   function filteredTeachers() {
@@ -196,6 +218,9 @@
           <div><span>연락처</span><strong>${escapeHtml(teacher.phone || "미입력")}</strong></div>
           <div><span>정산 계좌</span><strong>${escapeHtml(teacher.bank_name || "은행 미입력")} ${escapeHtml(teacher.account_number || "계좌번호 미입력")}</strong></div>
           <div class="teacher-admin-bio"><span>한 줄 소개</span><strong>${escapeHtml(teacher.bio || "미입력")}</strong></div>
+          <div class="teacher-agreement-detail"><span>서비스 계약</span>${teacher.agreement
+            ? `<strong class="agreement-ok">동의 완료 · ${escapeHtml(teacher.agreement.agreement_version)}</strong><small>${escapeHtml(new Date(teacher.agreement.agreed_at).toLocaleString(currentLocale()))} · ${escapeHtml(teacher.agreement.teacher_name)}</small>`
+            : `<strong class="agreement-missing">미동의 · ${CURRENT_AGREEMENT_VERSION}</strong><small>다음 로그인 시 계약 동의 화면이 표시됩니다.</small>`}</div>
         </div>
         <div class="admin-slots">${slots.length ? slots.map((slot) => `<div class="admin-slot"><strong>${days[Number(slot.day_of_week)]}</strong>${escapeHtml(slot.start_time.slice(0,5))}–${escapeHtml(slot.end_time.slice(0,5))}<br>${escapeHtml(slot.location || "")}</div>`).join("") : '<div class="empty-state compact">제출된 시간이 없습니다.</div>'}</div>
         ${memo ? `<div class="admin-memo"><strong>메모:</strong> ${escapeHtml(memo)}</div>` : ""}
@@ -649,6 +674,7 @@
     if (button) deleteContent(button.dataset.deleteTable, button.dataset.deleteId);
   });
   document.addEventListener("nado:languagechange", () => {
+    render();
     renderAssignmentCalendar();
     renderManagerList("adminAnnouncementList", contentCache.announcement, "announcement");
     renderManagerList("adminResourceList", contentCache.resource, "resource");

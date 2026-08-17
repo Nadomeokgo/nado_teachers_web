@@ -56,6 +56,36 @@
   "사진 다운로드": "Download Photo",
   "다운로드 중...": "Downloading...",
   "프로필 사진 다운로드에 실패했습니다.": "Failed to download the profile photo.",
+  "서비스 이용 계약": "Service Agreement",
+  "계약 동의 기록을 확인하고 있습니다.": "Checking your agreement record.",
+  "내 계약서 보기": "View My Agreement",
+  "계약서 안내": "Agreement notice",
+  "아래 계약서 원문은 한국어로 제공됩니다. 동의 시 계약서 버전, 계정, 성명, 확인 항목 및 서버 기준 동의 일시가 기록됩니다.": "The agreement text below is presented in Korean. When you agree, the agreement version, account, name, confirmation items, and server-recorded consent time are stored.",
+  "계약서 버전": "Agreement version",
+  "동의 기록": "Consent record",
+  "전자계약 동의": "Electronic Agreement Consent",
+  "아래 다섯 항목을 모두 확인해야 계약을 완료할 수 있습니다.": "Confirm all five items to complete the agreement.",
+  "필수 동의": "Required consent",
+  "Teacher 성명": "Teacher name",
+  "계약자 성명을 입력해주세요": "Enter the contracting teacher's name",
+  "계약일": "Agreement date",
+  "동의 완료 시 자동 기록": "Recorded automatically when accepted",
+  "동의 및 계약하기": "Agree and Sign",
+  "위 내용은 현재 계정이 동의한 NADO Teacher Service Agreement 계약 내용입니다.": "The content above is the NADO Teacher Service Agreement accepted by this account.",
+  "계약서 닫기": "Close Agreement",
+  "Teacher 성명을 입력해주세요.": "Enter the Teacher name.",
+  "전자계약 확인 항목 5개에 모두 동의해주세요.": "Please agree to all five electronic agreement confirmations.",
+  "전자계약 동의가 완료되었습니다.": "Your electronic agreement has been completed.",
+  "전자계약 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요.": "The electronic agreement database must be configured. Please contact the operations team.",
+  "전자계약 정보를 불러오지 못했습니다. Supabase 계약 업데이트 SQL을 확인해주세요.": "Could not load the electronic agreement. Please check the Supabase agreement update SQL.",
+  "v1.0 계약 동의": "v1.0 Agreement Consent",
+  "서비스 계약": "Service Agreement",
+  "다음 로그인 시 계약 동의 화면이 표시됩니다.": "The agreement consent screen will appear at the next login.",
+  "선택한 플랜 및 수업시간에 따라 제3조에 기재된 NADO 수수료와 Teacher 첫 달 정산액이 적용되는 것을 확인했습니다.": "I confirm that the NADO fee and Teacher first-month payout stated in Article 3 apply according to the selected plan and lesson duration.",
+  "첫 달 정산은 학생과 첫 수업이 실제 진행된 날짜를 기준으로 31일 후 이루어지는 것을 확인했습니다.": "I confirm that the first-month payout is made 31 days after the date the first lesson with the student actually takes place.",
+  "동일 학생과 수업을 계속하는 경우 2개월 차부터 NADO의 추가 수수료 없이 제3조에 기재된 월 수업료 전액을 학생으로부터 직접 지급받는 것을 확인했습니다.": "I confirm that if lessons continue with the same student, from the second month I will receive the full monthly lesson fee stated in Article 3 directly from the student without an additional NADO fee.",
+  "NADO를 통해 최초 매칭된 학생의 첫 번째 4회 수업료는 NADO의 결제 및 정산 절차를 따라야 하는 것을 확인했습니다.": "I confirm that payment for the first four lessons with a student first matched through NADO must follow NADO's payment and settlement process.",
+  "NADO Teacher Service Agreement 전체 내용을 읽고 이해하였으며 이에 동의합니다.": "I have read and understood the entire NADO Teacher Service Agreement and agree to it.",
   "선택": "Optional",
   "본인을 확인할 수 있는 프로필 사진은 최초 설정 시 필수입니다. JPG, PNG, WEBP 형식으로 최대 5MB까지 업로드할 수 있습니다.": "A clear profile photo is required during initial setup. JPG, PNG, or WEBP up to 5MB.",
   "등록한 사진은 내 화면과 관리자 선생님 정보 카드에 표시됩니다. 사진을 선택한 뒤 아래의 내 정보 저장을 누르면 다른 정보와 함께 저장됩니다. JPG, PNG, WEBP / 최대 5MB": "Your photo appears on your page and in the administrator's teacher card. Choose a photo, then press Save Profile below to save it with the rest of your information. JPG, PNG, or WEBP / up to 5MB.",
@@ -391,6 +421,8 @@
 
     let match = value.match(/^(\d+)\s*명$/);
     if (match) return match[1];
+    match = value.match(/^(\d+)\/(\d+)명$/);
+    if (match) return `${match[1]}/${match[2]}`;
     match = value.match(/^(\d+)\s*건$/);
     if (match) return match[1];
     match = value.match(/^(\d+)\s*개$/);
@@ -417,6 +449,12 @@
     if (match) return `Delete the assignment for ${match[1]}?`;
     match = value.match(/^(.+?) 항목을 입력해주세요\.$/);
     if (match) return `${translations[match[1]] || match[1]} is required.`;
+    match = value.match(/^(v\d+(?:\.\d+)*) 계약 동의가 필요합니다\.$/);
+    if (match) return `${match[1]} agreement consent is required.`;
+    match = value.match(/^동의 완료 · (v\d+(?:\.\d+)*)$/);
+    if (match) return `Accepted · ${match[1]}`;
+    match = value.match(/^미동의 · (v\d+(?:\.\d+)*)$/);
+    if (match) return `Not accepted · ${match[1]}`;
 
     let output = value;
     Object.entries(partials).forEach(([ko, en]) => { output = output.replaceAll(ko, en); });
@@ -429,7 +467,8 @@
       "#resourceGrid h3, #resourceGrid p, " +
       ".assignment-student-name strong, .admin-assignment-person > strong, " +
       ".teacher-admin-profile strong, .teacher-admin-profile span, .teacher-admin-bio strong, .admin-memo, " +
-      ".calendar-student-name, .calendar-teacher-name, .manager-item strong, .manager-item-en"
+      ".calendar-student-name, .calendar-teacher-name, .manager-item strong, .manager-item-en, " +
+      "#agreementContractContent, #agreementContractContent *"
     ));
   }
 

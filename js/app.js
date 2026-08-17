@@ -8,6 +8,7 @@
   const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
   const PROFILE_PHOTO_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
+  const CURRENT_AGREEMENT_VERSION = "v1.0";
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   const scheduleDayOrder = [1, 2, 3, 4, 5, 6, 0];
   const scheduleStartMinutes = 8 * 60;
@@ -55,6 +56,10 @@
   let logoutInProgress = false;
   let loginInProgress = false;
   let onboardingRequired = false;
+  let agreementRequired = false;
+  let agreementRecord = null;
+  let agreementVersionRecord = null;
+  let agreementViewMode = "required";
   let dashboardInitialized = false;
   let pendingProfilePhotoFile = null;
   let pendingOnboardingPhotoFile = null;
@@ -302,7 +307,7 @@
   }
 
   function switchPage(page) {
-    if (onboardingRequired) return;
+    if (onboardingRequired || agreementRequired) return;
     if (!pageMeta[page]) page = "dashboard";
     document.querySelectorAll(".page").forEach((el) => el.classList.remove("active"));
     document.querySelectorAll(".nav-item[data-page]").forEach((el) => el.classList.toggle("active", el.dataset.page === page));
@@ -414,6 +419,10 @@
     selectedAvailability = new Set();
     scheduleMemo = "";
     onboardingRequired = false;
+    agreementRequired = false;
+    agreementRecord = null;
+    agreementVersionRecord = null;
+    agreementViewMode = "required";
     dashboardInitialized = false;
     pendingProfilePhotoFile = null;
     pendingOnboardingPhotoFile = null;
@@ -421,7 +430,8 @@
     revokePreviewUrl("profile");
     revokePreviewUrl("onboarding");
 
-    document.body.classList.remove("onboarding-open");
+    document.body.classList.remove("onboarding-open", "agreement-open");
+    $("agreementView").classList.add("hidden");
     $("onboardingView").classList.add("hidden");
     $("appView").classList.add("hidden");
     $("loginView").classList.remove("hidden");
@@ -464,6 +474,195 @@
 
   function isProfileOnboardingRequired() {
     return profile?.role !== "admin" && !profile?.profile_completed_at;
+  }
+
+  function isAgreementRequired() {
+    return profile?.role !== "admin" && !agreementRecord;
+  }
+
+  function formatAgreementDate(value) {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleString(currentLocale(), { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  async function loadAgreementState() {
+    if (profile?.role === "admin") {
+      agreementRecord = null;
+      agreementVersionRecord = null;
+      updateAgreementProfileCard();
+      return;
+    }
+
+    const [versionResult, agreementResult] = await Promise.all([
+      supabase
+        .from("teacher_agreement_versions")
+        .select("version, title, content_hash, published_at")
+        .eq("version", CURRENT_AGREEMENT_VERSION)
+        .maybeSingle(),
+      supabase
+        .from("teacher_agreements")
+        .select("id, teacher_id, teacher_name, agreement_version, confirmations, agreed_at")
+        .eq("teacher_id", currentUser.id)
+        .eq("agreement_version", CURRENT_AGREEMENT_VERSION)
+        .maybeSingle()
+    ]);
+
+    if (versionResult.error) throw versionResult.error;
+    if (!versionResult.data) throw new Error(`Agreement version ${CURRENT_AGREEMENT_VERSION} is not configured.`);
+    if (agreementResult.error) throw agreementResult.error;
+
+    agreementVersionRecord = versionResult.data;
+    agreementRecord = agreementResult.data || null;
+    updateAgreementProfileCard();
+  }
+
+  function updateAgreementProfileCard() {
+    const panel = $("profileAgreementPanel");
+    const status = $("profileAgreementStatus");
+    const button = $("viewAgreementButton");
+    if (!panel || !status || !button) return;
+    if (profile?.role === "admin") {
+      panel.classList.add("hidden");
+      return;
+    }
+    panel.classList.remove("hidden");
+    if (agreementRecord) {
+      status.textContent = `${agreementRecord.agreement_version} · ${formatAgreementDate(agreementRecord.agreed_at)} · ${agreementRecord.teacher_name}`;
+      button.disabled = false;
+    } else {
+      status.textContent = `${CURRENT_AGREEMENT_VERSION} 계약 동의가 필요합니다.`;
+      button.disabled = true;
+    }
+  }
+
+  function resetAgreementForm() {
+    const form = $("agreementForm");
+    form?.reset();
+    const suggestedName = profile?.full_name && profile.full_name !== "선생님" ? profile.full_name : "";
+    $("agreementTeacherName").value = suggestedName;
+    updateAgreementSubmitState();
+  }
+
+  function updateAgreementSubmitState() {
+    const button = $("agreementSubmitButton");
+    if (!button) return;
+    const checks = [...document.querySelectorAll("#agreementForm .agreement-check")];
+    const allChecked = checks.length === 5 && checks.every((input) => input.checked);
+    const hasName = Boolean($("agreementTeacherName")?.value.trim());
+    button.disabled = !(allChecked && hasName);
+  }
+
+  function showAgreement(mode = "required") {
+    agreementViewMode = mode;
+    agreementRequired = mode === "required";
+    $("agreementEmail").textContent = currentUser?.email || "-";
+    $("agreementVersionLabel").textContent = CURRENT_AGREEMENT_VERSION;
+
+    const isReview = mode === "review";
+    $("agreementForm").classList.toggle("hidden", isReview);
+    $("agreementReviewFooter").classList.toggle("hidden", !isReview);
+    $("agreementReviewCloseButton").classList.toggle("hidden", !isReview);
+    $("agreementAcceptedSummary").classList.toggle("hidden", !isReview || !agreementRecord);
+    if (isReview && agreementRecord) {
+      $("agreementAcceptedSummaryText").textContent = `${agreementRecord.teacher_name} · ${formatAgreementDate(agreementRecord.agreed_at)}`;
+    }
+
+    if (!isReview) resetAgreementForm();
+    $("loginView").classList.add("hidden");
+    if (agreementRequired) {
+      $("appView").classList.add("hidden");
+      $("onboardingView").classList.add("hidden");
+    }
+    $("agreementView").classList.remove("hidden");
+    document.body.classList.add("agreement-open");
+    $("agreementContractScroll").scrollTop = 0;
+    window.setTimeout(() => isReview ? $("agreementReviewCloseButton").focus() : $("agreementContractScroll").focus(), 0);
+  }
+
+  function hideAgreementReview() {
+    if (agreementViewMode !== "review") return;
+    $("agreementView").classList.add("hidden");
+    document.body.classList.remove("agreement-open");
+    agreementRequired = false;
+    agreementViewMode = "required";
+  }
+
+  async function completeAgreement(event) {
+    event.preventDefault();
+    if (agreementViewMode !== "required") return;
+    const form = $("agreementForm");
+    const button = event.submitter || $("agreementSubmitButton");
+    const teacherName = $("agreementTeacherName").value.trim();
+    const checks = [...form.querySelectorAll(".agreement-check")];
+    if (!teacherName) {
+      $("agreementTeacherName").focus();
+      return showToast("Teacher 성명을 입력해주세요.", "error");
+    }
+    if (checks.length !== 5 || !checks.every((input) => input.checked)) {
+      return showToast("전자계약 확인 항목 5개에 모두 동의해주세요.", "error");
+    }
+
+    const confirmations = Object.fromEntries(checks.map((input) => [input.name, input.checked]));
+    setLoading(button, true, "동의 및 계약하기");
+    try {
+      const { data, error } = await supabase
+        .from("teacher_agreements")
+        .insert({
+          teacher_id: currentUser.id,
+          teacher_name: teacherName,
+          agreement_version: CURRENT_AGREEMENT_VERSION,
+          confirmations
+        })
+        .select("id, teacher_id, teacher_name, agreement_version, confirmations, agreed_at")
+        .single();
+
+      if (error && error.code !== "23505") throw error;
+      if (error?.code === "23505") {
+        const { data: existing, error: reloadError } = await supabase
+          .from("teacher_agreements")
+          .select("id, teacher_id, teacher_name, agreement_version, confirmations, agreed_at")
+          .eq("teacher_id", currentUser.id)
+          .eq("agreement_version", CURRENT_AGREEMENT_VERSION)
+          .single();
+        if (reloadError) throw reloadError;
+        agreementRecord = existing;
+      } else {
+        agreementRecord = data;
+      }
+    } catch (error) {
+      console.error("Agreement acceptance failed:", error);
+      const setupMissing = /teacher_agreement|relation|does not exist|permission/i.test(error?.message || "");
+      showToast(setupMissing
+        ? "전자계약 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요."
+        : "계약 동의 저장에 실패했습니다: " + (error?.message || "알 수 없는 오류"), "error");
+      setLoading(button, false, "동의 및 계약하기");
+      updateAgreementSubmitState();
+      return;
+    }
+
+    agreementRequired = false;
+    $("agreementView").classList.add("hidden");
+    document.body.classList.remove("agreement-open");
+    updateAgreementProfileCard();
+    setLoading(button, false, "동의 및 계약하기");
+    showToast("전자계약 동의가 완료되었습니다.");
+
+    if (isProfileOnboardingRequired()) {
+      if (!$("onboardingName").value.trim()) $("onboardingName").value = teacherName;
+      showOnboarding();
+      return;
+    }
+
+    try {
+      await initializeDashboardData(location.hash.replace("#", "") || "dashboard");
+    } catch (error) {
+      console.error("Post-agreement dashboard initialization failed:", error);
+      $("appView").classList.remove("hidden");
+      switchPage("dashboard");
+      showToast("계약 동의는 저장되었지만 일부 정보를 불러오지 못했습니다. 새로고침해주세요.", "error");
+    }
   }
 
   function syncProfileFields(data = {}) {
@@ -553,6 +752,7 @@
     dashboardInitialized = false;
     $("loginView").classList.add("hidden");
     $("appView").classList.add("hidden");
+    $("agreementView").classList.add("hidden");
     $("onboardingView").classList.add("hidden");
 
     try {
@@ -561,6 +761,22 @@
       console.error("Profile initialization failed:", error);
       renderSignedOutState();
       showToast("프로필 정보를 불러오지 못했습니다. 잠시 후 다시 로그인해주세요.", "error");
+      return;
+    }
+
+    try {
+      await loadAgreementState();
+    } catch (error) {
+      console.error("Agreement initialization failed:", error);
+      $("loginView").classList.add("hidden");
+      $("appView").classList.add("hidden");
+      $("onboardingView").classList.add("hidden");
+      showToast("전자계약 정보를 불러오지 못했습니다. Supabase 계약 업데이트 SQL을 확인해주세요.", "error");
+      return;
+    }
+
+    if (isAgreementRequired()) {
+      showAgreement("required");
       return;
     }
 
@@ -591,6 +807,7 @@
     syncProfileFields(profile);
     await refreshProfilePhoto();
     $("adminLink").classList.toggle("hidden", profile.role !== "admin");
+    updateAgreementProfileCard();
   }
 
   async function loadAssignments() {
@@ -1335,6 +1552,10 @@ function loadGuideChecks() {
     $("resetPasswordButton").addEventListener("click", resetPassword);
   document.addEventListener("nado:languagechange", () => {
     buildAvailabilityGrid();
+    updateAgreementProfileCard();
+    if (agreementViewMode === "review" && agreementRecord) {
+      $("agreementAcceptedSummaryText").textContent = `${agreementRecord.teacher_name} · ${formatAgreementDate(agreementRecord.agreed_at)}`;
+    }
     if (!dashboardInitialized || !currentUser) return;
     Promise.all([loadAnnouncements(), loadResources(), loadVideos()]).catch((error) => {
       console.warn("Localized content refresh failed:", error);
@@ -1344,6 +1565,13 @@ function loadGuideChecks() {
     $("profileForm").addEventListener("submit", saveProfile);
     $("onboardingForm").addEventListener("submit", completeOnboarding);
     $("onboardingLogoutButton").addEventListener("click", logout);
+    $("agreementForm").addEventListener("submit", completeAgreement);
+    $("agreementLogoutButton").addEventListener("click", logout);
+    $("agreementForm").addEventListener("input", updateAgreementSubmitState);
+    $("agreementForm").addEventListener("change", updateAgreementSubmitState);
+    $("viewAgreementButton").addEventListener("click", () => { if (agreementRecord) showAgreement("review"); });
+    $("agreementReviewCloseButton").addEventListener("click", hideAgreementReview);
+    $("agreementReviewCloseBottomButton").addEventListener("click", hideAgreementReview);
     $("profilePhotoInput").addEventListener("change", (event) => selectProfilePhoto("profile", event.target.files?.[0]));
     $("onboardingPhotoInput").addEventListener("change", (event) => selectProfilePhoto("onboarding", event.target.files?.[0]));
     $("profilePhotoRemoveButton").addEventListener("click", removeProfilePhoto);

@@ -954,3 +954,97 @@ input[type="time"], input[type="date"], input[type="datetime-local"] {
     padding-inline: 2px;
   }
 }
+
+
+/* ===== NADO Teacher Service Agreement v1.0 ===== */
+body.agreement-open { overflow: hidden; }
+.agreement-overlay {
+  position: fixed; inset: 0; z-index: 1200; overflow: auto;
+  background: #f3f7fb; color: #172033;
+}
+.agreement-shell { min-height: 100%; padding: 28px; }
+.agreement-topbar {
+  width: min(1180px, 100%); margin: 0 auto 18px; display: flex; align-items: center;
+  justify-content: space-between; gap: 20px;
+}
+.agreement-brand-block { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.agreement-logo { width: 110px; height: auto; }
+.agreement-brand-block h1 { margin: 2px 0 2px; font-size: clamp(22px, 3vw, 32px); line-height: 1.2; }
+.agreement-brand-block p:last-child { margin: 0; color: #69778d; }
+.agreement-topbar-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.agreement-card {
+  width: min(1180px, 100%); margin: 0 auto; background: #fff; border: 1px solid #e0e7f0;
+  border-radius: 24px; box-shadow: 0 18px 50px rgba(31, 58, 92, .08); padding: 24px;
+}
+.agreement-summary-bar { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 14px; }
+.agreement-summary-bar > div { background: #f5f8fc; border-radius: 14px; padding: 12px 14px; }
+.agreement-summary-bar span { display: block; color: #728198; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+.agreement-summary-bar strong { display: block; overflow-wrap: anywhere; }
+.agreement-language-note { border: 1px solid #dbe8f7; background: #f1f7ff; border-radius: 14px; padding: 12px 14px; margin-bottom: 16px; }
+.agreement-language-note strong { color: #2569b2; }
+.agreement-language-note p { margin: 4px 0 0; color: #53657d; line-height: 1.55; }
+.agreement-contract-scroll {
+  height: min(57vh, 670px); min-height: 390px; overflow: auto; overscroll-behavior: contain;
+  border: 1px solid #dbe3ed; border-radius: 18px; background: #fff; padding: 26px;
+}
+.agreement-contract-content { max-width: 1000px; margin: 0 auto; font-size: 14px; line-height: 1.75; color: #28364a; }
+.agreement-contract-content .agreement-purpose { margin: 0 0 24px; padding: 16px 18px; background: #f7f9fc; border-radius: 12px; }
+.agreement-article { padding: 6px 0 22px; border-bottom: 1px solid #edf1f5; }
+.agreement-article:last-child { border-bottom: 0; }
+.agreement-article h3 { margin: 18px 0 10px; font-size: 17px; color: #172033; }
+.agreement-article h4 { margin: 18px 0 8px; font-size: 15px; color: #255f9f; }
+.agreement-article p { margin: 7px 0; }
+.agreement-article ol, .agreement-article ul { margin: 8px 0 0 20px; padding: 0; }
+.agreement-article li { margin: 6px 0; }
+.agreement-article li ul { margin-top: 7px; }
+.agreement-table-scroll { overflow-x: auto; margin: 8px 0 16px; border: 1px solid #e1e7ef; border-radius: 12px; }
+.agreement-price-table { width: 100%; min-width: 790px; border-collapse: collapse; font-size: 13px; }
+.agreement-price-table th, .agreement-price-table td { padding: 9px 10px; border-bottom: 1px solid #e7ecf2; text-align: right; white-space: nowrap; }
+.agreement-price-table th:first-child, .agreement-price-table td:first-child { text-align: left; }
+.agreement-price-table th { background: #f5f8fc; color: #53657d; font-weight: 800; }
+.agreement-price-table tbody tr:last-child td { border-bottom: 0; }
+.agreement-electronic-copy { background: #f8fbff; border: 1px solid #dce9f7; border-radius: 14px; padding: 4px 16px 16px; margin-top: 16px; }
+.agreement-consent-form { margin-top: 18px; border-top: 1px solid #e6ebf1; padding-top: 20px; }
+.agreement-consent-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.agreement-consent-head h2 { margin: 2px 0 4px; }
+.agreement-consent-head p:last-child { margin: 0; color: #6f7e92; }
+.agreement-required-badge { background: #eaf3ff; color: #246cb9; border-radius: 999px; padding: 7px 10px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.agreement-check-list { display: grid; gap: 9px; }
+.agreement-check-list label { display: flex; gap: 10px; align-items: flex-start; padding: 12px 13px; background: #f7f9fc; border: 1px solid #e6ebf1; border-radius: 12px; cursor: pointer; line-height: 1.55; }
+.agreement-check-list input { width: 19px; height: 19px; margin-top: 2px; accent-color: #2f80ed; flex: 0 0 auto; }
+.agreement-check-list label:has(input:checked) { border-color: #a9cff8; background: #f1f7ff; }
+.agreement-signature-grid { display: grid; grid-template-columns: 1.2fr .9fr 1fr; gap: 12px; margin-top: 14px; }
+.agreement-signature-grid label, .agreement-auto-field { border: 1px solid #e3e9f0; border-radius: 12px; padding: 11px 12px; }
+.agreement-signature-grid label { display: grid; gap: 7px; font-weight: 700; }
+.agreement-signature-grid input { width: 100%; }
+.agreement-auto-field span { display: block; color: #748399; font-size: 12px; font-weight: 700; margin-bottom: 7px; }
+.agreement-auto-field strong { display: block; font-size: 14px; }
+.agreement-action-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.agreement-action-row .button.primary { min-width: 190px; }
+.agreement-action-row .button:disabled { opacity: .48; cursor: not-allowed; }
+.agreement-review-footer { margin-top: 18px; padding: 16px; background: #f7f9fc; border-radius: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.agreement-review-footer p { margin: 0; color: #637289; }
+.profile-agreement-panel { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.profile-agreement-panel h3 { margin: 3px 0 6px; }
+.profile-agreement-panel p:last-child { margin: 0; color: #65758b; }
+.teacher-agreement-detail strong.agreement-ok { color: #1d7a52; }
+.teacher-agreement-detail strong.agreement-missing { color: #b55b35; }
+
+@media (max-width: 760px) {
+  .agreement-shell { padding: 12px; }
+  .agreement-topbar { align-items: flex-start; }
+  .agreement-brand-block { align-items: flex-start; }
+  .agreement-logo { width: 84px; margin-top: 4px; }
+  .agreement-brand-block h1 { font-size: 20px; }
+  .agreement-topbar-actions { flex-direction: column; align-items: flex-end; }
+  .agreement-card { border-radius: 18px; padding: 14px; }
+  .agreement-summary-bar { grid-template-columns: 1fr; gap: 8px; }
+  .agreement-contract-scroll { height: 51vh; min-height: 330px; padding: 16px; }
+  .agreement-contract-content { font-size: 13px; line-height: 1.65; }
+  .agreement-signature-grid { grid-template-columns: 1fr; }
+  .agreement-action-row { flex-direction: column-reverse; }
+  .agreement-action-row .button { width: 100%; }
+  .agreement-review-footer { flex-direction: column; align-items: stretch; }
+  .profile-agreement-panel { align-items: stretch; flex-direction: column; }
+  .profile-agreement-panel .button { width: 100%; }
+}
