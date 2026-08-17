@@ -1024,9 +1024,21 @@ body.agreement-open { overflow: hidden; }
 .agreement-action-row .button:disabled { opacity: .48; cursor: not-allowed; }
 .agreement-review-footer { margin-top: 18px; padding: 16px; background: #f7f9fc; border-radius: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .agreement-review-footer p { margin: 0; color: #637289; }
-.profile-agreement-panel { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.profile-agreement-panel h3 { margin: 3px 0 6px; }
-.profile-agreement-panel p:last-child { margin: 0; color: #65758b; }
+.profile-agreement-panel {
+  margin-top: 20px;
+  padding: 24px 28px;
+  min-height: 116px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  overflow: hidden;
+}
+.profile-agreement-panel > div { flex: 1 1 auto; min-width: 0; }
+.profile-agreement-panel .section-kicker { margin-bottom: 7px; }
+.profile-agreement-panel h3 { margin: 0 0 7px; font-size: 1.12rem; }
+.profile-agreement-panel p:last-child { margin: 0; color: #65758b; line-height: 1.5; overflow-wrap: anywhere; }
+.profile-agreement-panel .button { flex: 0 0 auto; min-width: 150px; white-space: nowrap; }
 .teacher-agreement-detail strong.agreement-ok { color: #1d7a52; }
 .teacher-agreement-detail strong.agreement-missing { color: #b55b35; }
 
@@ -1045,6 +1057,12 @@ body.agreement-open { overflow: hidden; }
   .agreement-action-row { flex-direction: column-reverse; }
   .agreement-action-row .button { width: 100%; }
   .agreement-review-footer { flex-direction: column; align-items: stretch; }
-  .profile-agreement-panel { align-items: stretch; flex-direction: column; }
-  .profile-agreement-panel .button { width: 100%; }
+  .profile-agreement-panel {
+    padding: 20px;
+    min-height: 0;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .profile-agreement-panel .button { width: 100%; min-width: 0; }
 }
