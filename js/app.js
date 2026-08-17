@@ -546,10 +546,18 @@
   }
 
   function updateAgreementSubmitState() {
+    const form = $("agreementForm");
     const button = $("agreementSubmitButton");
-    if (!button) return;
-    const checks = [...document.querySelectorAll("#agreementForm .agreement-check")];
-    const allChecked = checks.length === 5 && checks.every((input) => input.checked);
+    if (!form || !button) return;
+
+    const checks = [...form.querySelectorAll(".agreement-check")];
+    let checkedCount = 0;
+    checks.forEach((input) => {
+      if (input.checked) checkedCount += 1;
+      input.closest("label")?.classList.toggle("is-checked", input.checked);
+    });
+
+    const allChecked = checks.length === 5 && checkedCount === 5;
     const hasName = Boolean($("agreementTeacherName")?.value.trim());
     button.disabled = !(allChecked && hasName);
   }
@@ -605,6 +613,9 @@
     }
 
     const confirmations = Object.fromEntries(checks.map((input) => [input.name, input.checked]));
+    form.classList.add("is-submitting");
+    checks.forEach((input) => { input.disabled = true; });
+    $("agreementTeacherName").disabled = true;
     setLoading(button, true, "동의 및 계약하기");
     try {
       const { data, error } = await supabase
@@ -637,6 +648,9 @@
       showToast(setupMissing
         ? "전자계약 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요."
         : "계약 동의 저장에 실패했습니다: " + (error?.message || "알 수 없는 오류"), "error");
+      form.classList.remove("is-submitting");
+      checks.forEach((input) => { input.disabled = false; });
+      $("agreementTeacherName").disabled = false;
       setLoading(button, false, "동의 및 계약하기");
       updateAgreementSubmitState();
       return;
@@ -646,6 +660,9 @@
     $("agreementView").classList.add("hidden");
     document.body.classList.remove("agreement-open");
     updateAgreementProfileCard();
+    form.classList.remove("is-submitting");
+    checks.forEach((input) => { input.disabled = false; });
+    $("agreementTeacherName").disabled = false;
     setLoading(button, false, "동의 및 계약하기");
     showToast("전자계약 동의가 완료되었습니다.");
 
@@ -1567,8 +1584,10 @@ function loadGuideChecks() {
     $("onboardingLogoutButton").addEventListener("click", logout);
     $("agreementForm").addEventListener("submit", completeAgreement);
     $("agreementLogoutButton").addEventListener("click", logout);
-    $("agreementForm").addEventListener("input", updateAgreementSubmitState);
-    $("agreementForm").addEventListener("change", updateAgreementSubmitState);
+    $("agreementForm").addEventListener("change", (event) => {
+      if (event.target.matches(".agreement-check")) updateAgreementSubmitState();
+    });
+    $("agreementTeacherName").addEventListener("input", updateAgreementSubmitState);
     $("viewAgreementButton").addEventListener("click", () => { if (agreementRecord) showAgreement("review"); });
     $("agreementReviewCloseButton").addEventListener("click", hideAgreementReview);
     $("agreementReviewCloseBottomButton").addEventListener("click", hideAgreementReview);
