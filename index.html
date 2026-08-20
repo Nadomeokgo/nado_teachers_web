@@ -504,83 +504,96 @@
         </section>
 
         <section id="page-guide" class="page">
-          <div class="page-intro">
-            <div>
-              <p class="section-kicker">FIRST LESSON GUIDE</p>
-              <h2>첫 수업 전 필수 가이드</h2>
-              <p>처음 만나는 학생에게 좋은 경험을 제공하기 위해 아래 순서대로 준비해주세요.</p>
-            </div>
-          </div>
+  <div class="page-intro">
+    <div>
+      <p class="section-kicker">FIRST LESSON GUIDE</p>
+      <h2>첫 수업 전 필수 가이드</h2>
+      <p>처음 만나는 학생에게 좋은 경험을 제공하기 위해 아래 순서대로 준비해주세요.</p>
+    </div>
+  </div>
 
-          <div class="guide-progress panel">
-            <div>
-              <strong>첫 수업 준비도</strong>
-              <span id="guideProgressText">0 / 6 완료</span>
-            </div>
-            <div class="progress-track"><div id="guideProgressBar" class="progress-bar"></div></div>
-          </div>
+  <div class="guide-progress panel">
+    <div>
+      <strong>첫 수업 준비도</strong>
+      <span id="guideProgressText">0 / 5 완료</span>
+    </div>
+    <div class="progress-track"><div id="guideProgressBar" class="progress-bar"></div></div>
+  </div>
 
-          <div id="guideChecklist" class="guide-list">
-            <label class="guide-card">
-              <input type="checkbox" data-guide="check-info" />
-              <span class="guide-check"></span>
-              <div>
-                <b>01</b><h3>나도가 보낸 학생 정보 확인</h3>
-                <p>학생 이름, 목표, 레벨, 선호 시간과 장소를 먼저 확인합니다.</p>
-                <div class="guide-example-image">
-                  <img src="images/student_info_ex.jpg" alt="선생님께 전달되는 학생 정보 예시" loading="lazy" />
-                </div>
-              </div>
-            </label>
-          
-            <label class="guide-card">
-              <input type="checkbox" data-guide="first-text" />
-              <span class="guide-check"></span>
-              <div>
-                <b>02</b><h3>학생에게 첫 안내 문자 보내기</h3>
-                <p>수업 방식, 배우고 싶은 내용, 원하시는 장소, 희망 첫 수업 일정을 편하게 여쭤봅니다.</p>
-                <ul class="guide-subchecklist">
-                  <li><label><input type="checkbox" data-subguide="style" /><span>1. 원하시는 수업 방식</span></label></li>
-                  <li><label><input type="checkbox" data-subguide="content" /><span>2. 배우고 싶은 내용</span></label></li>
-                  <li><label><input type="checkbox" data-subguide="place" /><span>3. 원하시는 장소</span></label></li>
-                  <li><label><input type="checkbox" data-subguide="date" /><span>4. 희망 첫 수업 일정</span></label></li>
-                </ul>
-                <div class="guide-message-example">
-                  <p class="guide-message-example-label">문자 포맷 <span>빈칸을 채워서 학생에게 첫 안내 문자로 보내주세요.</span></p>
-                  <p>안녕하세요! 이번에 영어회화 수업을 맡게 된 [이름]이라고 합니다. 만나서 반갑습니다 😊<br /><br />
-                  수업 시작 전에 원하시는 수업 방식이나 배우고 싶은 내용을 편하게 말씀해주시면, 미리 참고해서 준비하겠습니다!<br /><br />
-                  원하시는 수업 장소를 구체적으로 말씀해주세요.<br />
-                  첫 수업은 [쌤이 원하는 날짜] 오전/오후 [희망 시간]에 가능하실까요?<br /><br />
-                  편하신 시간에 답변 주시면 일정 확정하겠습니다 :)<br />
-                  빠른 매칭을 위해 1~2일 내로 답변 부탁드립니다.</p>
-                </div>
-              </div>
-            </label>
-          
-            <label class="guide-card">
-              <input type="checkbox" data-guide="notify-chat" />
-              <span class="guide-check"></span>
-              <div>
-                <b>03</b><h3>확정된 장소 및 시간 '나도' 단톡에 알리기</h3>
-                <p>일정이 확정되면 단톡방에 학생명, 일시, 장소를 반드시 남겨주세요.</p>
-                <div class="guide-message-example">
-                  <p class="guide-message-example-label">공지 포맷</p>
-                  <p>[학생명] 학생 첫 수업 확정되었습니다. 일시: 8/OO(요일) 오후 O시, 장소: OOO</p>
-                </div>
-              </div>
-            </label>
-          
-            <label class="guide-card">
-              <input type="checkbox" data-guide="prepare-questions" />
-              <span class="guide-check"></span>
-              <div>
-                <b>04</b><h3>학생 맞춤 질문 준비</h3>
-                <p>나도가 보낸 학생 정보와 문자 답변에서 파악한 관심사·목표를 바탕으로, 부담 없이 답할 수 있는 대화 주제 2~3가지를 미리 준비합니다.</p>
-                <button type="button" class="guide-curriculum-link" data-go="curriculum">커리큘럼 탭에서 자료 보기 →</button>
-              </div>
-            </label>
-          </div>
-        </section>
+  <div id="guideChecklist" class="guide-list">
+
+    <label class="guide-card">
+      <input type="checkbox" data-guide="keep-profile-updated" />
+      <span class="guide-check"></span>
+      <div>
+        <b>01</b><h3>프로필과 가능 시간을 최신 상태로 유지하기</h3>
+        <p>매칭 전에 내 프로필 정보와 수업 가능 시간이 실제와 다르지 않은지 먼저 확인해주세요. 정보가 오래되었거나 실제 가능한 시간과 다르면 매칭이 지연될 수 있습니다.</p>
+        <button type="button" class="guide-curriculum-link" data-go="profile">내 정보 탭에서 확인하기 →</button>
+        <button type="button" class="guide-curriculum-link" data-go="schedule">스케줄 탭에서 확인하기 →</button>
+      </div>
+    </label>
+
+    <label class="guide-card">
+      <input type="checkbox" data-guide="check-group-chat" />
+      <span class="guide-check"></span>
+      <div>
+        <b>02</b><h3>나도 단톡방에서 새 학생 매칭 소식 확인하기</h3>
+        <p>나도 Teachers 단톡방에 새로운 학생 매칭 안내가 올라오는지 확인해주세요. 학생 이름, 목표, 레벨, 선호 시간과 장소를 가장 먼저 파악합니다.</p>
+        <div class="guide-example-image">
+          <img src="images/student_info_ex.jpg" alt="선생님께 전달되는 학생 정보 예시" loading="lazy" />
+        </div>
+      </div>
+    </label>
+
+    <label class="guide-card">
+      <input type="checkbox" data-guide="first-text" />
+      <span class="guide-check"></span>
+      <div>
+        <b>03</b><h3>학생·나도·나 3인 단톡방에서 학생에게 첫 연락하기</h3>
+        <p>학생, 나도 운영팀, 선생님이 함께 있는 단체 채팅방에서 먼저 인사를 건네고, 수업 방식, 배우고 싶은 내용, 원하시는 장소, 희망 첫 수업 일정을 편하게 여쭤봅니다.</p>
+        <ul class="guide-subchecklist">
+          <li><label><input type="checkbox" data-subguide="style" /><span>1. 원하시는 수업 방식</span></label></li>
+          <li><label><input type="checkbox" data-subguide="content" /><span>2. 배우고 싶은 내용</span></label></li>
+          <li><label><input type="checkbox" data-subguide="place" /><span>3. 원하시는 장소</span></label></li>
+          <li><label><input type="checkbox" data-subguide="date" /><span>4. 희망 첫 수업 일정</span></label></li>
+        </ul>
+        <div class="guide-message-example">
+          <p class="guide-message-example-label">문자 포맷 <span>빈칸을 채워서 학생에게 첫 안내 문자로 보내주세요.</span></p>
+          <p>안녕하세요! 이번에 영어회화 수업을 맡게 된 [이름]이라고 합니다. 만나서 반갑습니다 😊<br /><br />
+          수업 시작 전에 원하시는 수업 방식이나 배우고 싶은 내용을 편하게 말씀해주시면, 미리 참고해서 준비하겠습니다!<br /><br />
+          원하시는 수업 장소를 구체적으로 말씀해주세요.<br />
+          첫 수업은 [쌤이 원하는 날짜] 오전/오후 [희망 시간]에 가능하실까요?<br /><br />
+          편하신 시간에 답변 주시면 일정 확정하겠습니다 :)<br />
+          빠른 매칭을 위해 1~2일 내로 답변 부탁드립니다.</p>
+        </div>
+      </div>
+    </label>
+
+    <label class="guide-card">
+      <input type="checkbox" data-guide="notify-chat" />
+      <span class="guide-check"></span>
+      <div>
+        <b>04</b><h3>나도 단톡방에 첫 수업 일정 제출하기</h3>
+        <p>일정이 확정되면 나도 Teachers 단톡방에 학생명, 일시, 장소를 반드시 남겨주세요.</p>
+        <div class="guide-message-example">
+          <p class="guide-message-example-label">공지 포맷</p>
+          <p>[학생명] 학생 첫 수업 확정되었습니다. 일시: 8/OO(요일) 오후 O시, 장소: OOO</p>
+        </div>
+      </div>
+    </label>
+
+    <label class="guide-card">
+      <input type="checkbox" data-guide="prepare-questions" />
+      <span class="guide-check"></span>
+      <div>
+        <b>05</b><h3>학생 맞춤 질문 준비</h3>
+        <p>나도가 보낸 학생 정보와 문자 답변에서 파악한 관심사·목표를 바탕으로, 부담 없이 답할 수 있는 대화 주제 2~3가지를 미리 준비합니다.</p>
+        <button type="button" class="guide-curriculum-link" data-go="curriculum">커리큘럼 탭에서 자료 보기 →</button>
+      </div>
+    </label>
+
+  </div>
+</section>
 
         <section id="page-curriculum" class="page">
           <div class="page-intro">
