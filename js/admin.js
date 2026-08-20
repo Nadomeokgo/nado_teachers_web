@@ -8,6 +8,14 @@
   const CURRENT_AGREEMENT_VERSION = "v1.0";
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
+  const NADO_FEE_RATE = 0.35;
+  const PACKAGE_SESSIONS = 4;
+  const PRICING_VERSION = "NADO-2026-08";
+  const lessonPriceTable = {
+    economy: { 30: 80000, 35: 93400, 40: 106700, 45: 120000, 60: 140000, 70: 163400, 80: 186700, 90: 210000, 100: 233400, 110: 256700, 120: 280000 },
+    standard: { 30: 100000, 35: 116700, 40: 133400, 45: 150000, 60: 180000, 70: 210000, 80: 240000, 90: 270000, 100: 300000, 110: 330000, 120: 360000 },
+    premium: { 30: 120000, 35: 140000, 40: 160000, 45: 180000, 60: 220000, 70: 256700, 80: 293400, 90: 330000, 100: 366700, 110: 403400, 120: 440000 }
+  };
   let teachers = [];
   let assignments = [];
   let assignmentFilter = "current";
@@ -116,6 +124,79 @@
 
   function planLabel(plan) {
     return planLabels[plan] || "플랜 미지정";
+  }
+
+  function lessonDurationLabel(minutes) {
+    const value = Number(minutes);
+    if (!value) return currentLanguage() === "en" ? "Lesson time not set" : "수업 시간 미지정";
+    if (currentLanguage() === "en") {
+      if (value < 60) return `${value} min`;
+      if (value === 60) return "60 min";
+      if (value === 120) return "2 hr";
+      return `1 hr ${value - 60} min`;
+    }
+    if (value < 60) return `${value}분`;
+    if (value === 60) return "60분";
+    if (value === 120) return "2시간";
+    return `1시간 ${value - 60}분`;
+  }
+
+  function weeklyFrequencyLabel(value) {
+    const count = Number(value);
+    if (!count) return currentLanguage() === "en" ? "Frequency not set" : "수업 빈도 미지정";
+    return currentLanguage() === "en" ? `${count}x/week` : `주 ${count}회`;
+  }
+
+  function sessionCountLabel(value) {
+    const count = Number(value);
+    if (!count) return currentLanguage() === "en" ? "Not set" : "미지정";
+    return currentLanguage() === "en" ? `${count} session${count === 1 ? "" : "s"}` : `${count}회`;
+  }
+
+  function formatWon(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return "-";
+    return currentLanguage() === "en" ? `₩${Math.round(amount).toLocaleString("en-US")}` : `${Math.round(amount).toLocaleString("ko-KR")}원`;
+  }
+
+  function pricingFor(plan, durationMinutes, settlementSessions) {
+    const tuition = lessonPriceTable[plan]?.[Number(durationMinutes)];
+    const sessions = Number(settlementSessions);
+    if (!tuition || !Number.isInteger(sessions) || sessions < 1 || sessions > PACKAGE_SESSIONS) return null;
+    const nadoFee = Math.round(tuition * NADO_FEE_RATE);
+    const fullTeacherPayout = tuition - nadoFee;
+    const teacherPayout = Math.round((fullTeacherPayout * sessions) / PACKAGE_SESSIONS);
+    return { tuition, nadoFee, fullTeacherPayout, teacherPayout, sessions };
+  }
+
+  function assignmentHasPricing(assignment) {
+    return Number.isFinite(Number(assignment?.teacher_payout_amount)) && Number(assignment?.settlement_sessions) > 0;
+  }
+
+  function renderAssignmentPricingPreview() {
+    const target = $("assignmentPricingPreview");
+    if (!target) return;
+    const plan = $("assignmentPlan").value;
+    const duration = Number($("assignmentLessonDuration").value);
+    const sessions = Number($("assignmentSettlementSessions").value);
+    const weekly = Number($("assignmentWeeklyFrequency").value);
+    const pricing = pricingFor(plan, duration, sessions);
+    if (!pricing) {
+      target.innerHTML = '<div class="assignment-pricing-placeholder">플랜과 수업 시간을 선택하면 첫 달 정산액이 자동 계산됩니다.</div>';
+      return;
+    }
+    target.innerHTML = `
+      <div class="assignment-pricing-head">
+        <div><span>자동 정산 계산</span><strong>${escapeHtml(planLabel(plan))} · ${escapeHtml(lessonDurationLabel(duration))} · ${escapeHtml(weeklyFrequencyLabel(weekly))}</strong></div>
+        <span class="assignment-pricing-rate">NADO 35%</span>
+      </div>
+      <dl class="assignment-pricing-grid">
+        <div><dt>4회 기준 학생 수업료</dt><dd>${escapeHtml(formatWon(pricing.tuition))}</dd></div>
+        <div><dt>첫 달 NADO 수수료</dt><dd>${escapeHtml(formatWon(pricing.nadoFee))}</dd></div>
+        <div><dt>4회 기준 Teacher 정산액</dt><dd>${escapeHtml(formatWon(pricing.fullTeacherPayout))}</dd></div>
+        <div class="assignment-pricing-total"><dt>${escapeHtml(currentLanguage() === "en" ? `This teacher payout · ${sessionCountLabel(pricing.sessions)}` : `이번 Teacher 정산 예정액 · ${sessionCountLabel(pricing.sessions)}`)}</dt><dd>${escapeHtml(formatWon(pricing.teacherPayout))}</dd></div>
+      </dl>
+      <p class="assignment-pricing-rounding">부분 정산은 4회 기준 Teacher 정산액을 담당 수업 횟수에 따라 비례 계산하고 원 단위로 반올림합니다.</p>`;
   }
 
   function assignmentGroups() {
@@ -231,7 +312,7 @@
   async function loadAssignments() {
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, teacher_id, student_name, plan, first_lesson_date, settlement_date, created_at, updated_at")
+      .select("id, teacher_id, student_name, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, created_at, updated_at")
       .order("first_lesson_date", { ascending: true })
       .order("student_name", { ascending: true });
 
@@ -368,11 +449,23 @@
           </div>
           <strong>${escapeHtml(assignment.student_name)}</strong>
           <small>담당: ${escapeHtml(teacher?.full_name || "삭제된 선생님")} ${teacher?.email ? `· ${escapeHtml(teacher.email)}` : ""}</small>
+          ${assignment.lesson_duration_minutes ? `<div class="admin-assignment-service-tags">
+            <span>${escapeHtml(lessonDurationLabel(assignment.lesson_duration_minutes))}</span>
+            <span>${escapeHtml(weeklyFrequencyLabel(assignment.weekly_frequency))}</span>
+            <span>${escapeHtml(currentLanguage() === "en" ? `Payout ${sessionCountLabel(assignment.settlement_sessions)}` : `정산 ${sessionCountLabel(assignment.settlement_sessions)}`)}</span>
+          </div>` : '<div class="assignment-pricing-missing">기존 기록 · 수업/정산 상세 미지정</div>'}
         </div>
-        <dl class="admin-assignment-dates">
-          <div><dt>첫 수업일</dt><dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd></div>
-          <div><dt>${isHistory ? "정산일" : "정산 예정일"}</dt><dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd></div>
-        </dl>
+        <div class="admin-assignment-summary">
+          <dl class="admin-assignment-dates">
+            <div><dt>첫 수업일</dt><dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd></div>
+            <div><dt>${isHistory ? "정산일" : "정산 예정일"}</dt><dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd></div>
+          </dl>
+          ${assignmentHasPricing(assignment) ? `<div class="admin-assignment-payout">
+            <span>${escapeHtml(currentLanguage() === "en" ? (isHistory ? "Teacher payout" : "Scheduled teacher payout") : `Teacher ${isHistory ? "정산액" : "정산 예정액"}`)}</span>
+            <strong>${escapeHtml(formatWon(assignment.teacher_payout_amount))}</strong>
+            <small>${escapeHtml(currentLanguage() === "en" ? `4-session basis ${formatWon(assignment.four_lesson_teacher_payout)} · Tuition ${formatWon(assignment.four_lesson_tuition)}` : `4회 기준 ${formatWon(assignment.four_lesson_teacher_payout)} · 학생 수업료 ${formatWon(assignment.four_lesson_tuition)}`)}</small>
+          </div>` : ""}
+        </div>
         <div class="admin-assignment-actions">
           <button class="button secondary small" data-edit-assignment="${escapeHtml(assignment.id)}" type="button">수정</button>
           <button class="button ghost small assignment-delete-button" data-delete-assignment="${escapeHtml(assignment.id)}" type="button">삭제</button>
@@ -384,9 +477,12 @@
   function resetAssignmentForm() {
     editingAssignmentId = null;
     $("assignmentForm").reset();
+    $("assignmentWeeklyFrequency").value = "1";
+    $("assignmentSettlementSessions").value = "4";
     $("assignmentFormTitle").textContent = "새 학생 배정";
     $("assignmentSubmitButton").textContent = "학생 배정 등록";
     $("assignmentCancelButton").classList.add("hidden");
+    renderAssignmentPricingPreview();
   }
 
   function startAssignmentEdit(id) {
@@ -396,27 +492,45 @@
     $("assignmentTeacher").value = assignment.teacher_id;
     $("assignmentStudentName").value = assignment.student_name;
     $("assignmentPlan").value = assignment.plan || "";
+    $("assignmentLessonDuration").value = assignment.lesson_duration_minutes ? String(assignment.lesson_duration_minutes) : "";
+    $("assignmentWeeklyFrequency").value = assignment.weekly_frequency ? String(assignment.weekly_frequency) : "";
+    $("assignmentSettlementSessions").value = assignment.settlement_sessions ? String(assignment.settlement_sessions) : "";
     $("assignmentFirstLessonDate").value = assignment.first_lesson_date;
     $("assignmentSettlementDate").value = assignment.settlement_date;
     $("assignmentFormTitle").textContent = "학생 배정 수정";
     $("assignmentSubmitButton").textContent = "배정 정보 수정";
     $("assignmentCancelButton").classList.remove("hidden");
+    renderAssignmentPricingPreview();
     $("assignmentForm").scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   async function saveAssignment(event) {
     event.preventDefault();
     const button = event.submitter || $("assignmentSubmitButton");
+    const plan = $("assignmentPlan").value;
+    const lessonDurationMinutes = Number($("assignmentLessonDuration").value);
+    const weeklyFrequency = Number($("assignmentWeeklyFrequency").value);
+    const settlementSessions = Number($("assignmentSettlementSessions").value);
+    const pricing = pricingFor(plan, lessonDurationMinutes, settlementSessions);
     const payload = {
       teacher_id: $("assignmentTeacher").value,
       student_name: $("assignmentStudentName").value.trim(),
-      plan: $("assignmentPlan").value,
+      plan,
+      lesson_duration_minutes: lessonDurationMinutes,
+      weekly_frequency: weeklyFrequency,
+      settlement_sessions: settlementSessions,
+      four_lesson_tuition: pricing?.tuition ?? null,
+      nado_fee_percent: 35,
+      four_lesson_nado_fee: pricing?.nadoFee ?? null,
+      four_lesson_teacher_payout: pricing?.fullTeacherPayout ?? null,
+      teacher_payout_amount: pricing?.teacherPayout ?? null,
+      pricing_version: PRICING_VERSION,
       first_lesson_date: $("assignmentFirstLessonDate").value,
       settlement_date: $("assignmentSettlementDate").value
     };
 
-    if (!payload.teacher_id || !payload.student_name || !payload.plan || !payload.first_lesson_date || !payload.settlement_date) {
-      return toast("모든 학생 배정 정보를 입력해주세요.", true);
+    if (!payload.teacher_id || !payload.student_name || !payload.plan || !lessonDurationMinutes || ![1, 2].includes(weeklyFrequency) || ![1, 2, 3, 4].includes(settlementSessions) || !pricing || !payload.first_lesson_date || !payload.settlement_date) {
+      return toast("모든 학생 배정 및 정산 정보를 입력해주세요.", true);
     }
     if (payload.settlement_date < payload.first_lesson_date) {
       $("assignmentSettlementDate").focus();
@@ -642,6 +756,9 @@
 
   $("assignmentForm").addEventListener("submit", saveAssignment);
   $("assignmentCancelButton").addEventListener("click", resetAssignmentForm);
+  ["assignmentPlan", "assignmentLessonDuration", "assignmentWeeklyFrequency", "assignmentSettlementSessions"].forEach((id) => {
+    $(id).addEventListener("change", renderAssignmentPricingPreview);
+  });
   document.querySelectorAll("[data-assignment-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       assignmentFilter = button.dataset.assignmentFilter;
@@ -675,6 +792,8 @@
   });
   document.addEventListener("nado:languagechange", () => {
     render();
+    renderAssignmentList();
+    renderAssignmentPricingPreview();
     renderAssignmentCalendar();
     renderManagerList("adminAnnouncementList", contentCache.announcement, "announcement");
     renderManagerList("adminResourceList", contentCache.resource, "resource");
@@ -708,5 +827,6 @@
       adminLogoutInProgress = false;
     }
   });
+  renderAssignmentPricingPreview();
   initialize();
 })();

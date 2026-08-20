@@ -34,6 +34,39 @@
     return currentLanguage() === "en" ? "en-US" : "ko-KR";
   }
 
+  function lessonDurationLabel(minutes) {
+    const value = Number(minutes);
+    if (!value) return currentLanguage() === "en" ? "Lesson time not set" : "수업 시간 미지정";
+    if (currentLanguage() === "en") {
+      if (value < 60) return `${value} min`;
+      if (value === 60) return "60 min";
+      if (value === 120) return "2 hr";
+      return `1 hr ${value - 60} min`;
+    }
+    if (value < 60) return `${value}분`;
+    if (value === 60) return "60분";
+    if (value === 120) return "2시간";
+    return `1시간 ${value - 60}분`;
+  }
+
+  function weeklyFrequencyLabel(value) {
+    const count = Number(value);
+    if (!count) return currentLanguage() === "en" ? "Frequency not set" : "수업 빈도 미지정";
+    return currentLanguage() === "en" ? `${count}x/week` : `주 ${count}회`;
+  }
+
+  function sessionCountLabel(value) {
+    const count = Number(value);
+    if (!count) return currentLanguage() === "en" ? "Not set" : "미지정";
+    return currentLanguage() === "en" ? `${count} session${count === 1 ? "" : "s"}` : `${count}회`;
+  }
+
+  function formatWon(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return "-";
+    return currentLanguage() === "en" ? `₩${Math.round(amount).toLocaleString("en-US")}` : `${Math.round(amount).toLocaleString("ko-KR")}원`;
+  }
+
   function localizedContent(item, field) {
     if (!item) return "";
     if (currentLanguage() === "en") {
@@ -830,7 +863,7 @@
   async function loadAssignments() {
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, student_name, plan, first_lesson_date, settlement_date")
+      .select("id, student_name, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date")
       .eq("teacher_id", currentUser.id)
       .order("settlement_date", { ascending: true })
       .order("student_name", { ascending: true });
@@ -859,6 +892,16 @@
           <span>학생 이름</span>
           <strong>${escapeHtml(assignment.student_name)}</strong>
         </div>
+        ${assignment.lesson_duration_minutes ? `<div class="assignment-service-meta">
+          <span>${escapeHtml(lessonDurationLabel(assignment.lesson_duration_minutes))}</span>
+          <span>${escapeHtml(weeklyFrequencyLabel(assignment.weekly_frequency))}</span>
+          <span>${escapeHtml(currentLanguage() === "en" ? `Payout ${sessionCountLabel(assignment.settlement_sessions)}` : `정산 ${sessionCountLabel(assignment.settlement_sessions)}`)}</span>
+        </div>` : '<div class="assignment-pricing-missing teacher-view">기존 기록 · 수업/정산 상세 미지정</div>'}
+        ${assignment.teacher_payout_amount !== null && assignment.teacher_payout_amount !== undefined && Number.isFinite(Number(assignment.teacher_payout_amount)) ? `<div class="assignment-payout-box">
+          <span>${escapeHtml(currentLanguage() === "en" ? "First-month teacher payout" : (isHistory ? "첫 달 Teacher 정산액" : "첫 달 Teacher 정산 예정액"))}</span>
+          <strong>${escapeHtml(formatWon(assignment.teacher_payout_amount))}</strong>
+          ${Number(assignment.settlement_sessions) < 4 ? `<small>${escapeHtml(currentLanguage() === "en" ? `${sessionCountLabel(assignment.settlement_sessions)} out of 4-session payout ${formatWon(assignment.four_lesson_teacher_payout)}` : `4회 기준 ${formatWon(assignment.four_lesson_teacher_payout)} 중 ${sessionCountLabel(assignment.settlement_sessions)} 정산`)}</small>` : `<small>${currentLanguage() === "en" ? "4-session payout" : "4회 기준 정산액"}</small>`}
+        </div>` : ""}
         <dl class="assignment-date-list">
           <div>
             <dt>첫 수업일</dt>
@@ -1569,6 +1612,7 @@ function loadGuideChecks() {
     $("resetPasswordButton").addEventListener("click", resetPassword);
   document.addEventListener("nado:languagechange", () => {
     buildAvailabilityGrid();
+    renderAssignments();
     updateAgreementProfileCard();
     if (agreementViewMode === "review" && agreementRecord) {
       $("agreementAcceptedSummaryText").textContent = `${agreementRecord.teacher_name} · ${formatAgreementDate(agreementRecord.agreed_at)}`;

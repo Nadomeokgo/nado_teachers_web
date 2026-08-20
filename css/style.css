@@ -396,7 +396,7 @@ textarea { resize: vertical; }
 .assignment-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 .admin-assignment-list { display: grid; gap: 10px; margin-top: 18px; max-height: 520px; overflow: auto; }
 .admin-assignment-list > .empty-state { min-height: 180px; border: 1px dashed #d9e1e9; border-radius: 15px; background: var(--page); line-height: 1.65; }
-.admin-assignment-item { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(240px, .85fr) auto; gap: 14px; align-items: center; padding: 15px; border: 1px solid #e4ebf2; border-radius: 15px; background: #fbfcfe; }
+.admin-assignment-item { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(270px, .92fr) auto; gap: 14px; align-items: center; padding: 15px; border: 1px solid #e4ebf2; border-radius: 15px; background: #fbfcfe; }
 .admin-assignment-person { min-width: 0; }
 .assignment-student-label { display: inline-flex; margin-bottom: 5px; padding: 4px 7px; border-radius: 999px; color: var(--accent-deep); background: var(--accent-light); font-size: .65rem; font-weight: 900; }
 .admin-assignment-person strong { display: block; color: var(--navy); font-size: .98rem; overflow-wrap: anywhere; }
@@ -1068,4 +1068,43 @@ body.agreement-open { overflow: hidden; }
     gap: 16px;
   }
   .profile-agreement-panel .button { width: 100%; min-width: 0; }
+}
+
+
+/* Assignment pricing, lesson duration, frequency, and partial payout */
+.assignment-service-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.assignment-package-note { margin: -2px 0 2px; color: var(--gray); font-size: .72rem; line-height: 1.55; }
+.assignment-pricing-preview { overflow: hidden; border: 1px solid #d8e7f6; border-radius: 16px; background: linear-gradient(145deg, #f8fbff, #eef6ff); }
+.assignment-pricing-placeholder { padding: 18px; color: var(--gray); font-size: .78rem; font-weight: 700; line-height: 1.55; }
+.assignment-pricing-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 16px 12px; border-bottom: 1px solid rgba(74,144,226,.14); }
+.assignment-pricing-head > div { min-width: 0; display: grid; gap: 3px; }
+.assignment-pricing-head span { color: var(--gray); font-size: .66rem; font-weight: 850; }
+.assignment-pricing-head strong { color: var(--navy); font-size: .84rem; overflow-wrap: anywhere; }
+.assignment-pricing-rate { flex: 0 0 auto; padding: 6px 8px; border-radius: 999px; color: #276749 !important; background: #e6f7ee; }
+.assignment-pricing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0; background: rgba(74,144,226,.12); }
+.assignment-pricing-grid > div { min-width: 0; padding: 12px 14px; background: white; }
+.assignment-pricing-grid dt { color: var(--gray); font-size: .65rem; font-weight: 800; }
+.assignment-pricing-grid dd { margin: 4px 0 0; color: var(--dark-gray); font-size: .85rem; font-weight: 900; }
+.assignment-pricing-grid .assignment-pricing-total { grid-column: 1 / -1; padding: 15px 16px; background: #eaf4ff; }
+.assignment-pricing-grid .assignment-pricing-total dt { color: var(--accent-deep); }
+.assignment-pricing-grid .assignment-pricing-total dd { color: var(--accent-deep); font-size: 1.18rem; }
+.assignment-pricing-rounding { margin: 0; padding: 10px 14px 12px; color: var(--gray); background: #f8fbff; font-size: .66rem; line-height: 1.5; }
+.admin-assignment-service-tags, .assignment-service-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.admin-assignment-service-tags span, .assignment-service-meta span { display: inline-flex; align-items: center; min-height: 26px; padding: 5px 8px; border-radius: 999px; color: #45627e; background: #edf4fb; font-size: .67rem; font-weight: 850; }
+.assignment-pricing-missing { margin-top: 10px; padding: 8px 10px; border: 1px dashed #d8dee6; border-radius: 10px; color: var(--gray); background: #f8f9fb; font-size: .68rem; font-weight: 750; line-height: 1.45; }
+.assignment-pricing-missing.teacher-view { margin: 12px 0 0; }
+.admin-assignment-summary { min-width: 0; display: grid; gap: 8px; }
+.admin-assignment-payout { min-width: 0; padding: 11px 12px; border-radius: 12px; background: #eef6ff; }
+.admin-assignment-payout span { display: block; color: var(--gray); font-size: .66rem; font-weight: 800; }
+.admin-assignment-payout strong { display: block; margin-top: 3px; color: var(--accent-deep); font-size: 1rem; }
+.admin-assignment-payout small { display: block; margin-top: 4px; color: var(--gray); font-size: .64rem; line-height: 1.45; }
+.assignment-payout-box { margin-top: 12px; padding: 13px 14px; border: 1px solid rgba(74,144,226,.18); border-radius: 13px; background: white; }
+.assignment-payout-box span { display: block; color: var(--gray); font-size: .68rem; font-weight: 850; }
+.assignment-payout-box strong { display: block; margin-top: 3px; color: var(--accent-deep); font-size: 1.18rem; letter-spacing: -.02em; }
+.assignment-payout-box small { display: block; margin-top: 4px; color: var(--gray); font-size: .67rem; line-height: 1.45; }
+
+@media (max-width: 560px) {
+  .assignment-service-fields, .assignment-pricing-grid { grid-template-columns: minmax(0, 1fr); }
+  .assignment-pricing-grid .assignment-pricing-total { grid-column: auto; }
+  .assignment-pricing-head { align-items: flex-start; flex-direction: column; }
 }

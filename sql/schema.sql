@@ -67,12 +67,31 @@ create table if not exists public.student_assignments (
   teacher_id uuid not null references public.profiles(id) on delete cascade,
   student_name text not null check (char_length(btrim(student_name)) between 1 and 100),
   plan text check (plan in ('economy', 'standard', 'premium')),
+  lesson_duration_minutes smallint check (lesson_duration_minutes in (30,35,40,45,60,70,80,90,100,110,120)),
+  weekly_frequency smallint check (weekly_frequency in (1,2)),
+  settlement_sessions smallint check (settlement_sessions between 1 and 4),
+  four_lesson_tuition integer check (four_lesson_tuition >= 0),
+  nado_fee_percent numeric(5,2) check (nado_fee_percent between 0 and 100),
+  four_lesson_nado_fee integer check (four_lesson_nado_fee >= 0),
+  four_lesson_teacher_payout integer check (four_lesson_teacher_payout >= 0),
+  teacher_payout_amount integer check (teacher_payout_amount >= 0),
+  pricing_version text,
   first_lesson_date date not null,
   settlement_date date not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint student_assignments_valid_dates check (settlement_date >= first_lesson_date)
 );
+alter table public.student_assignments add column if not exists lesson_duration_minutes smallint;
+alter table public.student_assignments add column if not exists weekly_frequency smallint;
+alter table public.student_assignments add column if not exists settlement_sessions smallint;
+alter table public.student_assignments add column if not exists four_lesson_tuition integer;
+alter table public.student_assignments add column if not exists nado_fee_percent numeric(5,2);
+alter table public.student_assignments add column if not exists four_lesson_nado_fee integer;
+alter table public.student_assignments add column if not exists four_lesson_teacher_payout integer;
+alter table public.student_assignments add column if not exists teacher_payout_amount integer;
+alter table public.student_assignments add column if not exists pricing_version text;
+
 create index if not exists student_assignments_teacher_idx on public.student_assignments(teacher_id);
 create index if not exists student_assignments_first_lesson_idx on public.student_assignments(first_lesson_date);
 create index if not exists student_assignments_settlement_idx on public.student_assignments(settlement_date);

@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="NADO Teachers" />
   <title>나도 Teachers 관리자</title>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260817-agreement1" />
+  <link rel="stylesheet" href="css/style.css?v=20260820-pricing1" />
 </head>
 <body class="admin-body">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -48,7 +48,7 @@
         <div>
           <p class="section-kicker">STUDENT ASSIGNMENT</p>
           <h2>학생 배정 및 정산 관리</h2>
-          <p>담당 선생님, 학생 플랜, 첫 수업일과 첫 달 수업료 정산 예정일을 등록하세요.</p>
+          <p>담당 선생님, 플랜, 수업 시간과 빈도, 정산 수업 횟수를 선택하면 첫 달 정산액이 자동 계산됩니다.</p>
         </div>
       </div>
 
@@ -72,6 +72,42 @@
                 <option value="premium">프리미엄</option>
               </select>
             </label>
+            <div class="assignment-service-fields">
+              <label>수업 시간
+                <select id="assignmentLessonDuration" required>
+                  <option value="">수업 시간을 선택해주세요</option>
+                  <option value="30">30분</option>
+                  <option value="35">35분</option>
+                  <option value="40">40분</option>
+                  <option value="45">45분</option>
+                  <option value="60">60분</option>
+                  <option value="70">1시간 10분</option>
+                  <option value="80">1시간 20분</option>
+                  <option value="90">1시간 30분</option>
+                  <option value="100">1시간 40분</option>
+                  <option value="110">1시간 50분</option>
+                  <option value="120">2시간</option>
+                </select>
+              </label>
+              <label>수업 빈도
+                <select id="assignmentWeeklyFrequency" required>
+                  <option value="1">주 1회</option>
+                  <option value="2">주 2회</option>
+                </select>
+              </label>
+            </div>
+            <label>이번 선생님 담당 수업 횟수
+              <select id="assignmentSettlementSessions" required>
+                <option value="1">1회</option>
+                <option value="2">2회</option>
+                <option value="3">3회</option>
+                <option value="4" selected>4회</option>
+              </select>
+            </label>
+            <p class="assignment-package-note">수업료는 4회 기준입니다. 선생님 교체 등으로 일부 수업만 정산할 경우 실제 담당 횟수를 선택해주세요.</p>
+            <div id="assignmentPricingPreview" class="assignment-pricing-preview" role="status" aria-live="polite">
+              <div class="assignment-pricing-placeholder">플랜과 수업 시간을 선택하면 첫 달 정산액이 자동 계산됩니다.</div>
+            </div>
             <div class="assignment-date-fields">
               <label>첫 수업일
                 <input id="assignmentFirstLessonDate" type="date" required />
@@ -231,7 +267,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/i18n.js?v=20260817-agreement1"></script>
-  <script src="js/admin.js?v=20260817-agreement1"></script>
+  <script src="js/i18n.js?v=20260820-pricing1"></script>
+  <script src="js/admin.js?v=20260820-pricing1"></script>
 </body>
 </html>
