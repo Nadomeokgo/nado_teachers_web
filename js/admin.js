@@ -8,10 +8,11 @@
   const CURRENT_AGREEMENT_VERSION = "v1.0";
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
-  const NADO_FEE_RATE = 0.35;
-  const PACKAGE_SESSIONS = 4;
-  const PRICING_VERSION = "NADO-2026-08-W2";
-  const lessonPriceTable = {
+  const pricingCatalog = window.NADO_PRICING || {};
+  const NADO_FEE_RATE = pricingCatalog.NADO_FEE_RATE ?? 0.35;
+  const PACKAGE_SESSIONS = pricingCatalog.PACKAGE_SESSIONS ?? 4;
+  const PRICING_VERSION = pricingCatalog.PRICING_VERSION || "NADO-2026-08-W2";
+  const lessonPriceTable = pricingCatalog.lessonPriceTable || {
     economy: { 30: 80000, 35: 93400, 40: 106700, 45: 120000, 60: 140000, 70: 163400, 80: 186700, 90: 210000, 100: 233400, 110: 256700, 120: 280000 },
     standard: { 30: 100000, 35: 116700, 40: 133400, 45: 150000, 60: 180000, 70: 210000, 80: 240000, 90: 270000, 100: 300000, 110: 330000, 120: 360000 },
     premium: { 30: 120000, 35: 140000, 40: 160000, 45: 180000, 60: 220000, 70: 256700, 80: 293400, 90: 330000, 100: 366700, 110: 403400, 120: 440000 }

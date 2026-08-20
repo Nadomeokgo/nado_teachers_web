@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260820-pricing1" />
+  <link rel="stylesheet" href="css/style.css?v=20260820-payguide1" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -276,6 +276,7 @@
         <button class="nav-item" data-page="guide" type="button"><span>✓</span> 첫 수업 가이드</button>
         <button class="nav-item" data-page="curriculum" type="button"><span>▤</span> 커리큘럼</button>
         <button class="nav-item" data-page="training" type="button"><span>▶</span> 교육 영상</button>
+        <button class="nav-item" data-page="payguide" type="button"><span>₩</span> 수수료 안내</button>
         <button class="nav-item" data-page="profile" type="button"><span>○</span> 내 정보</button>
         <a id="adminLink" class="nav-item hidden" href="admin.html"><span>⚙</span> 관리자 페이지</a>
       </nav>
@@ -614,6 +615,125 @@
           </div>
         </section>
 
+        <section id="page-payguide" class="page">
+          <div class="page-intro payguide-intro">
+            <div>
+              <p class="section-kicker">YOUR PAY</p>
+              <h2>수수료 안내</h2>
+              <p>플랜, 수업 시간, 주당 횟수와 정산 횟수를 선택해 첫 달 정산액과 환산 시급을 바로 확인하세요.</p>
+            </div>
+          </div>
+
+          <article class="panel payguide-panel">
+            <div class="payguide-copy">
+              <span class="payguide-pill">NADO Teacher Pay Guide</span>
+              <h3>첫 달부터 2개월 차 이후까지, 내가 받는 금액을 한눈에</h3>
+              <p>첫 달에는 NADO의 매칭 및 운영 수수료가 적용됩니다. 동일 학생과 수업을 계속하는 경우 2개월 차부터는 수업료 전액을 학생에게 직접 지급받습니다.</p>
+            </div>
+
+            <div class="payguide-controls" aria-label="정산 조건 선택">
+              <label>
+                <span>플랜</span>
+                <select id="payGuidePlan">
+                  <option value="economy">Economy</option>
+                  <option value="standard" selected>Standard</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </label>
+              <label>
+                <span>수업 시간</span>
+                <select id="payGuideDuration"></select>
+              </label>
+              <label>
+                <span>수업 빈도</span>
+                <select id="payGuideFrequency">
+                  <option value="1">주 1회</option>
+                  <option value="2">주 2회</option>
+                </select>
+              </label>
+              <label>
+                <span>정산 수업 횟수</span>
+                <select id="payGuideSessions"></select>
+              </label>
+            </div>
+
+            <div id="payGuideSelection" class="payguide-selection">Standard · 60분 · 주 1회 · 4회 정산</div>
+
+            <div class="payguide-summary-grid">
+              <article class="payguide-summary-card primary">
+                <span>첫 달 정산액</span>
+                <strong id="payGuideFirstPayout">-</strong>
+                <small id="payGuidePayoutNote">선택한 정산 횟수 기준</small>
+              </article>
+              <article class="payguide-summary-card">
+                <span>첫 달 환산 시급</span>
+                <strong id="payGuideFirstHourly">-</strong>
+                <small>첫 달 Teacher 정산 기준</small>
+              </article>
+              <article class="payguide-summary-card month-two">
+                <span>2개월 차부터 시급</span>
+                <strong id="payGuideMonthTwoHourly">-</strong>
+                <small>동일 학생과 수업 지속 시</small>
+              </article>
+            </div>
+
+            <div class="payguide-rate-flow" aria-live="polite">
+              <span>첫 달</span>
+              <strong id="payGuideFlowFirst">-</strong>
+              <b>→</b>
+              <span>2개월 차부터</span>
+              <strong id="payGuideFlowSecond">-</strong>
+            </div>
+
+            <div class="payguide-table-section">
+              <div class="payguide-section-head">
+                <div>
+                  <h3>시간대별 비교</h3>
+                  <p id="payGuideDurationTableCaption">선택한 플랜의 전체 수업 시간을 비교할 수 있습니다.</p>
+                </div>
+              </div>
+              <div class="payguide-table-wrap">
+                <table class="payguide-table">
+                  <thead>
+                    <tr>
+                      <th>수업 시간</th>
+                      <th>첫 달 정산액</th>
+                      <th>첫 달 시급</th>
+                      <th>2개월 차부터 시급</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payGuideDurationRows"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="payguide-table-section compact">
+              <div class="payguide-section-head">
+                <div>
+                  <h3>횟수별 첫 달 정산</h3>
+                  <p id="payGuideSessionTableCaption">선생님 교체 등으로 일부 수업만 진행한 경우의 정산액입니다.</p>
+                </div>
+              </div>
+              <div class="payguide-table-wrap">
+                <table class="payguide-table session-table">
+                  <thead>
+                    <tr>
+                      <th>정산 횟수</th>
+                      <th>첫 달 정산액</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payGuideSessionRows"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="payguide-note" role="note">
+              <strong>안내</strong>
+              <p>환산 시급은 실제 수업시간만을 기준으로 계산한 참고 금액입니다. 첫 달 정산 기준과 수수료에 대한 상세 내용은 NADO Teacher Service Agreement를 확인해주세요.</p>
+            </div>
+          </article>
+        </section>
+
         <section id="page-profile" class="page">
           <div class="page-intro">
             <div>
@@ -704,7 +824,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/i18n.js?v=20260820-weekly2fix1"></script>
-  <script src="js/app.js?v=20260820-weekly2fix1"></script>
+  <script src="js/pricing.js?v=20260820-payguide1"></script>
+  <script src="js/i18n.js?v=20260820-payguide1"></script>
+  <script src="js/app.js?v=20260820-payguide1"></script>
 </body>
 </html>

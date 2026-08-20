@@ -18,14 +18,15 @@
     dashboard: ["TEACHER HOME", "홈"], history: ["STUDENT HISTORY", "학생 기록"],
     schedule: ["WEEKLY AVAILABILITY", "스케줄 제출"], guide: ["FIRST LESSON GUIDE", "첫 수업 가이드"],
     curriculum: ["CURRICULUM", "커리큘럼"], training: ["TRAINING VIDEOS", "교육 영상"],
-    profile: ["MY PROFILE", "내 정보"]
+    payguide: ["YOUR PAY", "수수료 안내"], profile: ["MY PROFILE", "내 정보"]
   };
   const planLabels = {
     economy: "이코노미",
     standard: "스탠다드",
     premium: "프리미엄"
   };
-  const PACKAGE_SESSIONS = 4;
+  const pricingCatalog = window.NADO_PRICING || {};
+  const PACKAGE_SESSIONS = pricingCatalog.PACKAGE_SESSIONS || 4;
 
   function currentLanguage() {
     return window.NADO_I18N?.getLanguage?.() || "ko";
@@ -66,6 +67,166 @@
     const amount = Number(value);
     if (!Number.isFinite(amount)) return "-";
     return currentLanguage() === "en" ? `₩${Math.round(amount).toLocaleString("en-US")}` : `${Math.round(amount).toLocaleString("ko-KR")}원`;
+  }
+
+  function formatHourlyWon(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return "-";
+    return currentLanguage() === "en"
+      ? `₩${Math.round(amount).toLocaleString("en-US")}/hr`
+      : `${Math.round(amount).toLocaleString("ko-KR")}원/시간`;
+  }
+
+  function payGuidePlanLabel(plan) {
+    if (currentLanguage() === "en") {
+      return ({ economy: "Economy", standard: "Standard", premium: "Premium" })[plan] || plan;
+    }
+    return planLabels[plan] || plan;
+  }
+
+  function payGuidePackageSessions(weeklyFrequency) {
+    if (typeof pricingCatalog.packageSessionCount === "function") return pricingCatalog.packageSessionCount(weeklyFrequency);
+    return PACKAGE_SESSIONS * (Number(weeklyFrequency) === 2 ? 2 : 1);
+  }
+
+  function payGuideBasePricing(plan, durationMinutes) {
+    if (typeof pricingCatalog.basePricing === "function") return pricingCatalog.basePricing(plan, durationMinutes);
+    const tuition = pricingCatalog.lessonPriceTable?.[plan]?.[Number(durationMinutes)];
+    if (!tuition) return null;
+    const nadoFee = Math.round(tuition * 0.35);
+    return { tuition, nadoFee, teacherPayout: tuition - nadoFee };
+  }
+
+  function payGuidePayout(plan, durationMinutes, sessions) {
+    if (typeof pricingCatalog.teacherPayoutForSessions === "function") {
+      return pricingCatalog.teacherPayoutForSessions(plan, durationMinutes, sessions);
+    }
+    const base = payGuideBasePricing(plan, durationMinutes);
+    return base ? Math.round((base.teacherPayout * Number(sessions)) / PACKAGE_SESSIONS) : null;
+  }
+
+  function payGuideHourlyRates(plan, durationMinutes) {
+    if (typeof pricingCatalog.hourlyRates === "function") return pricingCatalog.hourlyRates(plan, durationMinutes);
+    const base = payGuideBasePricing(plan, durationMinutes);
+    const duration = Number(durationMinutes);
+    if (!base || !duration) return null;
+    const hours = duration / 60;
+    return {
+      firstMonth: Math.round((base.teacherPayout / PACKAGE_SESSIONS) / hours),
+      monthTwo: Math.round((base.tuition / PACKAGE_SESSIONS) / hours)
+    };
+  }
+
+  function syncPayGuideDurationOptions(preferredValue = 60) {
+    const select = $("payGuideDuration");
+    if (!select) return;
+    const durations = pricingCatalog.durationOptions || [30, 35, 40, 45, 60, 70, 80, 90, 100, 110, 120];
+    const requested = Number(preferredValue);
+    select.innerHTML = durations.map((minutes) => `<option value="${minutes}">${escapeHtml(lessonDurationLabel(minutes))}</option>`).join("");
+    select.value = String(durations.includes(requested) ? requested : 60);
+  }
+
+  function syncPayGuideSessionOptions({ preferFullPackage = false } = {}) {
+    const select = $("payGuideSessions");
+    if (!select) return;
+    const weekly = Number($("payGuideFrequency")?.value) === 2 ? 2 : 1;
+    const maxSessions = payGuidePackageSessions(weekly);
+    const previous = Number(select.value);
+    const selected = preferFullPackage || !Number.isInteger(previous) || previous < 1 || previous > maxSessions ? maxSessions : previous;
+    select.innerHTML = Array.from({ length: maxSessions }, (_, index) => {
+      const count = index + 1;
+      const label = currentLanguage() === "en" ? `${count} session${count === 1 ? "" : "s"}` : `${count}회`;
+      return `<option value="${count}">${label}</option>`;
+    }).join("");
+    select.value = String(selected);
+  }
+
+  function renderPayGuide() {
+    if (!$("payGuidePlan")) return;
+    const plan = $("payGuidePlan").value || "standard";
+    const duration = Number($("payGuideDuration").value) || 60;
+    const weekly = Number($("payGuideFrequency").value) === 2 ? 2 : 1;
+    const maxSessions = payGuidePackageSessions(weekly);
+    let sessions = Number($("payGuideSessions").value) || maxSessions;
+    if (sessions > maxSessions) { syncPayGuideSessionOptions({ preferFullPackage: true }); sessions = maxSessions; }
+
+    const rates = payGuideHourlyRates(plan, duration);
+    const payout = payGuidePayout(plan, duration, sessions);
+    if (!rates || payout === null) return;
+
+    const frequencyText = currentLanguage() === "en" ? (weekly === 2 ? "Twice a week" : "Once a week") : `주 ${weekly}회`;
+    const sessionsText = currentLanguage() === "en" ? `${sessions} session${sessions === 1 ? "" : "s"} payout` : `${sessions}회 정산`;
+    $("payGuideSelection").textContent = `${payGuidePlanLabel(plan)} · ${lessonDurationLabel(duration)} · ${frequencyText} · ${sessionsText}`;
+    $("payGuideFirstPayout").textContent = formatWon(payout);
+    $("payGuidePayoutNote").textContent = currentLanguage() === "en" ? `Based on ${sessions} payout session${sessions === 1 ? "" : "s"}` : `선택한 ${sessions}회 정산 기준`;
+    $("payGuideFirstHourly").textContent = formatHourlyWon(rates.firstMonth);
+    $("payGuideMonthTwoHourly").textContent = formatHourlyWon(rates.monthTwo);
+    $("payGuideFlowFirst").textContent = formatHourlyWon(rates.firstMonth);
+    $("payGuideFlowSecond").textContent = formatHourlyWon(rates.monthTwo);
+
+    const planSelect = $("payGuidePlan");
+    [...planSelect.options].forEach((option) => { option.textContent = payGuidePlanLabel(option.value); });
+    const frequencySelect = $("payGuideFrequency");
+    if (frequencySelect?.options?.length >= 2) {
+      frequencySelect.options[0].textContent = currentLanguage() === "en" ? "Once a week" : "주 1회";
+      frequencySelect.options[1].textContent = currentLanguage() === "en" ? "Twice a week" : "주 2회";
+    }
+
+    $("payGuideDurationTableCaption").textContent = currentLanguage() === "en"
+      ? `${payGuidePlanLabel(plan)} · ${weekly === 2 ? "8-session" : "4-session"} package comparison`
+      : `${payGuidePlanLabel(plan)} · ${maxSessions}회 패키지 기준 전체 수업 시간 비교`;
+    $("payGuideSessionTableCaption").textContent = currentLanguage() === "en"
+      ? `${payGuidePlanLabel(plan)} · ${lessonDurationLabel(duration)} · compare first-month payouts by sessions taught`
+      : `${payGuidePlanLabel(plan)} · ${lessonDurationLabel(duration)} · 실제 담당 횟수별 첫 달 정산액`;
+
+    const durations = pricingCatalog.durationOptions || [30, 35, 40, 45, 60, 70, 80, 90, 100, 110, 120];
+    $("payGuideDurationRows").innerHTML = durations.map((minutes) => {
+      const rowRates = payGuideHourlyRates(plan, minutes);
+      const fullPayout = payGuidePayout(plan, minutes, maxSessions);
+      return `<tr class="${minutes === duration ? "selected" : ""}" data-pay-duration="${minutes}">
+        <td><strong>${escapeHtml(lessonDurationLabel(minutes))}</strong></td>
+        <td>${escapeHtml(formatWon(fullPayout))}</td>
+        <td>${escapeHtml(formatHourlyWon(rowRates?.firstMonth))}</td>
+        <td>${escapeHtml(formatHourlyWon(rowRates?.monthTwo))}</td>
+      </tr>`;
+    }).join("");
+
+    $("payGuideSessionRows").innerHTML = Array.from({ length: maxSessions }, (_, index) => {
+      const count = index + 1;
+      const amount = payGuidePayout(plan, duration, count);
+      const label = currentLanguage() === "en" ? `${count} session${count === 1 ? "" : "s"}` : `${count}회`;
+      return `<tr class="${count === sessions ? "selected" : ""}" data-pay-sessions="${count}">
+        <td><strong>${escapeHtml(label)}</strong></td>
+        <td>${escapeHtml(formatWon(amount))}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function initializePayGuide() {
+    if (!$("payGuidePlan")) return;
+    syncPayGuideDurationOptions(60);
+    syncPayGuideSessionOptions({ preferFullPackage: true });
+    renderPayGuide();
+
+    $("payGuidePlan").addEventListener("change", renderPayGuide);
+    $("payGuideDuration").addEventListener("change", renderPayGuide);
+    $("payGuideFrequency").addEventListener("change", () => {
+      syncPayGuideSessionOptions({ preferFullPackage: true });
+      renderPayGuide();
+    });
+    $("payGuideSessions").addEventListener("change", renderPayGuide);
+    $("payGuideDurationRows").addEventListener("click", (event) => {
+      const row = event.target.closest("[data-pay-duration]");
+      if (!row) return;
+      $("payGuideDuration").value = row.dataset.payDuration;
+      renderPayGuide();
+    });
+    $("payGuideSessionRows").addEventListener("click", (event) => {
+      const row = event.target.closest("[data-pay-sessions]");
+      if (!row) return;
+      $("payGuideSessions").value = row.dataset.paySessions;
+      renderPayGuide();
+    });
   }
 
   function localizedContent(item, field) {
@@ -1622,9 +1783,13 @@ function loadGuideChecks() {
   function bindEvents() {
     $("loginForm").addEventListener("submit", login);
     $("resetPasswordButton").addEventListener("click", resetPassword);
+    initializePayGuide();
   document.addEventListener("nado:languagechange", () => {
     buildAvailabilityGrid();
     renderAssignments();
+    syncPayGuideDurationOptions(Number($("payGuideDuration")?.value) || 60);
+    syncPayGuideSessionOptions();
+    renderPayGuide();
     updateAgreementProfileCard();
     if (agreementViewMode === "review" && agreementRecord) {
       $("agreementAcceptedSummaryText").textContent = `${agreementRecord.teacher_name} · ${formatAgreementDate(agreementRecord.agreed_at)}`;
