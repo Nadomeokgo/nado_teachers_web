@@ -365,7 +365,11 @@
   "2회": "2 sessions",
   "3회": "3 sessions",
   "4회": "4 sessions",
-  "수업료는 4회 기준입니다. 선생님 교체 등으로 일부 수업만 정산할 경우 실제 담당 횟수를 선택해주세요.": "Tuition is based on 4 sessions. If a teacher is replaced or only handles part of the package, select the actual number of sessions taught.",
+  "5회": "5 sessions",
+  "6회": "6 sessions",
+  "7회": "7 sessions",
+  "8회": "8 sessions",
+  "주 1회는 4회, 주 2회는 8회 기준으로 수업료와 첫 달 정산액이 계산됩니다. 선생님 교체 등으로 일부 수업만 정산할 경우 실제 담당 횟수를 선택해주세요.": "Once-a-week lessons use 4 sessions, and twice-a-week lessons use 8 sessions. Tuition and first-month payout are calculated on that basis. If a teacher is replaced or only handles part of the package, select the actual number of sessions taught.",
   "플랜과 수업 시간을 선택하면 첫 달 정산액이 자동 계산됩니다.": "Select a plan and lesson duration to calculate the first-month payout automatically.",
   "자동 정산 계산": "Automatic payout calculation",
   "4회 기준 학생 수업료": "Student tuition (4 sessions)",
@@ -477,6 +481,12 @@
       const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
       return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric" }).format(date);
     }
+    match = value.match(/^(\d+)회 기준 학생 수업료$/);
+    if (match) return `Student tuition (${match[1]} sessions)`;
+    match = value.match(/^(\d+)회 기준 Teacher 정산액$/);
+    if (match) return `Teacher payout (${match[1]} sessions)`;
+    match = value.match(/^(\d+)회 기준 정산액$/);
+    if (match) return `${match[1]}-session payout`;
     match = value.match(/^(.+?)요일$/);
     if (match && translations[value]) return translations[value];
     match = value.match(/^(.+?) 학생의 배정 정보를 삭제할까요\?$/);

@@ -27,7 +27,14 @@ alter table public.student_assignments add constraint student_assignments_weekly
 
 alter table public.student_assignments drop constraint if exists student_assignments_settlement_sessions_check;
 alter table public.student_assignments add constraint student_assignments_settlement_sessions_check
-  check (settlement_sessions is null or settlement_sessions between 1 and 4);
+  check (settlement_sessions is null or settlement_sessions between 1 and 8);
+
+alter table public.student_assignments drop constraint if exists student_assignments_settlement_matches_frequency;
+alter table public.student_assignments add constraint student_assignments_settlement_matches_frequency
+  check (
+    weekly_frequency is null or settlement_sessions is null or
+    settlement_sessions <= 4 * weekly_frequency
+  );
 
 alter table public.student_assignments drop constraint if exists student_assignments_fee_percent_check;
 alter table public.student_assignments add constraint student_assignments_fee_percent_check
@@ -61,8 +68,8 @@ alter table public.student_assignments add constraint student_assignments_pricin
   );
 
 comment on column public.student_assignments.lesson_duration_minutes is 'Lesson duration in minutes. 60 means the official 60-minute option.';
-comment on column public.student_assignments.weekly_frequency is 'Lessons per week: 1 or 2. Pricing remains based on a four-session package.';
-comment on column public.student_assignments.settlement_sessions is 'Number of sessions handled by this teacher for first-month payout, 1 to 4.';
+comment on column public.student_assignments.weekly_frequency is 'Lessons per week: 1 or 2. Once weekly uses 4 sessions; twice weekly uses 8 sessions and doubles the package totals.';
+comment on column public.student_assignments.settlement_sessions is 'Number of sessions handled by this teacher for first-month payout: 1-4 for once weekly or 1-8 for twice weekly.';
 comment on column public.student_assignments.four_lesson_tuition is 'Snapshot of student tuition for the 4-session package at assignment time.';
 comment on column public.student_assignments.nado_fee_percent is 'Snapshot of first-month NADO fee rate. Current rate: 35 percent.';
 comment on column public.student_assignments.four_lesson_nado_fee is 'Snapshot of NADO fee for the 4-session package.';

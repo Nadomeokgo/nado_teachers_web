@@ -25,6 +25,7 @@
     standard: "스탠다드",
     premium: "프리미엄"
   };
+  const PACKAGE_SESSIONS = 4;
 
   function currentLanguage() {
     return window.NADO_I18N?.getLanguage?.() || "ko";
@@ -900,7 +901,18 @@
         ${assignment.teacher_payout_amount !== null && assignment.teacher_payout_amount !== undefined && Number.isFinite(Number(assignment.teacher_payout_amount)) ? `<div class="assignment-payout-box">
           <span>${escapeHtml(currentLanguage() === "en" ? "First-month teacher payout" : (isHistory ? "첫 달 Teacher 정산액" : "첫 달 Teacher 정산 예정액"))}</span>
           <strong>${escapeHtml(formatWon(assignment.teacher_payout_amount))}</strong>
-          ${Number(assignment.settlement_sessions) < 4 ? `<small>${escapeHtml(currentLanguage() === "en" ? `${sessionCountLabel(assignment.settlement_sessions)} out of 4-session payout ${formatWon(assignment.four_lesson_teacher_payout)}` : `4회 기준 ${formatWon(assignment.four_lesson_teacher_payout)} 중 ${sessionCountLabel(assignment.settlement_sessions)} 정산`)}</small>` : `<small>${currentLanguage() === "en" ? "4-session payout" : "4회 기준 정산액"}</small>`}
+          ${(() => {
+            const weekly = Number(assignment.weekly_frequency) === 2 ? 2 : 1;
+            const packageSessions = PACKAGE_SESSIONS * weekly;
+            const packageTeacherPayout = Number(assignment.four_lesson_teacher_payout) * weekly;
+            const sessions = Number(assignment.settlement_sessions);
+            if (sessions < packageSessions) {
+              return `<small>${escapeHtml(currentLanguage() === "en"
+                ? `${sessionCountLabel(sessions)} out of ${packageSessions}-session payout ${formatWon(packageTeacherPayout)}`
+                : `${packageSessions}회 기준 ${formatWon(packageTeacherPayout)} 중 ${sessionCountLabel(sessions)} 정산`)}</small>`;
+            }
+            return `<small>${escapeHtml(currentLanguage() === "en" ? `${packageSessions}-session payout` : `${packageSessions}회 기준 정산액`)}</small>`;
+          })()}
         </div>` : ""}
         <dl class="assignment-date-list">
           <div>
