@@ -4,6 +4,15 @@
   const STORAGE_KEY = "nado-ui-language";
   const SUPPORTED = new Set(["ko", "en"]);
   const translations = {
+    "가능 시간을 최신 상태로 유지하기": "Keep your availability up to date",
+  "매칭 전에 내 수업 가능 시간이 실제와 다르지 않은지 먼저 확인해주세요. 실제 가능한 시간과 다르면 매칭이 지연될 수 있습니다.": "Before matching, please check that your available lesson times are still accurate. If your actual availability differs, matching may be delayed.",
+  "스케줄 탭에서 확인하기 →": "Check in the Availability tab →",
+  "나도 단톡방에서 새 학생 매칭 소식 확인하기": "Check the NADO group chat for new student matches",
+  "나도 Teachers 단톡방에 새로운 학생 매칭 안내가 올라오는지 확인해주세요. 학생 이름, 목표, 레벨, 선호 시간과 장소를 가장 먼저 파악합니다.": "Check the NADO Teachers group chat for new student matching announcements. Review the student's name, goals, level, preferred time, and location first.",
+  "학생·나도·나 3인 단톡방에서 학생에게 첫 연락하기": "Make first contact with the student in the 3-way group chat (student · NADO · you)",
+  "학생, 나도 운영팀, 선생님이 함께 있는 단체 채팅방에서 먼저 인사를 건네고, 수업 방식, 배우고 싶은 내용, 원하시는 장소, 희망 첫 수업 일정을 편하게 여쭤봅니다.": "In the group chat with the student, NADO staff, and you, say hello first and casually ask about their preferred lesson style, what they want to learn, their preferred location, and their preferred first-lesson schedule.",
+  "나도 단톡방에 첫 수업 일정 제출하기": "Submit the first-lesson schedule in the NADO group chat",
+  "일정이 확정되면 나도 Teachers 단톡방에 학생명, 일시, 장소를 반드시 남겨주세요.": "Once the schedule is confirmed, be sure to post the student's name, date/time, and location in the NADO Teachers group chat.",
   "수업 준비부터": "From lesson prep",
   "일정 제출까지.": "to schedule submission.",
   "선생님이 수업에만 집중할 수 있도록 필요한 정보와 업무를 한곳에 모았습니다.": "Everything you need to manage lessons is organized in one place, so you can focus on teaching.",
