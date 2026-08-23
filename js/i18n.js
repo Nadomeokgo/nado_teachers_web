@@ -12,12 +12,12 @@
 
   // STEP2
   "Nado teachers 단톡방에서 새 학생 매칭 소식 확인하기": "Check the NADO Teachers group chat for new student matches",
-  "Nado teachers 단톡방에 새로운 학생 매칭 안내가 올라오는지 확인해주세요. 수업 신청은 선착순으로 이루어집니다.": "Check the NADO Teachers group chat for new student matching announcements. Lesson requests are handled on a first-come, first-served basis.",
+  "Nado teachers 단톡방에 새로운 학생 매칭 안내가 올라오는지 확인해주세요. 수업 신청은 선착순으로 이루어집니다.": "Check the NADO Teachers group chat for new student matching announcements. Teachers can apply for a student on a first-come, first-served basis.",
   "선생님께 전달되는 학생 정보 예시": "Example student information shared with the teacher",
 
   // STEP3
   "학생·나도·나 3인 단톡방에서 학생에게 첫 연락하기": "Make first contact with the student in the 3-way group chat (student · NADO · you)",
-  "수업 신청을 완료하면 학생, 나도 운영팀, 선생님이 함께 있는 단체 채팅방이 생성됩니다. 선생님은 먼저 인사를 건네고, 수업 방식, 배우고 싶은 내용, 원하시는 장소, 희망 첫 수업 일정을 물어봅니다.": "Once the lesson request is completed, a group chat is created with the student, NADO staff, and you. Say hello first, then ask about their preferred lesson style, what they want to learn, their preferred location, and their preferred first-lesson schedule.",
+  "학생과 최종적으로 매칭이 확정된 후, 학생·나도 운영팀·선생님이 함께 있는 단체 채팅방이 개설됩니다. 선생님은 먼저 인사를 건네고, 수업 방식, 배우고 싶은 내용, 원하시는 장소, 희망 첫 수업 일정을 물어봅니다.": "After the match with the student is officially confirmed, a group chat with the student, the NADO operations team, and you will be created. Say hello first, then ask about the student's preferred lesson style, learning goals, preferred location, and preferred first-lesson schedule.",
 
   // STEP4
   "나도 단톡방에 첫 수업 일정 제출하기": "Submit the first-lesson schedule in the NADO group chat",
