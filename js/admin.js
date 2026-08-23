@@ -5,7 +5,7 @@
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const PROFILE_PHOTO_BUCKET = "profile-photos";
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
-  const CURRENT_AGREEMENT_VERSION = "v1.0";
+  const CURRENT_AGREEMENT_VERSION = "v1.1";
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
   const pricingCatalog = window.NADO_PRICING || {};
@@ -266,7 +266,7 @@
   async function loadData() {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, school, major, phone, bio, bank_name, account_number, profile_photo_path, availability(id, day_of_week, start_time, end_time, location, memo, updated_at)")
+      .select("id, full_name, email, school, major, phone, kakao_id, bio, bank_name, account_number, profile_photo_path, availability(id, day_of_week, start_time, end_time, location, memo, updated_at)")
       .neq("role", "admin")
       .order("full_name");
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
@@ -313,7 +313,7 @@
       ...teacher,
       availability: (teacher.availability || []).filter((slot) => day === "all" || String(slot.day_of_week) === day)
     })).filter((teacher) => {
-      const matchesText = !keyword || `${teacher.full_name || ""} ${teacher.email || ""} ${teacher.school || ""} ${teacher.major || ""} ${teacher.phone || ""}`.toLowerCase().includes(keyword);
+      const matchesText = !keyword || `${teacher.full_name || ""} ${teacher.email || ""} ${teacher.school || ""} ${teacher.major || ""} ${teacher.phone || ""} ${teacher.kakao_id || ""}`.toLowerCase().includes(keyword);
       const matchesDay = day === "all" || teacher.availability.length > 0;
       return matchesText && matchesDay;
     });
@@ -344,6 +344,7 @@
         </div>
         <div class="teacher-admin-details">
           <div><span>연락처</span><strong>${escapeHtml(teacher.phone || "미입력")}</strong></div>
+          <div><span>카카오톡 ID</span><strong>${escapeHtml(teacher.kakao_id || "미입력")}</strong></div>
           <div><span>정산 계좌</span><strong>${escapeHtml(teacher.bank_name || "은행 미입력")} ${escapeHtml(teacher.account_number || "계좌번호 미입력")}</strong></div>
           <div class="teacher-admin-bio"><span>한 줄 소개</span><strong>${escapeHtml(teacher.bio || "미입력")}</strong></div>
           <div class="teacher-agreement-detail"><span>서비스 계약</span>${teacher.agreement
@@ -795,10 +796,10 @@
   }
 
   function exportCsv() {
-    const rows = [["선생님", "이메일", "학교", "전공", "요일", "시작", "종료", "장소", "메모", "업데이트"]];
+    const rows = [["선생님", "이메일", "학교", "전공", "카카오톡 ID", "요일", "시작", "종료", "장소", "메모", "업데이트"]];
     teachers.forEach((teacher) => {
-      if (!(teacher.availability || []).length) rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, "미제출", "", "", "", "", ""]);
-      (teacher.availability || []).forEach((slot) => rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, days[slot.day_of_week], slot.start_time.slice(0,5), slot.end_time.slice(0,5), slot.location, slot.memo, slot.updated_at]));
+      if (!(teacher.availability || []).length) rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, "미제출", "", "", "", "", ""]);
+      (teacher.availability || []).forEach((slot) => rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, days[slot.day_of_week], slot.start_time.slice(0,5), slot.end_time.slice(0,5), slot.location, slot.memo, slot.updated_at]));
     });
     const csv = "\ufeff" + rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });

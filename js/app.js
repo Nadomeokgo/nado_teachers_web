@@ -8,7 +8,7 @@
   const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
   const PROFILE_PHOTO_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
-  const CURRENT_AGREEMENT_VERSION = "v1.0";
+  const CURRENT_AGREEMENT_VERSION = "v1.1";
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   const scheduleDayOrder = [1, 2, 3, 4, 5, 6, 0];
   const scheduleStartMinutes = 8 * 60;
@@ -668,7 +668,7 @@
   }
 
   function isProfileOnboardingRequired() {
-    return profile?.role !== "admin" && !profile?.profile_completed_at;
+    return profile?.role !== "admin" && (!profile?.profile_completed_at || !String(profile?.kakao_id || "").trim());
   }
 
   function isAgreementRequired() {
@@ -757,11 +757,21 @@
     button.disabled = !(allChecked && hasName);
   }
 
+  function syncAgreementLanguage() {
+    const language = currentLanguage() === "en" ? "en" : "ko";
+    document.querySelectorAll("[data-agreement-lang]").forEach((section) => {
+      section.classList.toggle("hidden", section.dataset.agreementLang !== language);
+    });
+    const scroll = $("agreementContractScroll");
+    if (scroll) scroll.setAttribute("aria-label", language === "en" ? "NADO Teacher Service Agreement content" : "NADO Teacher Service Agreement 계약서 내용");
+  }
+
   function showAgreement(mode = "required") {
     agreementViewMode = mode;
     agreementRequired = mode === "required";
     $("agreementEmail").textContent = currentUser?.email || "-";
     $("agreementVersionLabel").textContent = CURRENT_AGREEMENT_VERSION;
+    syncAgreementLanguage();
 
     const isReview = mode === "review";
     $("agreementForm").classList.toggle("hidden", isReview);
@@ -883,6 +893,7 @@
       School: data.school || "",
       Major: data.major || "",
       Phone: data.phone || "",
+      KakaoId: data.kakao_id || "",
       BankName: data.bank_name || "",
       AccountNumber: data.account_number || "",
       Bio: data.bio || ""
@@ -1127,6 +1138,7 @@
     school: "profileSchool",
     major: "profileMajor",
     phone: "profilePhone",
+    kakao_id: "profileKakaoId",
     bank_name: "profileBankName",
     account_number: "profileAccountNumber",
     bio: "profileBio"
@@ -1137,6 +1149,7 @@
     school: "onboardingSchool",
     major: "onboardingMajor",
     phone: "onboardingPhone",
+    kakao_id: "onboardingKakaoId",
     bank_name: "onboardingBankName",
     account_number: "onboardingAccountNumber",
     bio: "onboardingBio"
@@ -1147,6 +1160,7 @@
     school: "학교",
     major: "전공",
     phone: "휴대전화",
+    kakao_id: "카카오톡 ID",
     bank_name: "은행명",
     account_number: "계좌번호",
     bio: "한 줄 소개"
@@ -1158,6 +1172,7 @@
       school: $(fieldIds.school).value.trim(),
       major: $(fieldIds.major).value.trim(),
       phone: $(fieldIds.phone).value.trim(),
+      kakao_id: $(fieldIds.kakao_id).value.trim(),
       bank_name: $(fieldIds.bank_name).value.trim(),
       account_number: $(fieldIds.account_number).value.trim().replace(/\s+/g, ""),
       bio: $(fieldIds.bio).value.trim(),
@@ -1181,7 +1196,7 @@
   }
 
   async function persistProfile(payload) {
-    const columns = "id, email, full_name, school, major, phone, bank_name, account_number, bio, profile_photo_path, role, profile_completed_at, updated_at";
+    const columns = "id, email, full_name, school, major, phone, kakao_id, bank_name, account_number, bio, profile_photo_path, role, profile_completed_at, updated_at";
     let result = await supabase
       .from("profiles")
       .update(payload)
@@ -1241,7 +1256,7 @@
         : "내 정보가 저장되었습니다.");
     } catch (error) {
       console.error("Profile update failed:", error);
-      const missingColumn = /bank_name|account_number|profile_completed_at|profile_photo_path/i.test(error?.message || "");
+      const missingColumn = /bank_name|account_number|kakao_id|profile_completed_at|profile_photo_path/i.test(error?.message || "");
       showToast(
         missingColumn
           ? "프로필 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요."
@@ -1791,6 +1806,7 @@ function loadGuideChecks() {
     syncPayGuideSessionOptions();
     renderPayGuide();
     updateAgreementProfileCard();
+    syncAgreementLanguage();
     if (agreementViewMode === "review" && agreementRecord) {
       $("agreementAcceptedSummaryText").textContent = `${agreementRecord.teacher_name} · ${formatAgreementDate(agreementRecord.agreed_at)}`;
     }

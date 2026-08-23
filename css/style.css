@@ -325,6 +325,7 @@ textarea { resize: vertical; }
 .required-note { flex: 0 0 auto; color: var(--gray); font-size: .76rem; font-weight: 800; }
 .required-note b, .required-mark { color: var(--danger); }
 .field-label { display: inline-flex; align-items: center; gap: 3px; }
+.field-help { display: block; margin-top: 6px; color: var(--gray); font-size: .74rem; line-height: 1.45; }
 .profile-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .full-field { grid-column: 1 / -1; }
 .profile-payment-warning { padding: 16px 18px; border: 1px solid #f2d5a5; border-radius: 15px; background: #fffaf1; color: #76521f; }
@@ -956,7 +957,7 @@ input[type="time"], input[type="date"], input[type="datetime-local"] {
 }
 
 
-/* ===== NADO Teacher Service Agreement v1.0 ===== */
+/* ===== NADO Teacher Service Agreement v1.1 ===== */
 body.agreement-open { overflow: hidden; }
 .agreement-overlay {
   position: fixed; inset: 0; z-index: 1200; overflow: auto;
