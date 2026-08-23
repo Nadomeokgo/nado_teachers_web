@@ -5,7 +5,7 @@
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const PROFILE_PHOTO_BUCKET = "profile-photos";
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
-  const CURRENT_AGREEMENT_VERSION = "v1.1";
+  const CURRENT_AGREEMENT_VERSION = "v1.2";
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
   const pricingCatalog = window.NADO_PRICING || {};
