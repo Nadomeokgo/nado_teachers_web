@@ -5,13 +5,13 @@
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const PROFILE_PHOTO_BUCKET = "profile-photos";
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
-  const CURRENT_AGREEMENT_VERSION = "v1.2";
+  const CURRENT_AGREEMENT_VERSION = "v1.3";
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
   const pricingCatalog = window.NADO_PRICING || {};
   const NADO_FEE_RATE = pricingCatalog.NADO_FEE_RATE ?? 0.35;
   const PACKAGE_SESSIONS = pricingCatalog.PACKAGE_SESSIONS ?? 4;
-  const PRICING_VERSION = pricingCatalog.PRICING_VERSION || "NADO-2026-08-W2";
+  const PRICING_VERSION = pricingCatalog.PRICING_VERSION || "NADO-2026-08-60-120-W2";
   const lessonPriceTable = pricingCatalog.lessonPriceTable || {
     economy: { 30: 80000, 35: 93400, 40: 106700, 45: 120000, 60: 140000, 70: 163400, 80: 186700, 90: 210000, 100: 233400, 110: 256700, 120: 280000 },
     standard: { 30: 100000, 35: 116700, 40: 133400, 45: 150000, 60: 180000, 70: 210000, 80: 240000, 90: 270000, 100: 300000, 110: 330000, 120: 360000 },
@@ -132,12 +132,12 @@
     if (!value) return currentLanguage() === "en" ? "Lesson time not set" : "수업 시간 미지정";
     if (currentLanguage() === "en") {
       if (value < 60) return `${value} min`;
-      if (value === 60) return "60 min";
+      if (value === 60) return "1 hr";
       if (value === 120) return "2 hr";
       return `1 hr ${value - 60} min`;
     }
     if (value < 60) return `${value}분`;
-    if (value === 60) return "60분";
+    if (value === 60) return "1시간";
     if (value === 120) return "2시간";
     return `1시간 ${value - 60}분`;
   }

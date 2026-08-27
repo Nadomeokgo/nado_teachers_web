@@ -8,7 +8,7 @@
   const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
   const PROFILE_PHOTO_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
-  const CURRENT_AGREEMENT_VERSION = "v1.2";
+  const CURRENT_AGREEMENT_VERSION = "v1.3";
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   const scheduleDayOrder = [1, 2, 3, 4, 5, 6, 0];
   const scheduleStartMinutes = 8 * 60;
@@ -41,12 +41,12 @@
     if (!value) return currentLanguage() === "en" ? "Lesson time not set" : "수업 시간 미지정";
     if (currentLanguage() === "en") {
       if (value < 60) return `${value} min`;
-      if (value === 60) return "60 min";
+      if (value === 60) return "1 hr";
       if (value === 120) return "2 hr";
       return `1 hr ${value - 60} min`;
     }
     if (value < 60) return `${value}분`;
-    if (value === 60) return "60분";
+    if (value === 60) return "1시간";
     if (value === 120) return "2시간";
     return `1시간 ${value - 60}분`;
   }
@@ -120,7 +120,7 @@
   function syncPayGuideDurationOptions(preferredValue = 60) {
     const select = $("payGuideDuration");
     if (!select) return;
-    const durations = pricingCatalog.durationOptions || [30, 35, 40, 45, 60, 70, 80, 90, 100, 110, 120];
+    const durations = pricingCatalog.durationOptions || [60, 120];
     const requested = Number(preferredValue);
     select.innerHTML = durations.map((minutes) => `<option value="${minutes}">${escapeHtml(lessonDurationLabel(minutes))}</option>`).join("");
     select.value = String(durations.includes(requested) ? requested : 60);
@@ -179,7 +179,7 @@
       ? `${payGuidePlanLabel(plan)} · ${lessonDurationLabel(duration)} · compare first-month payouts by sessions taught`
       : `${payGuidePlanLabel(plan)} · ${lessonDurationLabel(duration)} · 실제 담당 횟수별 첫 달 정산액`;
 
-    const durations = pricingCatalog.durationOptions || [30, 35, 40, 45, 60, 70, 80, 90, 100, 110, 120];
+    const durations = pricingCatalog.durationOptions || [60, 120];
     $("payGuideDurationRows").innerHTML = durations.map((minutes) => {
       const rowRates = payGuideHourlyRates(plan, minutes);
       const fullPayout = payGuidePayout(plan, minutes, maxSessions);
