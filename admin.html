@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="NADO Teachers" />
   <title>나도 Teachers 관리자</title>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260823-agreement11-kakao1" />
+  <link rel="stylesheet" href="css/style.css?v=20260829-trial-free20000-v14" />
 </head>
 <body class="admin-body">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -40,7 +40,7 @@
       <article class="stat-panel"><span>제출 시간대</span><strong id="slotTotalCount">-</strong></article>
       <article class="stat-panel"><span>최근 업데이트</span><strong id="latestUpdate">-</strong></article>
       <article class="stat-panel"><span>현재 학생</span><strong id="assignmentTotalCount">-</strong></article>
-      <article class="stat-panel"><span>v1.3 계약 동의</span><strong id="agreementAcceptedCount">-</strong></article>
+      <article class="stat-panel"><span>v1.4 계약 동의</span><strong id="agreementAcceptedCount">-</strong></article>
     </section>
 
     <section class="admin-assignment-section">
@@ -48,7 +48,7 @@
         <div>
           <p class="section-kicker">STUDENT ASSIGNMENT</p>
           <h2>학생 배정 및 정산 관리</h2>
-          <p>담당 선생님, 플랜, 수업 시간과 빈도, 정산 수업 횟수를 선택하면 첫 달 정산액이 자동 계산됩니다.</p>
+          <p>담당 선생님과 수업 유형을 선택하면 정규 수업 또는 무료 체험수업의 정산액이 자동 계산됩니다.</p>
         </div>
       </div>
 
@@ -63,6 +63,12 @@
             </label>
             <label>학생 이름
               <input id="assignmentStudentName" type="text" maxlength="100" placeholder="학생 이름 입력" required />
+            </label>
+            <label>수업 유형
+              <select id="assignmentType" required>
+                <option value="regular" selected>정규 수업</option>
+                <option value="trial">무료 체험수업</option>
+              </select>
             </label>
             <label>학생 플랜
               <select id="assignmentPlan" required>
@@ -95,7 +101,7 @@
                 <option value="4" selected>4회</option>
               </select>
             </label>
-            <p class="assignment-package-note">주 1회는 4회, 주 2회는 8회 기준으로 수업료와 첫 달 정산액이 계산됩니다. 선생님 교체 등으로 일부 수업만 정산할 경우 실제 담당 횟수를 선택해주세요.</p>
+            <p id="assignmentPackageNote" class="assignment-package-note">주 1회는 4회, 주 2회는 8회 기준으로 수업료와 첫 달 정산액이 계산됩니다. 선생님 교체 등으로 일부 수업만 정산할 경우 실제 담당 횟수를 선택해주세요.</p>
             <div id="assignmentPricingPreview" class="assignment-pricing-preview" role="status" aria-live="polite">
               <div class="assignment-pricing-placeholder">플랜과 수업 시간을 선택하면 첫 달 정산액이 자동 계산됩니다.</div>
             </div>
@@ -258,8 +264,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/pricing.js?v=20260827-duration60-120-v13"></script>
-  <script src="js/i18n.js?v=20260827-duration60-120-v13"></script>
-  <script src="js/admin.js?v=20260827-duration60-120-v13"></script>
+  <script src="js/pricing.js?v=20260829-trial-free20000-v14"></script>
+  <script src="js/i18n.js?v=20260829-trial-free20000-v14"></script>
+  <script src="js/admin.js?v=20260829-trial-free20000-v14"></script>
 </body>
 </html>

@@ -5,13 +5,16 @@
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const PROFILE_PHOTO_BUCKET = "profile-photos";
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
-  const CURRENT_AGREEMENT_VERSION = "v1.3";
+  const CURRENT_AGREEMENT_VERSION = "v1.4";
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
   const pricingCatalog = window.NADO_PRICING || {};
   const NADO_FEE_RATE = pricingCatalog.NADO_FEE_RATE ?? 0.35;
   const PACKAGE_SESSIONS = pricingCatalog.PACKAGE_SESSIONS ?? 4;
   const PRICING_VERSION = pricingCatalog.PRICING_VERSION || "NADO-2026-08-60-120-W2";
+  const TRIAL_PLAN = pricingCatalog.TRIAL_PLAN || "economy";
+  const TRIAL_TEACHER_PAYOUT = pricingCatalog.TRIAL_TEACHER_PAYOUT ?? 20000;
+  const TRIAL_PRICING_VERSION = pricingCatalog.TRIAL_PRICING_VERSION || "NADO-TRIAL-FREE-20000-2026-08";
   const lessonPriceTable = pricingCatalog.lessonPriceTable || {
     economy: { 30: 80000, 35: 93400, 40: 106700, 45: 120000, 60: 140000, 70: 163400, 80: 186700, 90: 210000, 100: 233400, 110: 256700, 120: 280000 },
     standard: { 30: 100000, 35: 116700, 40: 133400, 45: 150000, 60: 180000, 70: 210000, 80: 240000, 90: 270000, 100: 300000, 110: 330000, 120: 360000 },
@@ -127,6 +130,16 @@
     return planLabels[plan] || "플랜 미지정";
   }
 
+  function assignmentTypeLabel(value) {
+    const isTrial = value === "trial";
+    if (currentLanguage() === "en") return isTrial ? "Free trial lesson" : "Regular lesson";
+    return isTrial ? "무료 체험수업" : "정규 수업";
+  }
+
+  function isTrialAssignment(assignment) {
+    return assignment?.assignment_type === "trial";
+  }
+
   function lessonDurationLabel(minutes) {
     const value = Number(minutes);
     if (!value) return currentLanguage() === "en" ? "Lesson time not set" : "수업 시간 미지정";
@@ -195,11 +208,26 @@
     };
   }
 
+  function trialPricingFor(durationMinutes) {
+    const fromCatalog = pricingCatalog.trialPricing?.(durationMinutes);
+    if (fromCatalog) return fromCatalog;
+    const duration = Number(durationMinutes);
+    if (![60, 120].includes(duration)) return null;
+    return {
+      plan: TRIAL_PLAN,
+      durationMinutes: duration,
+      studentTuition: 0,
+      teacherPayout: TRIAL_TEACHER_PAYOUT,
+      sessions: 1
+    };
+  }
+
   function syncSettlementSessionOptions(preferredValue = null) {
     const select = $("assignmentSettlementSessions");
     if (!select) return;
+    const isTrial = $("assignmentType")?.value === "trial";
     const weekly = Number($("assignmentWeeklyFrequency")?.value) || 1;
-    const maxSessions = packageSessionCount(weekly);
+    const maxSessions = isTrial ? 1 : packageSessionCount(weekly);
     const requested = Number(preferredValue);
     const nextValue = Number.isInteger(requested) && requested >= 1 && requested <= maxSessions
       ? requested
@@ -213,6 +241,38 @@
     select.value = String(nextValue);
   }
 
+  function syncAssignmentTypeFields(preferredSessions = null) {
+    const isTrial = $("assignmentType")?.value === "trial";
+    const planSelect = $("assignmentPlan");
+    const weeklySelect = $("assignmentWeeklyFrequency");
+    const sessionSelect = $("assignmentSettlementSessions");
+    const note = $("assignmentPackageNote");
+
+    if (isTrial) {
+      planSelect.value = TRIAL_PLAN;
+      weeklySelect.value = "1";
+      planSelect.disabled = true;
+      weeklySelect.disabled = true;
+      sessionSelect.disabled = true;
+      syncSettlementSessionOptions(1);
+      if (note) {
+        note.textContent = currentLanguage() === "en"
+          ? "Free trial lessons are handled as Economy. Students pay ₩0, and the Teacher receives ₩20,000 for one completed trial lesson."
+          : "무료 체험수업은 Economy로 처리됩니다. 학생 결제 금액은 0원이며, 실제 체험수업 1회 진행 시 Teacher에게 20,000원이 지급됩니다.";
+      }
+    } else {
+      planSelect.disabled = false;
+      weeklySelect.disabled = false;
+      sessionSelect.disabled = false;
+      syncSettlementSessionOptions(preferredSessions);
+      if (note) {
+        note.textContent = currentLanguage() === "en"
+          ? "Once a week uses 4 sessions and twice a week uses 8 sessions. If only part of a package is being settled, select the actual number of lessons taught by this Teacher."
+          : "주 1회는 4회, 주 2회는 8회 기준으로 수업료와 첫 달 정산액이 계산됩니다. 선생님 교체 등으로 일부 수업만 정산할 경우 실제 담당 횟수를 선택해주세요.";
+      }
+    }
+  }
+
   function assignmentHasPricing(assignment) {
     return Number.isFinite(Number(assignment?.teacher_payout_amount)) && Number(assignment?.settlement_sessions) > 0;
   }
@@ -220,13 +280,43 @@
   function renderAssignmentPricingPreview() {
     const target = $("assignmentPricingPreview");
     if (!target) return;
-    const plan = $("assignmentPlan").value;
+
+    const assignmentType = $("assignmentType")?.value || "regular";
     const duration = Number($("assignmentLessonDuration").value);
+
+    if (assignmentType === "trial") {
+      const pricing = trialPricingFor(duration);
+      if (!pricing) {
+        target.innerHTML = `<div class="assignment-pricing-placeholder">${escapeHtml(currentLanguage() === "en"
+          ? "Select a lesson duration to see the trial-lesson payout."
+          : "수업 시간을 선택하면 체험수업 지급액이 표시됩니다.")}</div>`;
+        return;
+      }
+
+      target.innerHTML = `
+        <div class="assignment-pricing-head">
+          <div><span>${escapeHtml(currentLanguage() === "en" ? "Trial lesson payout" : "체험수업 지급")}</span><strong>${escapeHtml(assignmentTypeLabel("trial"))} · ${escapeHtml(planLabel(TRIAL_PLAN))} · ${escapeHtml(lessonDurationLabel(duration))}</strong></div>
+          <span class="assignment-pricing-rate trial">${escapeHtml(currentLanguage() === "en" ? "Student FREE" : "학생 무료")}</span>
+        </div>
+        <dl class="assignment-pricing-grid">
+          <div><dt>${escapeHtml(currentLanguage() === "en" ? "Student payment" : "학생 결제 금액")}</dt><dd>${escapeHtml(formatWon(0))}</dd></div>
+          <div><dt>${escapeHtml(currentLanguage() === "en" ? "Trial lessons" : "체험수업 횟수")}</dt><dd>${escapeHtml(sessionCountLabel(1))}</dd></div>
+          <div class="assignment-pricing-total"><dt>${escapeHtml(currentLanguage() === "en" ? "Teacher trial-lesson payout" : "Teacher 체험수업 지급액")}</dt><dd>${escapeHtml(formatWon(pricing.teacherPayout))}</dd></div>
+        </dl>
+        <p class="assignment-pricing-rounding">${escapeHtml(currentLanguage() === "en"
+          ? "Trial lessons are recorded as Economy and are separate from the regular-package pricing table."
+          : "체험수업은 Economy로 기록되며, 정규 패키지 가격표와 별도의 체험수업 지급 기준이 적용됩니다.")}</p>`;
+      return;
+    }
+
+    const plan = $("assignmentPlan").value;
     const sessions = Number($("assignmentSettlementSessions").value);
     const weekly = Number($("assignmentWeeklyFrequency").value);
     const pricing = pricingFor(plan, duration, weekly, sessions);
     if (!pricing) {
-      target.innerHTML = '<div class="assignment-pricing-placeholder">플랜과 수업 시간을 선택하면 첫 달 정산액이 자동 계산됩니다.</div>';
+      target.innerHTML = `<div class="assignment-pricing-placeholder">${escapeHtml(currentLanguage() === "en"
+        ? "Select a plan and lesson duration to calculate the first-month payout."
+        : "플랜과 수업 시간을 선택하면 첫 달 정산액이 자동 계산됩니다.")}</div>`;
       return;
     }
     const basisLabel = currentLanguage() === "en" ? `${pricing.packageSessions}-session` : `${pricing.packageSessions}회 기준`;
@@ -360,7 +450,7 @@
   async function loadAssignments() {
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, teacher_id, student_name, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, created_at, updated_at")
+      .select("id, teacher_id, student_name, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, created_at, updated_at")
       .order("first_lesson_date", { ascending: true })
       .order("student_name", { ascending: true });
 
@@ -418,8 +508,11 @@
   }
 
   function renderCalendarEvent(event) {
-    const typeLabel = event.type === "first" ? "첫 수업" : "정산";
-    return `<div class="calendar-event calendar-event-${event.type}" data-calendar-assignment="${escapeHtml(event.assignment.id)}">
+    const isTrial = isTrialAssignment(event.assignment);
+    const typeLabel = event.type === "first"
+      ? (isTrial ? (currentLanguage() === "en" ? "Trial" : "체험수업") : (currentLanguage() === "en" ? "First lesson" : "첫 수업"))
+      : (currentLanguage() === "en" ? "Payout" : "정산");
+    return `<div class="calendar-event calendar-event-${event.type}${isTrial ? " calendar-event-trial" : ""}" data-calendar-assignment="${escapeHtml(event.assignment.id)}">
       <span class="calendar-event-type">${typeLabel}</span>
       <strong class="calendar-student-name" style="--calendar-name-hue:${event.studentHue}">${escapeHtml(event.assignment.student_name)}</strong>
       <span class="calendar-teacher-name" style="--calendar-name-hue:${event.teacherHue}">${escapeHtml(event.teacherName)}</span>
@@ -488,38 +581,55 @@
     target.innerHTML = visible.map((assignment) => {
       const teacher = teacherById(assignment.teacher_id);
       const isHistory = assignment.settlement_date < today;
+      const isTrial = isTrialAssignment(assignment);
       const plan = assignment.plan || "unassigned";
-      return `<article class="admin-assignment-item${isHistory ? " is-history" : ""}">
+      const typeBadge = isTrial
+        ? `<span class="assignment-type-badge trial">${escapeHtml(assignmentTypeLabel("trial"))}</span>`
+        : "";
+      const serviceTags = assignment.lesson_duration_minutes
+        ? `<div class="admin-assignment-service-tags">
+            <span>${escapeHtml(lessonDurationLabel(assignment.lesson_duration_minutes))}</span>
+            ${isTrial
+              ? `<span>${escapeHtml(currentLanguage() === "en" ? "1 trial session" : "체험 1회")}</span>`
+              : `<span>${escapeHtml(weeklyFrequencyLabel(assignment.weekly_frequency))}</span>
+                 <span>${escapeHtml(currentLanguage() === "en" ? `Payout ${sessionCountLabel(assignment.settlement_sessions)}` : `정산 ${sessionCountLabel(assignment.settlement_sessions)}`)}</span>`}
+          </div>`
+        : '<div class="assignment-pricing-missing">기존 기록 · 수업/정산 상세 미지정</div>';
+
+      const payoutDetail = isTrial
+        ? (currentLanguage() === "en" ? "Student free · Economy trial lesson" : "학생 무료 · Economy 체험수업")
+        : (() => {
+            const weekly = Number(assignment.weekly_frequency) === 2 ? 2 : 1;
+            const packageSessions = PACKAGE_SESSIONS * weekly;
+            const packageTeacherPayout = Number(assignment.four_lesson_teacher_payout) * weekly;
+            const packageTuition = Number(assignment.four_lesson_tuition) * weekly;
+            return currentLanguage() === "en"
+              ? `${packageSessions}-session basis ${formatWon(packageTeacherPayout)} · Tuition ${formatWon(packageTuition)}`
+              : `${packageSessions}회 기준 ${formatWon(packageTeacherPayout)} · 학생 수업료 ${formatWon(packageTuition)}`;
+          })();
+
+      return `<article class="admin-assignment-item${isHistory ? " is-history" : ""}${isTrial ? " is-trial" : ""}">
         <div class="admin-assignment-person">
           <div class="admin-assignment-badges">
+            ${typeBadge}
             <span class="plan-badge plan-${escapeHtml(plan)}">${escapeHtml(planLabel(assignment.plan))}</span>
             <span class="assignment-status-badge ${isHistory ? "completed" : "current"}">${isHistory ? "학생 기록" : "현재 학생"}</span>
           </div>
           <strong>${escapeHtml(assignment.student_name)}</strong>
           <small>담당: ${escapeHtml(teacher?.full_name || "삭제된 선생님")} ${teacher?.email ? `· ${escapeHtml(teacher.email)}` : ""}</small>
-          ${assignment.lesson_duration_minutes ? `<div class="admin-assignment-service-tags">
-            <span>${escapeHtml(lessonDurationLabel(assignment.lesson_duration_minutes))}</span>
-            <span>${escapeHtml(weeklyFrequencyLabel(assignment.weekly_frequency))}</span>
-            <span>${escapeHtml(currentLanguage() === "en" ? `Payout ${sessionCountLabel(assignment.settlement_sessions)}` : `정산 ${sessionCountLabel(assignment.settlement_sessions)}`)}</span>
-          </div>` : '<div class="assignment-pricing-missing">기존 기록 · 수업/정산 상세 미지정</div>'}
+          ${serviceTags}
         </div>
         <div class="admin-assignment-summary">
           <dl class="admin-assignment-dates">
-            <div><dt>첫 수업일</dt><dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd></div>
-            <div><dt>${isHistory ? "정산일" : "정산 예정일"}</dt><dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd></div>
+            <div><dt>${escapeHtml(isTrial ? (currentLanguage() === "en" ? "Trial lesson date" : "체험수업일") : (currentLanguage() === "en" ? "First lesson date" : "첫 수업일"))}</dt><dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd></div>
+            <div><dt>${escapeHtml(currentLanguage() === "en" ? (isHistory ? "Payout date" : "Scheduled payout date") : (isHistory ? "정산일" : "정산 예정일"))}</dt><dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd></div>
           </dl>
-          ${assignmentHasPricing(assignment) ? `<div class="admin-assignment-payout">
-            <span>${escapeHtml(currentLanguage() === "en" ? (isHistory ? "Teacher payout" : "Scheduled teacher payout") : `Teacher ${isHistory ? "정산액" : "정산 예정액"}`)}</span>
+          ${assignmentHasPricing(assignment) ? `<div class="admin-assignment-payout${isTrial ? " trial" : ""}">
+            <span>${escapeHtml(isTrial
+              ? (currentLanguage() === "en" ? "Trial lesson teacher payout" : "Teacher 체험수업 지급액")
+              : (currentLanguage() === "en" ? (isHistory ? "Teacher payout" : "Scheduled teacher payout") : `Teacher ${isHistory ? "정산액" : "정산 예정액"}`))}</span>
             <strong>${escapeHtml(formatWon(assignment.teacher_payout_amount))}</strong>
-            <small>${(() => {
-              const weekly = Number(assignment.weekly_frequency) === 2 ? 2 : 1;
-              const packageSessions = PACKAGE_SESSIONS * weekly;
-              const packageTeacherPayout = Number(assignment.four_lesson_teacher_payout) * weekly;
-              const packageTuition = Number(assignment.four_lesson_tuition) * weekly;
-              return escapeHtml(currentLanguage() === "en"
-                ? `${packageSessions}-session basis ${formatWon(packageTeacherPayout)} · Tuition ${formatWon(packageTuition)}`
-                : `${packageSessions}회 기준 ${formatWon(packageTeacherPayout)} · 학생 수업료 ${formatWon(packageTuition)}`);
-            })()}</small>
+            <small>${escapeHtml(payoutDetail)}</small>
           </div>` : ""}
         </div>
         <div class="admin-assignment-actions">
@@ -533,8 +643,9 @@
   function resetAssignmentForm() {
     editingAssignmentId = null;
     $("assignmentForm").reset();
+    $("assignmentType").value = "regular";
     $("assignmentWeeklyFrequency").value = "1";
-    syncSettlementSessionOptions(4);
+    syncAssignmentTypeFields(4);
     $("assignmentFormTitle").textContent = "새 학생 배정";
     $("assignmentSubmitButton").textContent = "학생 배정 등록";
     $("assignmentCancelButton").classList.add("hidden");
@@ -547,10 +658,11 @@
     editingAssignmentId = id;
     $("assignmentTeacher").value = assignment.teacher_id;
     $("assignmentStudentName").value = assignment.student_name;
+    $("assignmentType").value = assignment.assignment_type || "regular";
     $("assignmentPlan").value = assignment.plan || "";
     $("assignmentLessonDuration").value = assignment.lesson_duration_minutes ? String(assignment.lesson_duration_minutes) : "";
     $("assignmentWeeklyFrequency").value = assignment.weekly_frequency ? String(assignment.weekly_frequency) : "1";
-    syncSettlementSessionOptions(assignment.settlement_sessions || packageSessionCount(assignment.weekly_frequency || 1));
+    syncAssignmentTypeFields(assignment.settlement_sessions || packageSessionCount(assignment.weekly_frequency || 1));
     $("assignmentFirstLessonDate").value = assignment.first_lesson_date;
     $("assignmentSettlementDate").value = assignment.settlement_date;
     $("assignmentFormTitle").textContent = "학생 배정 수정";
@@ -563,30 +675,43 @@
   async function saveAssignment(event) {
     event.preventDefault();
     const button = event.submitter || $("assignmentSubmitButton");
-    const plan = $("assignmentPlan").value;
+    const assignmentType = $("assignmentType").value === "trial" ? "trial" : "regular";
+    const isTrial = assignmentType === "trial";
+    const plan = isTrial ? TRIAL_PLAN : $("assignmentPlan").value;
     const lessonDurationMinutes = Number($("assignmentLessonDuration").value);
-    const weeklyFrequency = Number($("assignmentWeeklyFrequency").value);
-    const settlementSessions = Number($("assignmentSettlementSessions").value);
-    const pricing = pricingFor(plan, lessonDurationMinutes, weeklyFrequency, settlementSessions);
+    const weeklyFrequency = isTrial ? 1 : Number($("assignmentWeeklyFrequency").value);
+    const settlementSessions = isTrial ? 1 : Number($("assignmentSettlementSessions").value);
+    const pricing = isTrial
+      ? trialPricingFor(lessonDurationMinutes)
+      : pricingFor(plan, lessonDurationMinutes, weeklyFrequency, settlementSessions);
+
     const payload = {
       teacher_id: $("assignmentTeacher").value,
       student_name: $("assignmentStudentName").value.trim(),
+      assignment_type: assignmentType,
       plan,
       lesson_duration_minutes: lessonDurationMinutes,
       weekly_frequency: weeklyFrequency,
       settlement_sessions: settlementSessions,
-      four_lesson_tuition: pricing?.baseTuition ?? null,
-      nado_fee_percent: 35,
-      four_lesson_nado_fee: pricing?.baseNadoFee ?? null,
-      four_lesson_teacher_payout: pricing?.baseTeacherPayout ?? null,
+      four_lesson_tuition: isTrial ? null : (pricing?.baseTuition ?? null),
+      nado_fee_percent: isTrial ? null : 35,
+      four_lesson_nado_fee: isTrial ? null : (pricing?.baseNadoFee ?? null),
+      four_lesson_teacher_payout: isTrial ? null : (pricing?.baseTeacherPayout ?? null),
       teacher_payout_amount: pricing?.teacherPayout ?? null,
-      pricing_version: PRICING_VERSION,
+      pricing_version: isTrial ? TRIAL_PRICING_VERSION : PRICING_VERSION,
       first_lesson_date: $("assignmentFirstLessonDate").value,
       settlement_date: $("assignmentSettlementDate").value
     };
 
-    if (!payload.teacher_id || !payload.student_name || !payload.plan || !lessonDurationMinutes || ![1, 2].includes(weeklyFrequency) || !Number.isInteger(settlementSessions) || settlementSessions < 1 || settlementSessions > packageSessionCount(weeklyFrequency) || !pricing || !payload.first_lesson_date || !payload.settlement_date) {
-      return toast("모든 학생 배정 및 정산 정보를 입력해주세요.", true);
+    const validRegularSessions = Number.isInteger(settlementSessions)
+      && settlementSessions >= 1
+      && settlementSessions <= packageSessionCount(weeklyFrequency);
+    const validAssignment = isTrial
+      ? Boolean(pricing && plan === TRIAL_PLAN && weeklyFrequency === 1 && settlementSessions === 1 && pricing.teacherPayout === TRIAL_TEACHER_PAYOUT)
+      : Boolean(pricing && [1, 2].includes(weeklyFrequency) && validRegularSessions);
+
+    if (!payload.teacher_id || !payload.student_name || !payload.plan || !lessonDurationMinutes || !validAssignment || !payload.first_lesson_date || !payload.settlement_date) {
+      return toast(isTrial ? "체험수업 배정 정보를 모두 입력해주세요." : "모든 학생 배정 및 정산 정보를 입력해주세요.", true);
     }
     if (payload.settlement_date < payload.first_lesson_date) {
       $("assignmentSettlementDate").focus();
@@ -605,10 +730,11 @@
     button.textContent = originalText;
     if (result.error) return toast("학생 배정 저장 실패: " + result.error.message, true);
 
-    toast(editingAssignmentId ? "학생 배정 정보를 수정했습니다." : "학생을 선생님에게 배정했습니다.");
+    toast(editingAssignmentId ? "학생 배정 정보를 수정했습니다." : (isTrial ? "무료 체험수업을 배정했습니다." : "학생을 선생님에게 배정했습니다."));
     resetAssignmentForm();
     await loadAssignments();
   }
+
 
   async function deleteAssignment(id) {
     const assignment = assignments.find((item) => item.id === id);
@@ -812,6 +938,10 @@
 
   $("assignmentForm").addEventListener("submit", saveAssignment);
   $("assignmentCancelButton").addEventListener("click", resetAssignmentForm);
+  $("assignmentType").addEventListener("change", () => {
+    syncAssignmentTypeFields();
+    renderAssignmentPricingPreview();
+  });
   ["assignmentPlan", "assignmentLessonDuration", "assignmentSettlementSessions"].forEach((id) => {
     $(id).addEventListener("change", renderAssignmentPricingPreview);
   });
@@ -853,7 +983,7 @@
   document.addEventListener("nado:languagechange", () => {
     render();
     renderAssignmentList();
-    syncSettlementSessionOptions(Number($("assignmentSettlementSessions").value));
+    syncAssignmentTypeFields(Number($("assignmentSettlementSessions").value));
     renderAssignmentPricingPreview();
     renderAssignmentCalendar();
     renderManagerList("adminAnnouncementList", contentCache.announcement, "announcement");
@@ -888,7 +1018,7 @@
       adminLogoutInProgress = false;
     }
   });
-  syncSettlementSessionOptions(4);
+  syncAssignmentTypeFields(4);
   renderAssignmentPricingPreview();
   initialize();
 })();

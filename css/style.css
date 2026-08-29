@@ -1222,3 +1222,33 @@ body.agreement-open { overflow: hidden; }
   .payguide-table.session-table th, .payguide-table.session-table td { white-space: normal; }
   .payguide-note { flex-direction: column; gap: 5px; }
 }
+
+
+/* Free trial assignment */
+.assignment-type-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: .64rem;
+  font-weight: 900;
+  letter-spacing: -.01em;
+}
+.assignment-type-badge.trial {
+  color: #7a4b00;
+  background: #fff3d6;
+  border: 1px solid #f4d68b;
+}
+.assignment-pricing-rate.trial {
+  color: #7a4b00 !important;
+  background: #fff3d6;
+}
+.admin-assignment-item.is-trial,
+.assignment-card-trial {
+  border-color: #efd99c;
+}
+.admin-assignment-payout.trial,
+.assignment-payout-box.trial {
+  background: #fffaf0;
+}

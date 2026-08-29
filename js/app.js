@@ -8,7 +8,7 @@
   const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
   const PROFILE_PHOTO_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
-  const CURRENT_AGREEMENT_VERSION = "v1.3";
+  const CURRENT_AGREEMENT_VERSION = "v1.4";
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   const scheduleDayOrder = [1, 2, 3, 4, 5, 6, 0];
   const scheduleStartMinutes = 8 * 60;
@@ -1036,7 +1036,7 @@
   async function loadAssignments() {
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, student_name, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date")
+      .select("id, student_name, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date")
       .eq("teacher_id", currentUser.id)
       .order("settlement_date", { ascending: true })
       .order("student_name", { ascending: true });
@@ -1055,44 +1055,61 @@
 
   function assignmentCard(assignment, isHistory = false) {
     const plan = assignment.plan || "unassigned";
+    const isTrial = assignment.assignment_type === "trial";
+    const statusLabel = isHistory
+      ? (currentLanguage() === "en" ? "Payout complete" : "정산 완료")
+      : (currentLanguage() === "en" ? "Current student" : "현재 학생");
+    const trialBadge = isTrial
+      ? `<span class="assignment-type-badge trial">${escapeHtml(currentLanguage() === "en" ? "Free trial lesson" : "무료 체험수업")}</span>`
+      : "";
+
     return `
-      <article class="assignment-card${isHistory ? " assignment-card-history" : ""}">
+      <article class="assignment-card${isHistory ? " assignment-card-history" : ""}${isTrial ? " assignment-card-trial" : ""}">
         <div class="assignment-card-topline">
+          ${trialBadge}
           <span class="plan-badge plan-${escapeHtml(plan)}">${escapeHtml(planLabel(assignment.plan))}</span>
-          ${isHistory ? '<span class="assignment-status-badge completed">정산 완료</span>' : '<span class="assignment-status-badge current">현재 학생</span>'}
+          <span class="assignment-status-badge ${isHistory ? "completed" : "current"}">${escapeHtml(statusLabel)}</span>
         </div>
         <div class="assignment-student-name">
-          <span>학생 이름</span>
+          <span>${escapeHtml(currentLanguage() === "en" ? "Student name" : "학생 이름")}</span>
           <strong>${escapeHtml(assignment.student_name)}</strong>
         </div>
         ${assignment.lesson_duration_minutes ? `<div class="assignment-service-meta">
           <span>${escapeHtml(lessonDurationLabel(assignment.lesson_duration_minutes))}</span>
-          <span>${escapeHtml(weeklyFrequencyLabel(assignment.weekly_frequency))}</span>
-          <span>${escapeHtml(currentLanguage() === "en" ? `Payout ${sessionCountLabel(assignment.settlement_sessions)}` : `정산 ${sessionCountLabel(assignment.settlement_sessions)}`)}</span>
+          ${isTrial
+            ? `<span>${escapeHtml(currentLanguage() === "en" ? "1 trial session" : "체험 1회")}</span>`
+            : `<span>${escapeHtml(weeklyFrequencyLabel(assignment.weekly_frequency))}</span>
+               <span>${escapeHtml(currentLanguage() === "en" ? `Payout ${sessionCountLabel(assignment.settlement_sessions)}` : `정산 ${sessionCountLabel(assignment.settlement_sessions)}`)}</span>`}
         </div>` : '<div class="assignment-pricing-missing teacher-view">기존 기록 · 수업/정산 상세 미지정</div>'}
-        ${assignment.teacher_payout_amount !== null && assignment.teacher_payout_amount !== undefined && Number.isFinite(Number(assignment.teacher_payout_amount)) ? `<div class="assignment-payout-box">
-          <span>${escapeHtml(currentLanguage() === "en" ? "First-month teacher payout" : (isHistory ? "첫 달 Teacher 정산액" : "첫 달 Teacher 정산 예정액"))}</span>
+        ${assignment.teacher_payout_amount !== null && assignment.teacher_payout_amount !== undefined && Number.isFinite(Number(assignment.teacher_payout_amount)) ? `<div class="assignment-payout-box${isTrial ? " trial" : ""}">
+          <span>${escapeHtml(isTrial
+            ? (currentLanguage() === "en" ? "Trial lesson teacher payout" : "체험수업 Teacher 지급액")
+            : (currentLanguage() === "en" ? "First-month teacher payout" : (isHistory ? "첫 달 Teacher 정산액" : "첫 달 Teacher 정산 예정액")))}</span>
           <strong>${escapeHtml(formatWon(assignment.teacher_payout_amount))}</strong>
-          ${(() => {
-            const weekly = Number(assignment.weekly_frequency) === 2 ? 2 : 1;
-            const packageSessions = PACKAGE_SESSIONS * weekly;
-            const packageTeacherPayout = Number(assignment.four_lesson_teacher_payout) * weekly;
-            const sessions = Number(assignment.settlement_sessions);
-            if (sessions < packageSessions) {
-              return `<small>${escapeHtml(currentLanguage() === "en"
-                ? `${sessionCountLabel(sessions)} out of ${packageSessions}-session payout ${formatWon(packageTeacherPayout)}`
-                : `${packageSessions}회 기준 ${formatWon(packageTeacherPayout)} 중 ${sessionCountLabel(sessions)} 정산`)}</small>`;
-            }
-            return `<small>${escapeHtml(currentLanguage() === "en" ? `${packageSessions}-session payout` : `${packageSessions}회 기준 정산액`)}</small>`;
-          })()}
+          ${isTrial
+            ? `<small>${escapeHtml(currentLanguage() === "en" ? "Free for the student · Economy trial lesson" : "학생 무료 · Economy 체험수업")}</small>`
+            : (() => {
+                const weekly = Number(assignment.weekly_frequency) === 2 ? 2 : 1;
+                const packageSessions = PACKAGE_SESSIONS * weekly;
+                const packageTeacherPayout = Number(assignment.four_lesson_teacher_payout) * weekly;
+                const sessions = Number(assignment.settlement_sessions);
+                if (sessions < packageSessions) {
+                  return `<small>${escapeHtml(currentLanguage() === "en"
+                    ? `${sessionCountLabel(sessions)} out of ${packageSessions}-session payout ${formatWon(packageTeacherPayout)}`
+                    : `${packageSessions}회 기준 ${formatWon(packageTeacherPayout)} 중 ${sessionCountLabel(sessions)} 정산`)}</small>`;
+                }
+                return `<small>${escapeHtml(currentLanguage() === "en" ? `${packageSessions}-session payout` : `${packageSessions}회 기준 정산액`)}</small>`;
+              })()}
         </div>` : ""}
         <dl class="assignment-date-list">
           <div>
-            <dt>첫 수업일</dt>
+            <dt>${escapeHtml(isTrial ? (currentLanguage() === "en" ? "Trial lesson date" : "체험수업일") : (currentLanguage() === "en" ? "First lesson date" : "첫 수업일"))}</dt>
             <dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd>
           </div>
           <div class="settlement-date-row">
-            <dt>${isHistory ? "첫 달 수업료 정산일" : "첫 달 수업료 정산 예정일"}</dt>
+            <dt>${escapeHtml(isTrial
+              ? (currentLanguage() === "en" ? (isHistory ? "Trial payout date" : "Scheduled trial payout date") : (isHistory ? "체험수업 정산일" : "체험수업 정산 예정일"))
+              : (currentLanguage() === "en" ? (isHistory ? "First-month payout date" : "Scheduled first-month payout date") : (isHistory ? "첫 달 수업료 정산일" : "첫 달 수업료 정산 예정일")))}</dt>
             <dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd>
           </div>
         </dl>
