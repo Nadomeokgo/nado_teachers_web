@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#4A90E2" />
+  <title>학생 공유 공간 | NADO Teachers</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <link rel="icon" href="assets/favicon.ico" />
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="classroom-body">
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <header class="classroom-topbar"><img src="assets/nado-logo.png" alt="NADO" /><a href="index.html#dashboard">← 담당 학생으로 돌아가기</a></header>
+  <main class="classroom-main">
+    <section class="classroom-intro">
+      <div><p class="section-kicker">PRIVATE SHARED SPACE</p><h1 id="classroomTitle">학생 공유 공간</h1><p id="classroomSubtitle">학생과 수업 자료를 안전하게 공유합니다.</p></div>
+      <span id="classroomStatus" class="classroom-status">접근 확인 중</span>
+    </section>
+    <section class="classroom-panel">
+      <div id="classroomSummary" class="classroom-summary"></div>
+      <form id="teacherFileForm" class="classroom-upload">
+        <label>학생과 공유할 파일
+          <input id="teacherFileInput" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.mp3,.m4a,.wav" required />
+        </label>
+        <button id="teacherUploadButton" class="button primary" type="submit">파일 업로드</button>
+      </form>
+      <div id="teacherFileList" class="classroom-files"><div class="classroom-empty">공유 파일을 불러오는 중입니다.</div></div>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/classroom.js"></script>
+</body>
+</html>

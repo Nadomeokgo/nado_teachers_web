@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="NADO Teachers" />
   <title>나도 Teachers 관리자</title>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260829-trial-free20000-v14" />
+  <link rel="stylesheet" href="css/style.css?v=20260830-member-portal-v1" />
 </head>
 <body class="admin-body">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -63,6 +63,10 @@
             </label>
             <label>학생 이름
               <input id="assignmentStudentName" type="text" maxlength="100" placeholder="학생 이름 입력" required />
+            </label>
+            <label>학생 이메일
+              <input id="assignmentStudentEmail" type="email" maxlength="200" placeholder="정규 학생 계정으로 사용할 이메일" />
+              <small class="assignment-field-help">정규 수업은 필수입니다. 계정이 없으면 이 이메일로 초대장이 자동 발송됩니다.</small>
             </label>
             <label>수업 유형
               <select id="assignmentType" required>
@@ -115,7 +119,7 @@
             </div>
             <div class="assignment-form-actions">
               <button id="assignmentCancelButton" class="button ghost hidden" type="button">수정 취소</button>
-              <button id="assignmentSubmitButton" class="button primary" type="submit">학생 배정 등록</button>
+              <button id="assignmentSubmitButton" class="button primary" type="submit">배정 및 초대</button>
             </div>
           </form>
         </article>
@@ -230,8 +234,9 @@
               <label>종류<select id="resourceCategory"><option>PDF</option><option>DOC</option><option>LINK</option></select></label>
               <label>순서<input id="resourceOrder" type="number" value="1" min="0" max="999" /></label>
             </div>
-            <label>공유 URL<input id="resourceUrl" type="url" placeholder="https://drive.google.com/..." required /></label>
-            <p class="manager-form-help">영어 화면에서는 영문 입력값이 표시되며, 비어 있으면 한국어가 대신 표시됩니다.</p>
+            <label>회원 전용 파일 업로드<input id="resourceFile" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.mp3,.m4a,.wav" /></label>
+            <label>또는 외부 공유 URL<input id="resourceUrl" type="url" placeholder="https://drive.google.com/..." /></label>
+            <p class="manager-form-help">파일을 직접 올리면 로그인한 활성 회원만 열 수 있습니다. 파일 또는 외부 URL 중 하나를 입력해주세요.</p>
             <div class="content-form-actions">
               <button id="resourceCancelButton" class="button ghost hidden" type="button">수정 취소</button>
               <button id="resourceSubmitButton" class="button primary" type="submit">자료 등록</button>
@@ -266,6 +271,6 @@
   <script src="js/config.js?v=20260731-integrated1"></script>
   <script src="js/pricing.js?v=20260829-trial-free20000-v14"></script>
   <script src="js/i18n.js?v=20260829-trial-free20000-v14"></script>
-  <script src="js/admin.js?v=20260829-trial-free20000-v14"></script>
+  <script src="js/admin.js?v=20260830-member-portal-v1"></script>
 </body>
 </html>

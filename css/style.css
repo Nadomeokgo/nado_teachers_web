@@ -1252,3 +1252,40 @@ body.agreement-open { overflow: hidden; }
 .assignment-payout-box.trial {
   background: #fffaf0;
 }
+/* 학생-선생님 공유 공간 */
+.assignment-room-button { margin-top: 14px; text-decoration: none; }
+.classroom-body { min-height: 100vh; background: #f3f7fc; color: #172033; }
+.classroom-topbar { min-height: 74px; padding: 0 clamp(20px, 4vw, 54px); display: flex; align-items: center; justify-content: space-between; background: #fff; border-bottom: 1px solid #dce5ef; }
+.classroom-topbar img { width: 104px; height: 42px; object-fit: contain; }
+.classroom-topbar a { color: #34618e; text-decoration: none; font-weight: 800; }
+.classroom-main { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 46px 0 70px; }
+.classroom-intro { display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; margin-bottom: 24px; }
+.classroom-intro h1 { margin: 7px 0 0; font-size: clamp(30px, 5vw, 46px); letter-spacing: -.05em; }
+.classroom-intro p { margin: 8px 0 0; color: #6d798b; }
+.classroom-status { padding: 8px 12px; color: #078755; background: #e9f8f1; border-radius: 999px; font-size: 12px; font-weight: 900; }
+.classroom-panel { padding: clamp(20px, 4vw, 30px); border: 1px solid #dce5ef; border-radius: 22px; background: #fff; box-shadow: 0 12px 34px rgba(16,42,67,.06); }
+.classroom-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
+.classroom-summary div { padding: 16px; border-radius: 14px; background: #f3f7fc; }
+.classroom-summary span, .classroom-summary strong { display: block; }
+.classroom-summary span { color: #6d798b; font-size: 12px; }
+.classroom-summary strong { margin-top: 7px; }
+.classroom-upload { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: end; padding: 18px; border-radius: 16px; background: #eef5fd; }
+.classroom-upload label { display: grid; gap: 7px; font-size: 13px; font-weight: 800; }
+.classroom-upload input { width: 100%; padding: 11px; border: 1px solid #dce5ef; border-radius: 10px; background: #fff; }
+.classroom-files { display: grid; gap: 10px; margin-top: 20px; }
+.classroom-file { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 16px; align-items: center; padding: 14px 15px; border: 1px solid #dce5ef; border-radius: 14px; }
+.classroom-file strong, .classroom-file span { display: block; }
+.classroom-file strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.classroom-file span { margin-top: 5px; color: #6d798b; font-size: 12px; }
+.classroom-file-actions { display: flex; gap: 7px; }
+.classroom-empty { padding: 30px; color: #6d798b; text-align: center; border: 1px dashed #c8d5e3; border-radius: 14px; background: #f9fbfe; }
+@media (max-width: 620px) {
+  .classroom-intro { display: block; }
+  .classroom-status { display: inline-flex; margin-top: 14px; }
+  .classroom-summary { grid-template-columns: 1fr; }
+  .classroom-upload, .classroom-file { grid-template-columns: 1fr; }
+  .classroom-file-actions .button { flex: 1; }
+}
+.assignment-field-help { color: #718096; font-size: .75rem; line-height: 1.45; font-weight: 500; }
+.assignment-account-state { color: #2473cf !important; font-weight: 750; }
+.resource-card .resource-open-button { border: 0; padding: 0; color: var(--blue, #4A90E2); background: transparent; cursor: pointer; font: inherit; font-weight: 800; text-align: left; }

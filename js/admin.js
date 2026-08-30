@@ -247,8 +247,10 @@
     const weeklySelect = $("assignmentWeeklyFrequency");
     const sessionSelect = $("assignmentSettlementSessions");
     const note = $("assignmentPackageNote");
+    const emailInput = $("assignmentStudentEmail");
 
     if (isTrial) {
+      if (emailInput) emailInput.required = false;
       planSelect.value = TRIAL_PLAN;
       weeklySelect.value = "1";
       planSelect.disabled = true;
@@ -261,6 +263,7 @@
           : "무료 체험수업은 Economy로 처리됩니다. 학생 결제 금액은 0원이며, 실제 체험수업 1회 진행 시 Teacher에게 20,000원이 지급됩니다.";
       }
     } else {
+      if (emailInput) emailInput.required = true;
       planSelect.disabled = false;
       weeklySelect.disabled = false;
       sessionSelect.disabled = false;
@@ -337,10 +340,9 @@
   }
 
   function assignmentGroups() {
-    const today = localDateKey();
     return {
-      current: assignments.filter((item) => item.settlement_date >= today),
-      history: assignments.filter((item) => item.settlement_date < today)
+      current: assignments.filter((item) => !item.status || item.status === "active"),
+      history: assignments.filter((item) => item.status && item.status !== "active")
     };
   }
 
@@ -450,7 +452,7 @@
   async function loadAssignments() {
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, teacher_id, student_name, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, created_at, updated_at")
+      .select("id, teacher_id, student_id, student_name, student_email, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status, ended_at, created_at, updated_at")
       .order("first_lesson_date", { ascending: true })
       .order("student_name", { ascending: true });
 
@@ -577,10 +579,9 @@
       return;
     }
 
-    const today = localDateKey();
     target.innerHTML = visible.map((assignment) => {
       const teacher = teacherById(assignment.teacher_id);
-      const isHistory = assignment.settlement_date < today;
+      const isHistory = Boolean(assignment.status && assignment.status !== "active");
       const isTrial = isTrialAssignment(assignment);
       const plan = assignment.plan || "unassigned";
       const typeBadge = isTrial
@@ -616,7 +617,8 @@
             <span class="assignment-status-badge ${isHistory ? "completed" : "current"}">${isHistory ? "학생 기록" : "현재 학생"}</span>
           </div>
           <strong>${escapeHtml(assignment.student_name)}</strong>
-          <small>담당: ${escapeHtml(teacher?.full_name || "삭제된 선생님")} ${teacher?.email ? `· ${escapeHtml(teacher.email)}` : ""}</small>
+          <small>${assignment.student_email ? `${escapeHtml(assignment.student_email)} · ` : ""}담당: ${escapeHtml(teacher?.full_name || "삭제된 선생님")} ${teacher?.email ? `· ${escapeHtml(teacher.email)}` : ""}</small>
+          ${!isTrial ? `<small class="assignment-account-state">${assignment.student_id ? "학생 계정 연결됨" : "학생 계정 초대 대기"}</small>` : ""}
           ${serviceTags}
         </div>
         <div class="admin-assignment-summary">
@@ -633,8 +635,9 @@
           </div>` : ""}
         </div>
         <div class="admin-assignment-actions">
+          ${!isHistory && !isTrial && assignment.student_id ? `<a class="button primary small" href="classroom.html?assignment=${escapeHtml(assignment.id)}">공유 공간</a>` : ""}
           <button class="button secondary small" data-edit-assignment="${escapeHtml(assignment.id)}" type="button">수정</button>
-          <button class="button ghost small assignment-delete-button" data-delete-assignment="${escapeHtml(assignment.id)}" type="button">삭제</button>
+          ${!isHistory ? `<button class="button ghost small assignment-delete-button" data-delete-assignment="${escapeHtml(assignment.id)}" type="button">배정 종료</button>` : ""}
         </div>
       </article>`;
     }).join("");
@@ -647,7 +650,7 @@
     $("assignmentWeeklyFrequency").value = "1";
     syncAssignmentTypeFields(4);
     $("assignmentFormTitle").textContent = "새 학생 배정";
-    $("assignmentSubmitButton").textContent = "학생 배정 등록";
+    $("assignmentSubmitButton").textContent = "배정 및 초대";
     $("assignmentCancelButton").classList.add("hidden");
     renderAssignmentPricingPreview();
   }
@@ -658,6 +661,7 @@
     editingAssignmentId = id;
     $("assignmentTeacher").value = assignment.teacher_id;
     $("assignmentStudentName").value = assignment.student_name;
+    $("assignmentStudentEmail").value = assignment.student_email || "";
     $("assignmentType").value = assignment.assignment_type || "regular";
     $("assignmentPlan").value = assignment.plan || "";
     $("assignmentLessonDuration").value = assignment.lesson_duration_minutes ? String(assignment.lesson_duration_minutes) : "";
@@ -688,6 +692,7 @@
     const payload = {
       teacher_id: $("assignmentTeacher").value,
       student_name: $("assignmentStudentName").value.trim(),
+      student_email: $("assignmentStudentEmail").value.trim().toLowerCase() || null,
       assignment_type: assignmentType,
       plan,
       lesson_duration_minutes: lessonDurationMinutes,
@@ -710,7 +715,7 @@
       ? Boolean(pricing && plan === TRIAL_PLAN && weeklyFrequency === 1 && settlementSessions === 1 && pricing.teacherPayout === TRIAL_TEACHER_PAYOUT)
       : Boolean(pricing && [1, 2].includes(weeklyFrequency) && validRegularSessions);
 
-    if (!payload.teacher_id || !payload.student_name || !payload.plan || !lessonDurationMinutes || !validAssignment || !payload.first_lesson_date || !payload.settlement_date) {
+    if (!payload.teacher_id || !payload.student_name || (!isTrial && !payload.student_email) || !payload.plan || !lessonDurationMinutes || !validAssignment || !payload.first_lesson_date || !payload.settlement_date) {
       return toast(isTrial ? "체험수업 배정 정보를 모두 입력해주세요." : "모든 학생 배정 및 정산 정보를 입력해주세요.", true);
     }
     if (payload.settlement_date < payload.first_lesson_date) {
@@ -722,15 +727,26 @@
     button.disabled = true;
     button.textContent = editingAssignmentId ? "수정 중..." : "등록 중...";
 
-    const result = editingAssignmentId
-      ? await supabase.from("student_assignments").update(payload).eq("id", editingAssignmentId)
-      : await supabase.from("student_assignments").insert(payload);
+    const confirmation = isTrial
+      ? `${payload.student_name} 학생의 무료 체험수업을 배정할까요?`
+      : `${payload.student_name} 학생을 배정하고 ${payload.student_email} 계정이 없으면 초대 이메일을 보낼까요?`;
+    if (!confirm(confirmation)) {
+      button.disabled = false;
+      button.textContent = originalText;
+      return;
+    }
+
+    const { data: resultData, error: resultError } = await supabase.functions.invoke("assign-student", {
+      body: { ...payload, assignment_id: editingAssignmentId || null }
+    });
 
     button.disabled = false;
     button.textContent = originalText;
-    if (result.error) return toast("학생 배정 저장 실패: " + result.error.message, true);
+    if (resultError || resultData?.error) return toast("학생 배정 저장 실패: " + (resultData?.error || resultError?.message || "알 수 없는 오류"), true);
 
-    toast(editingAssignmentId ? "학생 배정 정보를 수정했습니다." : (isTrial ? "무료 체험수업을 배정했습니다." : "학생을 선생님에게 배정했습니다."));
+    toast(editingAssignmentId
+      ? (resultData?.reassigned ? "새 선생님으로 재배정했습니다. 기존 공유 공간 접근은 종료되었습니다." : "학생 배정 정보를 수정했습니다.")
+      : (isTrial ? "무료 체험수업을 배정했습니다." : (resultData?.invitation_sent ? "학생 배정과 계정 초대를 완료했습니다." : "기존 학생 계정에 선생님 배정을 연결했습니다.")));
     resetAssignmentForm();
     await loadAssignments();
   }
@@ -739,18 +755,18 @@
   async function deleteAssignment(id) {
     const assignment = assignments.find((item) => item.id === id);
     if (!assignment) return;
-    if (!confirm(`${assignment.student_name} 학생의 배정 정보를 삭제할까요?`)) return;
-    const { error } = await supabase.from("student_assignments").delete().eq("id", id);
-    if (error) return toast("학생 배정 삭제 실패: " + error.message, true);
+    if (!confirm(`${assignment.student_name} 학생의 현재 배정을 종료할까요? 종료 후 선생님과 학생은 이 공유 공간에 접근할 수 없습니다.`)) return;
+    const { error } = await supabase.from("student_assignments").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", id);
+    if (error) return toast("학생 배정 종료 실패: " + error.message, true);
     if (editingAssignmentId === id) resetAssignmentForm();
-    toast("학생 배정 정보를 삭제했습니다.");
+    toast("학생 배정을 종료했습니다. 기존 자료는 관리자 기록으로 보관됩니다.");
     await loadAssignments();
   }
 
   async function loadContent() {
     const [announcementResult, resourceResult, videoResult] = await Promise.all([
       supabase.from("announcements").select("id, title, body, title_en, body_en, is_active, published_at").order("published_at", { ascending: false }),
-      supabase.from("resources").select("id, title, description, title_en, description_en, category, file_url, sort_order, is_active").order("sort_order"),
+      supabase.from("resources").select("id, title, description, title_en, description_en, category, file_url, storage_path, original_name, size_bytes, sort_order, is_active").order("sort_order"),
       supabase.from("training_videos").select("id, title, description, title_en, description_en, video_url, sort_order, is_active").order("sort_order")
     ]);
     if (announcementResult.error || resourceResult.error || videoResult.error) {
@@ -774,7 +790,7 @@
     target.innerHTML = items.map((item) => {
       const detail = type === "announcement"
         ? new Date(item.published_at).toLocaleDateString(currentLocale())
-        : type === "resource" ? `${item.category} · 순서 ${item.sort_order}` : `순서 ${item.sort_order}`;
+        : type === "resource" ? `${item.category} · ${item.storage_path ? "회원 전용 파일" : "외부 링크"} · 순서 ${item.sort_order}` : `순서 ${item.sort_order}`;
       const missingEnglishLabel = currentLanguage() === "en" ? "EN · Not entered" : "EN · 미입력";
       const englishTitle = item.title_en ? `<small class="manager-item-en">EN · ${escapeHtml(item.title_en)}</small>` : `<small class="manager-item-en muted">${missingEnglishLabel}</small>`;
       return `<div class="manager-item">
@@ -868,13 +884,44 @@
     event.preventDefault();
     const button = event.submitter || $("resourceSubmitButton");
     button.disabled = true;
+    const existing = editingContentId.resource
+      ? contentCache.resource.find((item) => String(item.id) === String(editingContentId.resource))
+      : null;
+    const selectedFile = $("resourceFile").files[0] || null;
+    const externalUrl = $("resourceUrl").value.trim();
+    if (!selectedFile && !externalUrl && !existing?.storage_path) {
+      button.disabled = false;
+      return toast("회원 전용 파일 또는 외부 공유 URL 중 하나를 입력해주세요.", true);
+    }
+
+    let uploadedPath = null;
+    if (selectedFile) {
+      if (selectedFile.size > 50 * 1024 * 1024) {
+        button.disabled = false;
+        return toast("자료 파일은 50MB 이하만 업로드할 수 있습니다.", true);
+      }
+      const safeName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100);
+      uploadedPath = `${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from("member-resources").upload(uploadedPath, selectedFile, {
+        contentType: selectedFile.type || "application/octet-stream",
+        upsert: false
+      });
+      if (uploadError) {
+        button.disabled = false;
+        return toast("회원 자료 파일 업로드 실패: " + uploadError.message, true);
+      }
+    }
+
     const payload = {
       title: $("resourceTitle").value.trim(),
       description: $("resourceDescription").value.trim(),
       title_en: $("resourceTitleEn").value.trim() || null,
       description_en: $("resourceDescriptionEn").value.trim() || null,
       category: $("resourceCategory").value,
-      file_url: $("resourceUrl").value.trim(),
+      file_url: externalUrl || null,
+      storage_path: uploadedPath || existing?.storage_path || null,
+      original_name: selectedFile?.name || existing?.original_name || null,
+      size_bytes: selectedFile?.size || existing?.size_bytes || null,
       sort_order: Number($("resourceOrder").value) || 0,
       is_active: true
     };
@@ -882,7 +929,13 @@
       ? await supabase.from("resources").update(payload).eq("id", editingContentId.resource)
       : await supabase.from("resources").insert(payload);
     button.disabled = false;
-    if (result.error) return toast("자료 등록 실패: " + result.error.message, true);
+    if (result.error) {
+      if (uploadedPath) await supabase.storage.from("member-resources").remove([uploadedPath]);
+      return toast("자료 등록 실패: " + result.error.message, true);
+    }
+    if (uploadedPath && existing?.storage_path && existing.storage_path !== uploadedPath) {
+      await supabase.storage.from("member-resources").remove([existing.storage_path]);
+    }
     toast(editingContentId.resource ? "수업 자료를 수정했습니다." : "수업 자료를 등록했습니다.");
     resetContentForm("resource");
     await loadContent();
@@ -915,8 +968,10 @@
     if (!confirm("이 항목을 삭제할까요?")) return;
     const allowed = ["announcements", "resources", "training_videos"];
     if (!allowed.includes(table)) return;
+    const resource = table === "resources" ? contentCache.resource.find((item) => String(item.id) === String(id)) : null;
     const { error } = await supabase.from(table).delete().eq("id", id);
     if (error) return toast("삭제 실패: " + error.message, true);
+    if (resource?.storage_path) await supabase.storage.from("member-resources").remove([resource.storage_path]);
     toast("삭제했습니다.");
     await loadContent();
   }

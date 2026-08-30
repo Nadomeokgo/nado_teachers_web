@@ -465,10 +465,9 @@
   }
 
   function assignmentGroups() {
-    const today = localDateKey();
     return {
-      current: assignments.filter((item) => item.settlement_date >= today),
-      history: assignments.filter((item) => item.settlement_date < today)
+      current: assignments.filter((item) => !item.status || item.status === "active"),
+      history: assignments.filter((item) => item.status && item.status !== "active")
     };
   }
 
@@ -1036,7 +1035,7 @@
   async function loadAssignments() {
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, student_name, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date")
+      .select("id, student_id, student_name, student_email, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status")
       .eq("teacher_id", currentUser.id)
       .order("settlement_date", { ascending: true })
       .order("student_name", { ascending: true });
@@ -1113,6 +1112,7 @@
             <dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd>
           </div>
         </dl>
+        ${!isHistory && !isTrial && assignment.student_id ? `<a class="button secondary full assignment-room-button" href="classroom.html?assignment=${escapeHtml(assignment.id)}">${escapeHtml(currentLanguage() === "en" ? "Open shared space" : "학생 공유 공간 열기")}</a>` : ""}
       </article>`;
   }
 
@@ -1750,7 +1750,7 @@
   async function loadResources() {
     const { data, error } = await supabase
       .from("resources")
-      .select("title, description, title_en, description_en, category, file_url, sort_order")
+      .select("title, description, title_en, description_en, category, file_url, storage_path, original_name, size_bytes, sort_order")
       .eq("is_active", true)
       .order("sort_order");
     if (error || !data?.length) {
@@ -1763,8 +1763,17 @@
         <span class="resource-type">${escapeHtml(item.category || "RESOURCE")}</span>
         <h3>${escapeHtml(localizedContent(item, "title"))}</h3>
         <p>${escapeHtml(localizedContent(item, "description"))}</p>
-        <a href="${escapeHtml(item.file_url)}" target="_blank" rel="noopener">자료 열기 →</a>
+        ${item.storage_path
+          ? `<button class="resource-open-button" data-resource-storage="${escapeHtml(item.storage_path)}" type="button">회원 자료 열기 →</button>`
+          : `<a href="${escapeHtml(item.file_url)}" target="_blank" rel="noopener">자료 열기 →</a>`}
       </article>`).join("");
+    document.querySelectorAll("[data-resource-storage]").forEach((button) => button.addEventListener("click", async () => {
+      button.disabled = true;
+      const { data: signed, error: signedError } = await supabase.storage.from("member-resources").createSignedUrl(button.dataset.resourceStorage, 60);
+      button.disabled = false;
+      if (signedError) return showToast("자료를 열지 못했습니다.", "error");
+      window.open(signed.signedUrl, "_blank", "noopener");
+    }));
   }
 
   async function loadVideos() {
