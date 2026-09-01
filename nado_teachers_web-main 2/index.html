@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="나도 선생님 전용 수업 운영 사이트" />
+  <meta name="theme-color" content="#4A90E2" />
+  <link rel="icon" href="assets/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
+  <link rel="manifest" href="assets/site.webmanifest" />
+  <meta name="apple-mobile-web-app-title" content="NADO Teachers" />
+  <title>나도 Teachers</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css?v=20260830-member-portal-v1" />
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <main id="loginView" class="auth-page">
+    <section class="auth-brand">
+      <img class="brand-logo" src="assets/nado-logo.png" alt="NADO" />
+      <p class="eyebrow">NADO TEACHERS</p>
+      <h1>수업 준비부터<br /><em>일정 제출까지.</em></h1>
+      <p class="auth-copy">
+        선생님이 수업에만 집중할 수 있도록 필요한 정보와 업무를 한곳에 모았습니다.
+      </p>
+      <div class="auth-feature-list">
+        <div><span>01</span> 주간 가능 스케줄 제출·수정</div>
+        <div><span>02</span> 첫 수업 가이드와 커리큘럼 확인</div>
+        <div><span>03</span> 교육 영상과 공지사항 열람</div>
+      </div>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-language-row">
+        <div class="language-slot" data-nado-language-slot></div>
+      </div>
+      <div class="auth-card">
+        <p class="section-kicker">TEACHER LOGIN</p>
+        <h2>선생님 로그인</h2>
+        <p class="muted">나도에서 등록한 이메일과 비밀번호를 입력해주세요.</p>
+
+        <form id="loginForm" class="stack-form">
+          <label>
+            이메일
+            <input id="loginEmail" type="email" autocomplete="email" placeholder="teacher@example.com" required />
+          </label>
+          <label>
+            비밀번호
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="비밀번호 입력" minlength="6" required />
+          </label>
+          <button class="button primary full" type="submit">로그인</button>
+        </form>
+
+        <button id="resetPasswordButton" class="text-button" type="button">비밀번호를 잊으셨나요?</button>
+        <p class="auth-help">계정이 없거나 로그인이 되지 않으면 나도 운영팀에 문의해주세요.</p>
+      </div>
+    </section>
+  </main>
+
+
+  <section id="agreementView" class="agreement-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="agreementTitle">
+    <div class="agreement-shell">
+      <header class="agreement-topbar">
+        <div class="agreement-brand-block">
+          <img class="agreement-logo" src="assets/nado-logo.png" alt="NADO" />
+          <div>
+            <p class="section-kicker">TEACHER SERVICE AGREEMENT</p>
+            <h1 id="agreementTitle">NADO Teacher Service Agreement</h1>
+            <p>나도 튜터 서비스 이용 및 정산 계약서</p>
+          </div>
+        </div>
+        <div class="agreement-topbar-actions">
+          <div class="language-slot" data-nado-language-slot></div>
+          <button id="agreementReviewCloseButton" class="button ghost small hidden" type="button">닫기</button>
+        </div>
+      </header>
+
+      <div class="agreement-card">
+        <div class="agreement-summary-bar">
+          <div><span>로그인 계정</span><strong id="agreementEmail">-</strong></div>
+          <div><span>계약서 버전</span><strong id="agreementVersionLabel">v1.4</strong></div>
+          <div id="agreementAcceptedSummary" class="hidden"><span>동의 기록</span><strong id="agreementAcceptedSummaryText">-</strong></div>
+        </div>
+
+        <div class="agreement-language-note" role="note">
+          <strong>계약서 안내</strong>
+          <p>선택한 언어로 계약 내용을 확인할 수 있습니다. 한국어와 영어는 동일한 v1.4 계약 조건을 안내합니다. 동의 시 계약서 버전, 계정, 성명, 확인 항목 및 서버 기준 동의 일시가 기록됩니다.</p>
+        </div>
+
+        <div id="agreementContractScroll" class="agreement-contract-scroll" tabindex="0" aria-label="NADO Teacher Service Agreement 계약서 내용">
+          <article id="agreementContractContent" class="agreement-contract-content" data-agreement-version="v1.4">
+<div data-agreement-lang="ko" lang="ko"><p class="agreement-purpose">본 계약은 NADO(이하 “NADO”)와 NADO Teachers 서비스를 이용하여 학생에게 영어회화 수업을 제공하는 Teacher(이하 “Teacher”) 간의 서비스 이용, 학생 매칭, 수업 운영 및 정산에 관한 사항을 정하는 것을 목적으로 합니다.</p><section class="agreement-article"><h3>제1조. 서비스 및 계약의 목적</h3><ol><li>NADO는 영어회화 수업을 원하는 학생과 Teacher를 연결하는 매칭 서비스를 제공합니다.</li><li>NADO는 학생 모집, 상담, Teacher 매칭, 첫 달 결제 및 정산, 기타 서비스 운영을 지원합니다.</li><li>Teacher는 NADO를 통해 매칭된 학생과 직접 영어회화 수업을 진행합니다.</li><li>수업은 학생과 Teacher가 협의한 장소 및 시간에 진행하는 것을 원칙으로 합니다.</li></ol></section><section class="agreement-article"><h3>제2조. Teacher 등록 및 정보</h3><ol><li>Teacher는 NADO Teachers에 본인의 프로필과 가능한 수업 일정을 등록합니다.</li><li>Teacher는 본인의 일정에 따라 매칭 가능한 시간대를 등록·수정할 수 있습니다.</li><li>Teacher가 등록하는 학교, 전공, 연락처, 카카오톡 ID, 자기소개 및 기타 프로필 정보는 사실에 기반하여야 합니다.</li><li>Teacher의 프로필 사진과 한 줄 소개는 서비스 소개 및 학생 매칭을 위해 NADO 웹사이트 또는 관련 안내 페이지에 표시될 수 있습니다.</li><li>Teacher의 학교 또는 소속기관 정보가 NADO Teachers 또는 NADO의 홍보물에 표시되는 경우 이는 Teacher의 개인적인 학력 또는 소속을 설명하기 위한 것이며, 해당 기관과 NADO 사이의 공식적인 제휴·후원 관계를 의미하지 않습니다.</li><li>허위 또는 중대한 오류가 있는 프로필 정보가 확인되는 경우 NADO는 정보 수정을 요청하거나 신규 매칭을 제한할 수 있습니다.</li></ol></section><section class="agreement-article"><h3>제3조. 수업 플랜, 수업시간, 수업 빈도 및 체험수업</h3>
+<p>아래 표의 금액은 <strong>주 1회 · 총 4회 정규 수업</strong>을 기준으로 합니다. Teacher와 학생이 선택한 플랜과 수업시간에 따라 수업료가 결정됩니다.</p>
+<p><strong>주 2회 수업은 총 8회</strong>를 기준으로 하며, 학생 수업료, 첫 정규 패키지 NADO 수수료, Teacher 정산액 및 2개월 차부터의 수령액은 아래 4회 기준 금액의 <strong>2배</strong>로 적용됩니다.</p>
+<p>지원 수업시간은 <strong>1시간 또는 2시간</strong>입니다.</p><h4>1. Economy Plan</h4><div class="agreement-table-scroll"><table class="agreement-price-table"><thead><tr><th>수업시간</th><th>주 1회 · 4회 기준 수업료</th><th>첫 정규 패키지 NADO 수수료</th><th>Teacher 첫 정규 패키지 정산액</th><th>2개월 차부터 Teacher 수령액</th></tr></thead><tbody><tr><td>1시간</td><td>140,000원</td><td>49,000원</td><td><strong>91,000원</strong></td><td><strong>140,000원</strong></td></tr><tr><td>2시간</td><td>280,000원</td><td>98,000원</td><td><strong>182,000원</strong></td><td><strong>280,000원</strong></td></tr></tbody></table></div><h4>2. Standard Plan</h4><div class="agreement-table-scroll"><table class="agreement-price-table"><thead><tr><th>수업시간</th><th>주 1회 · 4회 기준 수업료</th><th>첫 정규 패키지 NADO 수수료</th><th>Teacher 첫 정규 패키지 정산액</th><th>2개월 차부터 Teacher 수령액</th></tr></thead><tbody><tr><td>1시간</td><td>180,000원</td><td>63,000원</td><td><strong>117,000원</strong></td><td><strong>180,000원</strong></td></tr><tr><td>2시간</td><td>360,000원</td><td>126,000원</td><td><strong>234,000원</strong></td><td><strong>360,000원</strong></td></tr></tbody></table></div><h4>3. Premium Plan</h4><div class="agreement-table-scroll"><table class="agreement-price-table"><thead><tr><th>수업시간</th><th>주 1회 · 4회 기준 수업료</th><th>첫 정규 패키지 NADO 수수료</th><th>Teacher 첫 정규 패키지 정산액</th><th>2개월 차부터 Teacher 수령액</th></tr></thead><tbody><tr><td>1시간</td><td>220,000원</td><td>77,000원</td><td><strong>143,000원</strong></td><td><strong>220,000원</strong></td></tr><tr><td>2시간</td><td>440,000원</td><td>154,000원</td><td><strong>286,000원</strong></td><td><strong>440,000원</strong></td></tr></tbody></table></div><h4>4. 체험수업</h4>
+<p>체험수업은 <strong>학생에게 무료로 제공되는 1회 수업</strong>이며, NADO Teachers 운영상 <strong>Economy Plan 체험수업</strong>으로 처리합니다.</p>
+<p>체험수업이 실제 진행된 경우 Teacher에게 <strong>1회당 20,000원</strong>을 NADO가 지급합니다. 이 지급액은 정규 패키지 가격표와 별도로 적용되며, 학생에게는 체험수업 수업료가 청구되지 않습니다.</p>
+<p>체험수업의 수업시간은 해당 매칭 시 안내된 시간에 따르며, 구체적인 지급 일정은 NADO가 안내한 일정에 따릅니다.</p>
+</section><section class="agreement-article"><h3>제4조. 첫 정규 패키지 수수료 및 정산</h3><ol><li>NADO를 통해 처음 매칭된 학생의 첫 정규 패키지에는 제3조 표에 기재된 NADO 수수료가 1회에 한하여 적용됩니다. 주 1회 수업은 4회, 주 2회 수업은 8회를 첫 정규 패키지로 봅니다.</li><li>Teacher에게 지급되는 첫 정규 패키지 정산액은 제3조 표에 기재된 Teacher 정산액을 기준으로 합니다.</li><li>첫 정규 패키지의 학생 수업료는 NADO가 수납합니다.</li><li>첫 정규 패키지 정산은 해당 정규 수업의 첫 번째 수업이 실제로 진행된 날짜를 기준으로 31일 후 진행됩니다.</li><li>선생님 교체, 환불, 중도 종료 또는 기타 사유로 한 Teacher가 패키지 전체 횟수를 진행하지 않은 경우 실제 정산 대상 수업 횟수에 따라 정산액을 비례하여 계산할 수 있습니다.</li><li>체험수업은 학생에게 무료로 제공되며, 실제 진행된 체험수업 1회당 Teacher에게 20,000원을 지급합니다. 구체적인 체험수업 지급 일정은 해당 매칭 시 NADO가 안내한 일정에 따릅니다.</li><li>Teacher와 학생이 첫 정규 패키지 이후에도 수업을 계속하는 경우, 2개월 차부터는 NADO의 추가 매칭 수수료가 발생하지 않습니다.</li><li>2개월 차부터는 해당 플랜, 수업시간 및 수업 빈도에 따른 수업료 전액을 Teacher가 학생으로부터 직접 지급받습니다.</li><li>학생이 선택한 플랜, 수업시간 또는 수업 빈도가 변경되는 경우 변경 이후 새로 시작되는 패키지부터 변경된 조건을 적용하는 것을 원칙으로 합니다.</li></ol></section><section class="agreement-article"><h3>제5조. 수업 진행 및 일정 관리</h3><ol><li>Teacher는 매칭된 학생과 협의하여 첫 수업 일정을 확정합니다.</li><li>학생과 최종적으로 매칭이 확정되면 학생, NADO 운영팀 및 Teacher가 함께 있는 단체 채팅방을 개설할 수 있으며, Teacher는 해당 채팅방을 통해 수업 일정과 장소를 조율합니다.</li><li>첫 수업 일정이 확정되면 Teacher는 NADO가 지정한 방법을 통해 첫 수업 일정을 공유합니다.</li><li>Teacher는 약속된 수업시간을 준수하여야 합니다.</li><li>수업 일정 또는 장소 변경이 필요한 경우 학생과 사전에 협의합니다.</li><li>Teacher는 본인의 NADO Teachers 수업 가능 일정을 가능한 최신 상태로 유지합니다.</li><li>학생과의 원활한 매칭을 위해 Teacher는 실제로 수업이 어려운 시간대를 가능한 일정으로 표시하지 않도록 합니다.</li></ol></section><section class="agreement-article"><h3>제6조. 수업 연장</h3><ol><li>첫 정규 패키지(주 1회 4회 또는 주 2회 8회) 이후 동일 학생과 수업을 계속하고자 하는 경우 Teacher와 학생은 다음 패키지의 진행 여부를 확인합니다.</li><li>수업 연장이 확정된 경우 2개월 차부터 학생은 Teacher에게 직접 다음 수업료를 지급합니다.</li><li>플랜, 수업시간 또는 수업 빈도를 변경하려는 경우 학생 또는 Teacher는 필요한 경우 NADO에 변경 사항을 전달할 수 있습니다.</li></ol></section><section class="agreement-article"><h3>제7조. 첫 정규 패키지 및 체험수업의 외부 결제·우회거래</h3><ol><li>체험수업은 학생에게 무료로 제공되며 Teacher 지급은 NADO의 정산 절차를 통해 처리합니다. 첫 정규 패키지 수업료는 NADO의 결제 및 정산 절차를 통해 처리합니다.</li><li>Teacher는 체험수업에 대해 학생에게 별도의 수업료를 요청해서는 안 되며, 첫 정규 패키지의 NADO 수수료 또는 정산 절차를 회피할 목적으로 학생에게 개인 계좌 송금 등 별도의 결제 방법을 요청해서는 안 됩니다.</li><li>본 조항은 체험수업과 첫 정규 패키지에 적용됩니다.</li><li>첫 정규 패키지가 완료된 이후 동일 학생과 수업을 계속하는 경우에는 제4조에 따라 Teacher와 학생 간 직접 결제가 가능합니다.</li><li>결제 절차를 고의로 우회한 사실이 확인되는 경우 NADO는 사실관계를 확인한 후 신규 학생 매칭 또는 NADO Teachers 이용을 제한할 수 있습니다.</li></ol></section><section class="agreement-article"><h3>제8조. 취소, 일정 변경 및 수업 진행 문제</h3><ol><li>Teacher 또는 학생이 수업에 참석하기 어려운 경우 상대방에게 가능한 한 사전에 이를 전달하여 일정을 조율합니다.</li><li>Teacher의 사정으로 수업을 진행하지 못한 경우 해당 수업은 완료된 수업으로 계산하지 않으며 학생과 대체 일정을 협의합니다.</li><li>학생의 취소, 노쇼, 환불 또는 중도 종료와 관련한 구체적인 처리는 NADO가 별도로 안내하는 취소·환불 및 수업 운영 정책에 따릅니다.</li><li>체험수업 또는 첫 정규 패키지 중 학생의 환불, Teacher 변경 또는 기타 예외적인 상황이 발생한 경우 NADO는 실제 진행된 수업 및 환불 상황 등을 기준으로 Teacher와 정산 사항을 별도로 확인할 수 있습니다.</li></ol></section><section class="agreement-article"><h3>제9조. 학생 개인정보 보호</h3><ol><li>Teacher는 매칭 과정에서 제공받은 학생의 이름, 연락처 및 기타 개인정보를 수업 진행 및 일정 조율 목적으로만 사용하여야 합니다.</li><li>학생의 동의 없이 학생 정보를 제3자에게 전달하거나 개인적인 홍보·영업 목적으로 이용할 수 없습니다.</li><li>매칭 또는 수업과 관련하여 알게 된 학생의 사적인 정보를 불필요하게 저장하거나 공개하지 않습니다.</li></ol></section><section class="agreement-article"><h3>제10조. 수업 중 기본 행동 기준</h3><p>Teacher는 학생에게 안전하고 적절한 수업 환경을 제공하기 위해 다음의 행위를 하지 않습니다.</p><ol><li>폭언, 위협 또는 모욕적인 행동</li><li>성희롱 또는 부적절한 신체적·언어적 행동</li><li>차별적인 표현 또는 행동</li><li>학생에게 고의적으로 허위 정보를 제공하는 행위</li><li>학생의 개인정보를 부적절하게 사용하는 행위</li><li>NADO 또는 다른 기관·개인을 사칭하는 행위</li><li>기타 수업의 안전 또는 신뢰를 중대하게 훼손하는 행위</li></ol><p>중대한 문제가 발생한 경우 Teacher는 NADO에 관련 사실을 알릴 수 있습니다.</p></section><section class="agreement-article"><h3>제11조. 서비스 이용 제한 및 계약 종료</h3><ol><li>Teacher는 더 이상 NADO를 통한 신규 학생 매칭을 원하지 않는 경우 NADO에 이를 요청할 수 있습니다.</li><li>다음과 같은 상황이 확인되는 경우 NADO는 사실관계를 확인한 후 신규 매칭을 일시적으로 중단하거나 NADO Teachers 이용을 제한할 수 있습니다.<ul><li>중대한 허위 프로필 정보</li><li>반복적인 무단 수업 불참</li><li>학생 개인정보의 부적절한 사용</li><li>체험수업 또는 첫 정규 패키지의 결제 및 정산 절차를 고의로 우회하는 행위</li><li>학생에게 중대한 피해를 발생시키는 행위</li><li>불법행위 또는 서비스의 신뢰를 중대하게 훼손하는 행위</li></ul></li><li>계약 또는 서비스 이용이 종료되더라도 이미 진행된 수업 및 발생한 정산 의무는 별도로 처리합니다.</li></ol></section><section class="agreement-article"><h3>제12조. 계약 및 정책의 변경</h3><ol><li>NADO가 수수료, 정산방식 또는 기타 중요한 계약조건을 변경하는 경우 Teacher에게 변경내용을 사전에 안내합니다.</li><li>수수료, 플랜, 수업시간, 수업 빈도, 체험수업 또는 정산방식 등 Teacher에게 중요한 영향을 미치는 내용이 변경되는 경우 필요한 경우 NADO Teachers를 통해 새로운 동의를 요청할 수 있습니다.</li><li>새롭게 변경된 조건은 별도의 안내가 없는 한 변경 전에 이미 확정된 매칭 또는 수업에 소급하여 적용하지 않는 것을 원칙으로 합니다.</li></ol></section><section class="agreement-article"><h3>제13조. 전자계약</h3><ol><li>본 계약은 NADO Teachers 웹사이트를 통한 전자적 방식으로 체결할 수 있습니다.</li><li>Teacher가 본 계약을 확인하고 동의 절차를 완료한 경우 해당 행위는 본 계약 체결에 대한 Teacher의 의사표시로 기록됩니다.</li><li>NADO는 계약 체결 당시의 계약서 버전, Teacher 계정, 성명, 동의 일시 및 동의 내역을 전자적으로 보관할 수 있습니다.</li><li>Teacher는 NADO Teachers를 통해 본인이 동의한 계약 내용을 확인할 수 있습니다.</li></ol></section><section class="agreement-article"><h3>제14조. 분쟁 및 협의</h3><p>본 계약 또는 NADO 서비스 이용과 관련하여 문제가 발생하는 경우 NADO와 Teacher는 우선 상호 협의를 통해 해결하도록 노력하며, 협의로 해결되지 않는 사항은 관계 법령에 따라 처리합니다.</p></section><section class="agreement-article agreement-electronic-copy"><h3>전자계약 동의</h3><p>아래 항목을 모두 확인한 후 동의를 진행합니다.</p><ul><li>선택한 플랜, 수업시간 및 수업 빈도에 따라 제3조의 수업료와 첫 정규 패키지 NADO 수수료 및 Teacher 정산액이 적용되는 것을 확인했습니다.</li><li>주 1회는 4회, 주 2회는 8회를 정규 패키지 기준으로 하며, 주 2회 금액은 4회 기준 금액의 2배로 적용되는 것을 확인했습니다.</li><li>체험수업은 학생에게 무료로 제공되고 Economy Plan 체험수업으로 처리되며, 실제 진행된 체험수업 1회당 Teacher 지급액이 20,000원인 것을 확인했습니다.</li><li>첫 정규 패키지 정산은 정규 수업의 첫 수업이 실제 진행된 날짜를 기준으로 31일 후 이루어지고, 첫 정규 패키지 이후에는 해당 수업료 전액을 학생으로부터 직접 지급받는 것을 확인했습니다.</li><li>NADO Teacher Service Agreement 전체 내용을 읽고 이해하였으며 이에 동의합니다.</li></ul></section></div>
+<div data-agreement-lang="en" lang="en" class="hidden"><p class="agreement-purpose">This Agreement sets out the terms governing use of the NADO Teachers service, student matching, lesson operations, and payment settlement between NADO ("NADO") and a Teacher ("Teacher") who provides English conversation lessons to students through NADO Teachers.</p><section class="agreement-article"><h3>Article 1. Purpose of the Service and Agreement</h3><ol><li>NADO provides a matching service that connects students seeking English conversation lessons with Teachers.</li><li>NADO supports student recruitment, consultation, Teacher matching, first-package payment and settlement, and other service operations.</li><li>The Teacher provides English conversation lessons directly to students matched through NADO.</li><li>Lessons are generally conducted at a time and place agreed upon by the student and the Teacher.</li></ol></section><section class="agreement-article"><h3>Article 2. Teacher Registration and Information</h3><ol><li>The Teacher registers a profile and available lesson schedule on NADO Teachers.</li><li>The Teacher may register and update available matching times according to the Teacher’s schedule.</li><li>University, major, contact information, KakaoTalk ID, introduction, and other profile information provided by the Teacher must be accurate and based on fact.</li><li>The Teacher’s profile photo and short introduction may be displayed on the NADO website or related information pages for service information and student matching.</li><li>If the Teacher’s university or institutional affiliation is displayed on NADO Teachers or in NADO promotional materials, it is used only to describe the Teacher’s personal education or affiliation and does not imply an official partnership or sponsorship between that institution and NADO.</li><li>If materially false or incorrect profile information is identified, NADO may request correction or restrict new student matching.</li></ol></section><section class="agreement-article"><h3>Article 3. Lesson Plans, Lesson Duration, Weekly Frequency, and Trial Lessons</h3>
+<p>The amounts in the tables below are based on <strong>one lesson per week and 4 regular lessons in total</strong>. Tuition is determined by the selected plan and lesson duration.</p>
+<p>For <strong>two lessons per week, the regular package consists of 8 lessons</strong>. Student tuition, the NADO fee for the first regular package, the Teacher payout, and the amount received from Month 2 are each <strong>twice</strong> the 4-session amounts shown below.</p>
+<p>Supported lesson durations are <strong>1 hour or 2 hours</strong>.</p><h4>1. Economy Plan</h4><div class="agreement-table-scroll"><table class="agreement-price-table"><thead><tr><th>Lesson duration</th><th>Once weekly · 4-session tuition</th><th>NADO fee for first regular package</th><th>Teacher payout for first regular package</th><th>Teacher receipt from Month 2</th></tr></thead><tbody><tr><td>1 hr</td><td>KRW 140,000</td><td>KRW 49,000</td><td><strong>KRW 91,000</strong></td><td><strong>KRW 140,000</strong></td></tr><tr><td>2 hr</td><td>KRW 280,000</td><td>KRW 98,000</td><td><strong>KRW 182,000</strong></td><td><strong>KRW 280,000</strong></td></tr></tbody></table></div><h4>2. Standard Plan</h4><div class="agreement-table-scroll"><table class="agreement-price-table"><thead><tr><th>Lesson duration</th><th>Once weekly · 4-session tuition</th><th>NADO fee for first regular package</th><th>Teacher payout for first regular package</th><th>Teacher receipt from Month 2</th></tr></thead><tbody><tr><td>1 hr</td><td>KRW 180,000</td><td>KRW 63,000</td><td><strong>KRW 117,000</strong></td><td><strong>KRW 180,000</strong></td></tr><tr><td>2 hr</td><td>KRW 360,000</td><td>KRW 126,000</td><td><strong>KRW 234,000</strong></td><td><strong>KRW 360,000</strong></td></tr></tbody></table></div><h4>3. Premium Plan</h4><div class="agreement-table-scroll"><table class="agreement-price-table"><thead><tr><th>Lesson duration</th><th>Once weekly · 4-session tuition</th><th>NADO fee for first regular package</th><th>Teacher payout for first regular package</th><th>Teacher receipt from Month 2</th></tr></thead><tbody><tr><td>1 hr</td><td>KRW 220,000</td><td>KRW 77,000</td><td><strong>KRW 143,000</strong></td><td><strong>KRW 220,000</strong></td></tr><tr><td>2 hr</td><td>KRW 440,000</td><td>KRW 154,000</td><td><strong>KRW 286,000</strong></td><td><strong>KRW 440,000</strong></td></tr></tbody></table></div><h4>4. Trial Lessons</h4>
+<p>A trial lesson is <strong>one lesson provided to the student free of charge</strong> and is handled in NADO Teachers as an <strong>Economy Plan trial lesson</strong>.</p>
+<p>When a trial lesson is actually completed, NADO pays the Teacher <strong>KRW 20,000 per trial lesson</strong>. This payout is separate from the regular-package pricing table, and the student is not charged tuition for the trial lesson.</p>
+<p>The lesson duration for a trial lesson follows the duration communicated for that match, and the specific payout schedule follows the schedule communicated by NADO.</p>
+</section><section class="agreement-article"><h3>Article 4. First Regular Package Fee and Settlement</h3><ol><li>For a student first matched through NADO, the NADO fee shown in Article 3 applies once to the first regular package. The first regular package consists of 4 lessons for once-weekly service and 8 lessons for twice-weekly service.</li><li>The Teacher payout for the first regular package is the Teacher payout amount shown in Article 3 for the applicable plan and lesson duration.</li><li>NADO collects the student tuition for the first regular package.</li><li>Settlement for the first regular package is made 31 days after the date on which the first regular lesson actually takes place.</li><li>If a Teacher does not complete the full package because of a Teacher change, refund, early termination, or another reason, the payout may be calculated proportionally based on the number of lessons eligible for settlement.</li><li>Trial lessons are free for the student, and the Teacher is paid KRW 20,000 for each completed trial lesson. The specific trial-lesson payout schedule follows the schedule communicated by NADO for that match.</li><li>If the Teacher and student continue lessons after the first regular package, no additional NADO matching fee applies from Month 2.</li><li>From Month 2, the Teacher receives the full tuition applicable to the selected plan, lesson duration, and weekly frequency directly from the student.</li><li>If the plan, lesson duration, or weekly frequency changes, the changed terms generally apply beginning with the next newly started package.</li></ol></section><section class="agreement-article"><h3>Article 5. Lesson Operation and Schedule Management</h3><ol><li>The Teacher coordinates with the matched student to confirm the first lesson schedule.</li><li>After the final match is confirmed, a group chat including the student, the NADO operations team, and the Teacher may be created, and the Teacher coordinates lesson time and location through that chat.</li><li>Once the first lesson schedule is confirmed, the Teacher shares it through the method designated by NADO.</li><li>The Teacher must observe the agreed lesson duration.</li><li>If a lesson time or location must be changed, the Teacher coordinates the change with the student in advance.</li><li>The Teacher should keep the available lesson schedule on NADO Teachers reasonably up to date.</li><li>To support smooth matching, the Teacher should not mark time slots as available when the Teacher cannot realistically teach during those times.</li></ol></section><section class="agreement-article"><h3>Article 6. Lesson Continuation</h3><ol><li>If the Teacher and student wish to continue after the first regular package (4 lessons once weekly or 8 lessons twice weekly), they confirm whether to proceed with the next package.</li><li>Once continuation is confirmed, from Month 2 the student pays the next tuition directly to the Teacher.</li><li>If the plan, lesson duration, or weekly frequency will change, the student or Teacher may inform NADO when necessary.</li></ol></section><section class="agreement-article"><h3>Article 7. Outside Payment and Circumvention for Trial Lessons and the First Regular Package</h3><ol><li>A trial lesson is provided to the student free of charge, and the Teacher payout is handled through NADO’s settlement procedure. Payment for the first regular package must be processed through NADO’s payment and settlement procedure.</li><li>The Teacher must not ask the student to pay separate tuition for a trial lesson and must not request a separate payment method, such as a transfer to a personal bank account, to avoid the NADO fee or settlement procedure for the first regular package.</li><li>This Article applies to trial lessons and the first regular package.</li><li>After the first regular package is completed, continued lessons with the same student may be paid directly between the Teacher and the student in accordance with Article 4.</li><li>If intentional circumvention of the payment procedure is confirmed, NADO may review the circumstances and restrict new student matching or use of NADO Teachers.</li></ol></section><section class="agreement-article"><h3>Article 8. Cancellation, Schedule Changes, and Lesson Issues</h3><ol><li>If the Teacher or student cannot attend a lesson, that person should notify the other party as early as reasonably possible and coordinate a new schedule.</li><li>If a lesson cannot be conducted due to the Teacher’s circumstances, it is not counted as a completed lesson and the Teacher coordinates a replacement schedule with the student.</li><li>Specific handling of student cancellations, no-shows, refunds, or early termination follows NADO’s separately communicated cancellation, refund, and lesson-operation policies.</li><li>If a refund, Teacher change, or other exceptional situation occurs during a trial lesson or the first regular package, NADO may separately confirm settlement with the Teacher based on lessons actually conducted and the refund circumstances.</li></ol></section><section class="agreement-article"><h3>Article 9. Student Personal Information</h3><ol><li>The Teacher may use a student’s name, contact details, and other personal information received through matching only for lesson delivery and schedule coordination.</li><li>The Teacher may not disclose student information to a third party or use it for personal promotion or sales without the student’s consent.</li><li>The Teacher should not unnecessarily retain or disclose private student information learned through matching or lessons.</li></ol></section><section class="agreement-article"><h3>Article 10. Basic Standards of Conduct During Lessons</h3><p>To provide a safe and appropriate lesson environment, the Teacher must not engage in the following conduct:</p><ol><li>Abusive, threatening, or insulting behavior</li><li>Sexual harassment or inappropriate physical or verbal conduct</li><li>Discriminatory language or behavior</li><li>Intentionally providing false information to a student</li><li>Improper use of student personal information</li><li>Impersonating NADO or another institution or individual</li><li>Any other conduct that materially undermines the safety or trust of the lesson</li></ol><p>If a serious issue occurs, the Teacher may inform NADO of the relevant facts.</p></section><section class="agreement-article"><h3>Article 11. Service Restrictions and Termination</h3><ol><li>The Teacher may ask NADO to stop providing new student matches.</li><li>If any of the following is confirmed, NADO may review the circumstances and temporarily suspend new matching or restrict use of NADO Teachers:<ul><li>Materially false profile information</li><li>Repeated unexcused absence from lessons</li><li>Improper use of student personal information</li><li>Intentional circumvention of payment or settlement procedures for a trial lesson or first regular package</li><li>Conduct causing material harm to a student</li><li>Illegal conduct or conduct that materially damages trust in the service</li></ul></li><li>Termination of this Agreement or service use does not eliminate settlement obligations that have already arisen for lessons already conducted.</li></ol></section><section class="agreement-article"><h3>Article 12. Changes to the Agreement and Policies</h3><ol><li>If NADO changes fees, settlement methods, or other material contract terms, NADO will provide advance notice to the Teacher.</li><li>If terms materially affecting the Teacher change, including fees, plans, lesson duration, weekly frequency, trial lessons, or settlement methods, NADO may request new consent through NADO Teachers when necessary.</li><li>Unless separately stated, newly changed terms generally do not apply retroactively to matches or lessons already confirmed before the change.</li></ol></section><section class="agreement-article"><h3>Article 13. Electronic Agreement</h3><ol><li>This Agreement may be entered into electronically through the NADO Teachers website.</li><li>When the Teacher reviews this Agreement and completes the consent process, that action is recorded as the Teacher’s expression of intent to enter into this Agreement.</li><li>NADO may electronically retain the agreement version, Teacher account, name, consent time, and consent records applicable at the time of contracting.</li><li>The Teacher may review the agreement accepted by the Teacher through NADO Teachers.</li></ol></section><section class="agreement-article"><h3>Article 14. Disputes and Consultation</h3><p>If an issue arises in connection with this Agreement or use of the NADO service, NADO and the Teacher will first seek to resolve it through mutual consultation. Matters that cannot be resolved through consultation will be handled in accordance with applicable law.</p></section><section class="agreement-article agreement-electronic-copy"><h3>Electronic Agreement Consent</h3><p>Please review all items below before providing consent.</p><ul><li>I confirm that tuition, the NADO fee for the first regular package, and the Teacher payout apply according to the selected plan, lesson duration, and weekly frequency as described in Article 3.</li><li>I confirm that a regular package consists of 4 lessons for once-weekly service and 8 lessons for twice-weekly service, and that twice-weekly amounts are twice the 4-session amounts.</li><li>I confirm that a trial lesson is free for the student, is handled as an Economy Plan trial lesson, and pays the Teacher KRW 20,000 for each completed trial lesson.</li><li>I confirm that settlement for the first regular package is made 31 days after the first regular lesson actually takes place, and that after the first regular package I receive the applicable tuition directly from the student.</li><li>I have read and understood the entire NADO Teacher Service Agreement and agree to it.</li></ul></section></div>
+</article>
+        </div>
+
+        <form id="agreementForm" class="agreement-consent-form">
+          <div class="agreement-consent-head">
+            <div>
+              <p class="section-kicker">ELECTRONIC CONSENT</p>
+              <h2>전자계약 동의</h2>
+              <p>아래 다섯 항목을 모두 확인해야 계약을 완료할 수 있습니다.</p>
+            </div>
+            <span class="agreement-required-badge">필수 동의</span>
+          </div>
+
+          <div class="agreement-check-list">
+            <label><input class="agreement-check" type="checkbox" name="fees" required /><span>선택한 플랜, 수업시간 및 수업 빈도에 따라 제3조의 수업료와 첫 정규 패키지 NADO 수수료 및 Teacher 정산액이 적용되는 것을 확인했습니다.</span></label>
+            <label><input class="agreement-check" type="checkbox" name="settlement" required /><span>주 1회는 4회, 주 2회는 8회를 정규 패키지 기준으로 하며, 주 2회 금액은 4회 기준 금액의 2배로 적용되는 것을 확인했습니다.</span></label>
+            <label><input class="agreement-check" type="checkbox" name="directPayment" required /><span>체험수업은 학생에게 무료로 제공되고 Economy Plan 체험수업으로 처리되며, 실제 진행된 체험수업 1회당 Teacher 지급액이 20,000원인 것을 확인했습니다.</span></label>
+            <label><input class="agreement-check" type="checkbox" name="firstMonthPayment" required /><span>첫 정규 패키지 정산은 정규 수업의 첫 수업이 실제 진행된 날짜를 기준으로 31일 후 이루어지고, 첫 정규 패키지 이후에는 해당 수업료 전액을 학생으로부터 직접 지급받는 것을 확인했습니다.</span></label>
+            <label><input class="agreement-check" type="checkbox" name="fullAgreement" required /><span>NADO Teacher Service Agreement 전체 내용을 읽고 이해하였으며 이에 동의합니다.</span></label>
+          </div>
+
+          <div class="agreement-signature-grid">
+            <label>Teacher 성명 <b class="required-mark">*</b>
+              <input id="agreementTeacherName" type="text" maxlength="100" autocomplete="name" placeholder="계약자 성명을 입력해주세요" required />
+            </label>
+            <div class="agreement-auto-field"><span>계약일</span><strong>동의 완료 시 자동 기록</strong></div>
+            <div class="agreement-auto-field"><span>계약서 버전</span><strong>NADO Teacher Service Agreement v1.4</strong></div>
+          </div>
+
+          <div class="agreement-action-row">
+            <button id="agreementLogoutButton" class="button ghost" type="button">다른 계정으로 로그인</button>
+            <button id="agreementSubmitButton" class="button primary" type="submit" disabled>동의 및 계약하기</button>
+          </div>
+        </form>
+
+        <div id="agreementReviewFooter" class="agreement-review-footer hidden">
+          <p>위 내용은 현재 계정이 동의한 NADO Teacher Service Agreement 계약 내용입니다.</p>
+          <button id="agreementReviewCloseBottomButton" class="button primary" type="button">계약서 닫기</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="onboardingView" class="onboarding-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+    <div class="onboarding-shell">
+      <aside class="onboarding-brand">
+        <img class="onboarding-logo" src="assets/nado-logo.png" alt="NADO" />
+        <p class="section-kicker">WELCOME TO NADO</p>
+        <h1>수업을 시작하기 전에<br />선생님 정보를 완성해주세요.</h1>
+        <p>입력하신 정보는 학생 매칭과 첫 달 수업료 정산을 위해 사용됩니다. 필수 정보가 추가되거나 미입력된 경우 다시 확인을 요청할 수 있습니다.</p>
+        <div class="onboarding-email-box">
+          <span>로그인 계정</span>
+          <strong id="onboardingEmail">-</strong>
+        </div>
+      </aside>
+
+      <div class="onboarding-card">
+        <div class="onboarding-card-head">
+          <div>
+            <p class="section-kicker">PROFILE SETUP</p>
+            <h2 id="onboardingTitle">필수 프로필 작성</h2>
+            <p>모든 항목을 입력해야 나도 Teachers를 이용할 수 있습니다.</p>
+          </div>
+          <div class="onboarding-head-actions">
+            <div class="language-slot" data-nado-language-slot></div>
+            <span class="required-note"><b>*</b> 필수 입력</span>
+          </div>
+        </div>
+
+        <form id="onboardingForm" class="profile-form onboarding-form">
+          <div class="profile-photo-field full-field">
+            <div class="profile-photo-preview" aria-hidden="true">
+              <img id="onboardingPhotoImage" alt="프로필 사진 미리보기" hidden />
+              <span id="onboardingPhotoFallback">T</span>
+            </div>
+            <div class="profile-photo-copy">
+              <div class="profile-photo-title-row">
+                <strong>프로필 사진 <b class="required-mark">*</b></strong>
+                <span class="profile-required-badge">필수</span>
+              </div>
+              <p>본인을 확인할 수 있는 프로필 사진은 최초 설정 시 필수입니다. JPG, PNG, WEBP 형식으로 최대 5MB까지 업로드할 수 있습니다.</p>
+              <div class="profile-photo-actions">
+                <label class="button ghost small file-button" for="onboardingPhotoInput">사진 선택</label>
+                <button id="onboardingPhotoClearButton" class="button ghost small" type="button" disabled>선택 취소</button>
+              </div>
+              <input id="onboardingPhotoInput" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" />
+              <span id="onboardingPhotoStatus" class="profile-photo-status">등록된 사진이 없습니다.</span>
+            </div>
+          </div>
+          <label>
+            <span class="field-label">이름 <b class="required-mark">*</b></span>
+            <input id="onboardingName" type="text" maxlength="50" autocomplete="name" required />
+          </label>
+          <label>
+            <span class="field-label">학교 <b class="required-mark">*</b></span>
+            <input id="onboardingSchool" type="text" maxlength="100" placeholder="George Mason University Korea" autocomplete="organization" required />
+          </label>
+          <label>
+            <span class="field-label">전공 <b class="required-mark">*</b></span>
+            <input id="onboardingMajor" type="text" maxlength="100" placeholder="Economics" required />
+          </label>
+          <label>
+            <span class="field-label">휴대전화 <b class="required-mark">*</b></span>
+            <input id="onboardingPhone" type="tel" inputmode="tel" maxlength="30" placeholder="010-0000-0000" autocomplete="tel" required />
+          </label>
+          <label class="profile-kakao-field full-field">
+            <span class="field-label">카카오톡 ID <b class="required-mark">*</b></span>
+            <input id="onboardingKakaoId" type="text" maxlength="100" placeholder="예: nado_teacher" autocomplete="off" required />
+          </label>
+          <label>
+            <span class="field-label">은행명 <b class="required-mark">*</b></span>
+            <input id="onboardingBankName" type="text" maxlength="50" placeholder="예: 카카오뱅크" autocomplete="off" required />
+          </label>
+          <label>
+            <span class="field-label">계좌번호 <b class="required-mark">*</b></span>
+            <input id="onboardingAccountNumber" type="text" inputmode="numeric" maxlength="40" placeholder="숫자와 하이픈(-)만 입력" autocomplete="off" required />
+          </label>
+          <label class="full-field">
+            <span class="field-label">한 줄 소개 <b class="required-mark">*</b></span>
+            <textarea id="onboardingBio" rows="4" maxlength="500" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
+          </label>
+          <div class="profile-publication-notice full-field" role="note">
+            <strong>프로필 공개 안내</strong>
+            <p>프로필 사진과 한 줄 소개는 서비스 소개 및 매칭을 위해 나도 웹사이트에 게시될 수 있습니다. 한 줄 소개는 한국어 또는 영어 중 편한 언어로 작성해주세요.</p>
+          </div>
+          <div class="profile-payment-warning full-field" role="note">
+            <strong>정산 계좌를 정확히 확인해주세요.</strong>
+            <p>은행명 또는 계좌번호가 정상적으로 입력되지 않으면 첫 달 수업료 지급이 지연되거나 차질이 발생할 수 있습니다.</p>
+          </div>
+          <div class="onboarding-actions full-field">
+            <button id="onboardingLogoutButton" class="button ghost" type="button">다른 계정으로 로그인</button>
+            <button class="button primary" type="submit">프로필 저장하고 시작하기</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="appView" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <a class="logo" href="#dashboard" aria-label="나도 Teachers 홈">
+          <img class="site-logo" src="assets/nado-logo.png" alt="NADO" />
+          <span class="logo-text">Teachers</span>
+        </a>
+        <button id="sidebarClose" class="icon-button mobile-only" type="button" aria-label="메뉴 닫기">×</button>
+      </div>
+
+      <nav class="side-nav" aria-label="선생님 메뉴">
+        <button class="nav-item active" data-page="dashboard" type="button"><span>⌂</span> 홈</button>
+        <button class="nav-item" data-page="history" type="button"><span>↺</span> 학생 기록</button>
+        <button class="nav-item" data-page="schedule" type="button"><span>◷</span> 스케줄 제출</button>
+        <button class="nav-item" data-page="guide" type="button"><span>✓</span> 첫 수업 가이드</button>
+        <button class="nav-item" data-page="curriculum" type="button"><span>▤</span> 커리큘럼</button>
+        <button class="nav-item" data-page="training" type="button"><span>▶</span> 교육 영상</button>
+        <button class="nav-item" data-page="payguide" type="button"><span>₩</span> 수수료 안내</button>
+        <button class="nav-item" data-page="profile" type="button"><span>○</span> 내 정보</button>
+        <a id="adminLink" class="nav-item hidden" href="admin.html"><span>⚙</span> 관리자 페이지</a>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="support-box">
+          <strong>도움이 필요하신가요?</strong>
+          <p>수업 또는 정산 문의는 운영팀에 연락해주세요.</p>
+          <a id="supportLink" href="https://open.kakao.com/o/sCZAMCGi" target="_blank" rel="noopener">운영팀 문의</a>
+        </div>
+        <button id="logoutButton" class="logout-button" type="button">로그아웃</button>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="sidebar-backdrop hidden"></div>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="sidebarOpen" class="icon-button mobile-only" type="button" aria-label="메뉴 열기">☰</button>
+          <div>
+            <p id="pageEyebrow" class="topbar-eyebrow">TEACHER HOME</p>
+            <h1 id="pageTitle">홈</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <div class="language-slot" data-nado-language-slot></div>
+          <div class="user-chip">
+            <div class="user-avatar" id="userAvatar">
+              <img id="userAvatarImage" alt="선생님 프로필 사진" hidden />
+              <span id="userAvatarFallback">T</span>
+            </div>
+            <div>
+              <strong id="userName">선생님</strong>
+              <span id="userEmail">-</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        <section id="page-dashboard" class="page active">
+          <article class="panel assignment-overview-panel">
+            <div class="panel-head assignment-overview-head">
+              <div>
+                <p class="section-kicker">MY CURRENT STUDENTS &amp; PAYOUT</p>
+                <h3>현재 학생</h3>
+                <p class="assignment-overview-copy">정산 예정일까지 나도에서 관리하는 학생입니다.</p>
+              </div>
+              <div class="assignment-head-actions">
+                <button class="small-link" data-go="history" type="button">학생 기록 보기 →</button>
+                <span id="assignmentCount" class="count-badge">0명</span>
+              </div>
+            </div>
+            <div id="assignmentList" class="assignment-list">
+              <div class="skeleton assignment-skeleton"></div>
+            </div>
+          </article>
+
+          <article class="panel announcement-panel announcement-spotlight">
+            <div class="panel-head announcement-panel-head">
+              <div>
+                <p class="section-kicker">IMPORTANT NOTICE</p>
+                <h3>중요 공지사항</h3>
+                <p class="announcement-panel-copy">운영팀에서 전달하는 수업 및 정산 안내를 꼭 확인해주세요.</p>
+              </div>
+              <span class="notice-live-badge"><i></i> 운영 공지</span>
+            </div>
+            <div id="announcementList" class="announcement-list">
+              <div class="skeleton line"></div>
+              <div class="skeleton line short"></div>
+            </div>
+          </article>
+
+          <div class="welcome-card">
+            <div>
+              <p class="section-kicker light">WELCOME TO NADO</p>
+              <h2><span id="welcomeName">선생님</span>,<br />오늘도 좋은 수업 부탁드려요.</h2>
+              <p>스케줄 제출과 수업 준비 자료를 이 페이지에서 바로 확인할 수 있습니다.</p>
+            </div>
+            <div class="welcome-graphic" aria-hidden="true">
+              <div class="graphic-card gc-one">Schedule<br /><strong>Updated</strong></div>
+              <div class="graphic-card gc-two">1:1<br /><strong>Speaking</strong></div>
+              <div class="graphic-ring"></div>
+            </div>
+          </div>
+
+          <div class="dashboard-grid dashboard-grid-single">
+            <article class="panel schedule-summary-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">MY AVAILABILITY</p>
+                  <h3>제출한 스케줄</h3>
+                </div>
+                <button class="small-link" data-go="schedule" type="button">수정하기 →</button>
+              </div>
+              <div id="scheduleSummary" class="schedule-summary empty-state">
+                아직 제출된 스케줄이 없습니다.
+              </div>
+            </article>
+          </div>
+
+          <div class="quick-grid">
+            <button class="quick-card" data-go="schedule" type="button">
+              <span class="quick-icon">◷</span>
+              <div><strong>스케줄 제출</strong><small>수업 가능한 요일과 시간 등록</small></div>
+              <b>→</b>
+            </button>
+            <button class="quick-card" data-go="guide" type="button">
+              <span class="quick-icon">✓</span>
+              <div><strong>첫 수업 가이드</strong><small>첫 만남 전 필수 체크사항</small></div>
+              <b>→</b>
+            </button>
+            <button class="quick-card" data-go="training" type="button">
+              <span class="quick-icon">▶</span>
+              <div><strong>교육 영상</strong><small>현재 수정 중</small></div>
+              <b>→</b>
+            </button>
+          </div>
+        </section>
+
+        <section id="page-history" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">STUDENT HISTORY</p>
+              <h2>학생 기록</h2>
+              <p>첫 달 수업료 정산일이 지난 학생을 확인할 수 있습니다. 기록은 삭제되지 않고 계속 보관됩니다.</p>
+            </div>
+          </div>
+
+          <article class="panel assignment-history-panel">
+            <div class="panel-head assignment-overview-head">
+              <div>
+                <p class="section-kicker">PAST STUDENTS</p>
+                <h3>지난 학생</h3>
+              </div>
+              <span id="historyAssignmentCount" class="count-badge">0명</span>
+            </div>
+            <div class="history-auto-note" role="note">
+              <strong>자동 기록 안내</strong>
+              <p>정산 예정일 당일까지는 현재 학생으로 표시되고, 다음 날부터 학생 기록으로 자동 이동합니다.</p>
+            </div>
+            <div id="historyAssignmentList" class="assignment-list assignment-history-list">
+              <div class="skeleton assignment-skeleton"></div>
+            </div>
+          </article>
+        </section>
+
+        <section id="page-schedule" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">WEEKLY AVAILABILITY</p>
+              <h2>수업 가능 스케줄 제출</h2>
+              <p>주간 시간표에서 매칭 가능한 시간을 모두 선택해주세요. 선택한 시간은 언제든 다시 수정할 수 있습니다.</p>
+            </div>
+            <div id="scheduleSaveState" class="save-state">저장 전</div>
+          </div>
+
+          <div class="schedule-layout">
+            <article class="panel schedule-form-panel">
+              <div class="form-section-head">
+                <div>
+                  <h3>가능 시간 선택</h3>
+                  <p>When2meet처럼 가능한 모든 시간 칸을 선택한 뒤 한 번에 저장해주세요.</p>
+                </div>
+              </div>
+
+              <div class="availability-picker">
+                <div class="availability-picker-head">
+                  <div class="availability-legend" aria-label="시간표 선택 상태 안내">
+                    <span><i class="legend-swatch"></i> 선택 가능</span>
+                    <span><i class="legend-swatch selected"></i> 선택됨</span>
+                  </div>
+                  <strong id="availabilityCellCount" class="availability-cell-count">0칸 선택</strong>
+                </div>
+
+                <div class="availability-grid-shell" id="availabilityGridShell">
+                  <div id="availabilityGrid" class="availability-grid" role="grid" aria-label="주간 수업 가능 시간 선택표"></div>
+                </div>
+                <div id="availabilityMobilePicker" class="availability-mobile-picker" aria-label="모바일 수업 가능 시간 선택"></div>
+                <p class="availability-help"><span class="desktop-schedule-help">PC에서는 시작 칸을 누른 채 드래그해 선택할 수 있습니다.</span><span class="mobile-schedule-help">모바일에서는 먼저 요일을 선택한 뒤, 한 시간 안의 :00 / :30 버튼을 탭해주세요.</span> 선택된 시간은 파란색으로 표시됩니다.</p>
+              </div>
+
+              <div class="schedule-preference-field">
+                <label for="scheduleLocation">선호 장소</label>
+                <select id="scheduleLocation" required>
+                  <option value="IGC">IGC</option>
+                  <option value="트리플스트리트">트리플스트리트</option>
+                  <option value="송도 내 협의">송도 내 협의</option>
+                </select>
+                <div class="location-assignment-notice" role="note">
+                  <strong>장소 배정 안내</strong>
+                  <p>선호 장소는 매칭 시 참고용이며 반드시 해당 장소로 배정되는 것은 아닙니다. 학생이 선택한 요금제와 선호 조건에 따라 학생의 희망 장소를 우선해 다른 장소로 조율해야 할 수 있습니다.</p>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label for="scheduleMemo">운영팀에 전달할 메모</label>
+                <textarea id="scheduleMemo" rows="4" maxlength="500" placeholder="예: 월요일은 18시 이후만 가능하며, 시험 기간에는 일정이 변경될 수 있습니다."></textarea>
+              </div>
+
+              <div class="schedule-actions">
+                <button id="clearScheduleButton" class="button ghost" type="button">전체 삭제</button>
+                <button id="saveScheduleButton" class="button primary" type="button">스케줄 저장하기</button>
+              </div>
+            </article>
+
+            <article class="panel current-slots-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">CURRENT SELECTION</p>
+                  <h3>현재 선택한 시간</h3>
+                </div>
+                <span id="slotCount" class="count-badge">0개</span>
+              </div>
+              <div id="slotList" class="slot-list">
+                <div class="empty-state compact">추가된 시간대가 없습니다.</div>
+              </div>
+              <div class="schedule-note">
+                <strong>안내</strong>
+                <p>실제 수업 일정은 학생과 매칭된 이후 조율될 수 있습니다. 가능한 시간을 넓게 제출할수록 빠른 매칭에 도움이 됩니다.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="page-guide" class="page">
+  <div class="page-intro">
+    <div>
+      <p class="section-kicker">FIRST LESSON GUIDE</p>
+      <h2>첫 수업 전 필수 가이드</h2>
+      <p>처음 만나는 학생에게 좋은 경험을 제공하기 위해 아래 순서대로 준비해주세요.</p>
+    </div>
+  </div>
+
+  <div class="guide-progress panel">
+    <div>
+      <strong>첫 수업 준비도</strong>
+      <span id="guideProgressText">0 / 5 완료</span>
+    </div>
+    <div class="progress-track"><div id="guideProgressBar" class="progress-bar"></div></div>
+  </div>
+
+  <div id="guideChecklist" class="guide-list">
+
+        <label class="guide-card">
+      <input type="checkbox" data-guide="keep-profile-updated" />
+      <span class="guide-check"></span>
+      <div>
+        <b>01</b><h3>가능 시간을 최신 상태로 유지하기</h3>
+        <p>매칭 전에 내 수업 가능 시간이 실제와 다르지 않은지 먼저 확인해주세요. 실제 가능한 시간과 다르면 매칭이 지연될 수 있습니다.</p>
+        <button type="button" class="guide-curriculum-link" data-go="schedule">스케줄 탭에서 확인하기 →</button>
+      </div>
+    </label>
+
+    <label class="guide-card">
+      <input type="checkbox" data-guide="check-group-chat" />
+      <span class="guide-check"></span>
+      <div>
+        <b>02</b><h3>Nado teachers 단톡방에서 새 학생 매칭 소식 확인하기</h3>
+        <p>Nado teachers 단톡방에 새로운 학생 매칭 안내가 올라오는지 확인해주세요. 수업 신청은 선착순으로 이루어집니다.</p>
+        <div class="guide-example-image">
+          <img src="images/student_info_ex.jpg" alt="선생님께 전달되는 학생 정보 예시" loading="lazy" />
+        </div>
+      </div>
+    </label>
+
+    <label class="guide-card">
+      <input type="checkbox" data-guide="first-text" />
+      <span class="guide-check"></span>
+      <div>
+        <b>03</b><h3>학생·나도·나 3인 단톡방에서 학생에게 첫 연락하기</h3>
+        <p>학생과 최종적으로 매칭이 확정된 후, 학생·나도 운영팀·선생님이 함께 있는 단체 채팅방이 개설됩니다. 선생님은 먼저 인사를 건네고, 수업 방식, 배우고 싶은 내용, 원하시는 장소, 희망 첫 수업 일정을 물어봅니다.</p>
+        <div class="guide-message-example">
+          <p class="guide-message-example-label">문자 포맷 <span>빈칸을 채워서 학생에게 첫 안내 문자로 보내주세요.</span></p>
+          <p>안녕하세요! 이번에 영어회화 수업을 맡게 된 [이름]이라고 합니다. 만나서 반갑습니다 😊<br /><br />
+          원하시는 수업 장소를 구체적으로 말씀해주세요.<br />
+          첫 수업은 [쌤이 원하는 날짜] 오전/오후 [희망 시간]에 가능하실까요?<br /><br />
+          수업 시작 전에 원하시는 수업 방식이나 배우고 싶은 내용을 편하게 말씀해주시면, 미리 참고해서 준비하겠습니다!<br /><br />
+          편하신 시간에 답변 주시면 일정 확정하겠습니다 :)</p>
+        </div>
+      </div>
+    </label>
+
+    <label class="guide-card">
+      <input type="checkbox" data-guide="notify-chat" />
+      <span class="guide-check"></span>
+      <div>
+        <b>04</b><h3>나도 단톡방에 첫 수업 일정 제출하기</h3>
+        <p>일정이 확정되면 나도 Teachers 단톡방에 학생명, 일시, 장소를 반드시 남겨주세요.</p>
+        <div class="guide-message-example">
+          <p class="guide-message-example-label">공지 포맷</p>
+          <p>[학생명] 학생 첫 수업 확정되었습니다. 일시: 8/OO(요일) 오후 O시, 장소: OOO</p>
+        </div>
+      </div>
+    </label>
+
+    <label class="guide-card">
+      <input type="checkbox" data-guide="prepare-questions" />
+      <span class="guide-check"></span>
+      <div>
+        <b>05</b><h3>학생 맞춤 질문 준비</h3>
+        <p>나도가 보낸 학생 정보와 문자 답변에서 파악한 관심사·목표를 바탕으로, 부담 없이 답할 수 있는 대화 주제 2~3가지를 미리 준비합니다.</p>
+        <button type="button" class="guide-curriculum-link" data-go="curriculum">커리큘럼 탭에서 자료 보기 →</button>
+      </div>
+    </label>
+
+  </div>
+</section>
+
+        <section id="page-curriculum" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">CURRICULUM & RESOURCES</p>
+              <h2>수업 자료와 커리큘럼</h2>
+              <p>학생의 수준과 목표에 맞게 선택하여 활용하세요. 운영팀이 Supabase에서 자료를 추가하면 자동으로 표시됩니다.</p>
+            </div>
+          </div>
+          <div id="resourceGrid" class="resource-grid">
+            <article class="resource-card skeleton-card"></article>
+            <article class="resource-card skeleton-card"></article>
+          </div>
+        </section>
+
+        <section id="page-training" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">TRAINING VIDEOS</p>
+              <h2>선생님 교육 영상</h2>
+              <p>교육 영상은 현재 수정 중입니다. 준비가 완료되는 대로 업데이트하겠습니다.</p>
+            </div>
+          </div>
+          <div id="videoGrid" class="video-grid">
+            <article class="panel training-maintenance-card">
+              <span class="training-maintenance-icon">↻</span>
+              <div>
+                <strong>현재 수정 중입니다.</strong>
+                <p>더 나은 교육 자료를 준비하고 있습니다. 준비가 완료되는 대로 이 페이지에 업데이트하겠습니다.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="page-payguide" class="page">
+          <div class="page-intro payguide-intro">
+            <div>
+              <p class="section-kicker">YOUR PAY</p>
+              <h2>수수료 안내</h2>
+              <p>플랜, 수업 시간, 주당 횟수와 정산 횟수를 선택해 첫 달 정산액과 환산 시급을 바로 확인하세요.</p>
+            </div>
+          </div>
+
+          <article class="panel payguide-panel">
+            <div class="payguide-copy">
+              <span class="payguide-pill">NADO Teacher Pay Guide</span>
+              <h3>첫 달부터 2개월 차 이후까지, 내가 받는 금액을 한눈에</h3>
+              <p>첫 달에는 NADO의 매칭 및 운영 수수료가 적용됩니다. 동일 학생과 수업을 계속하는 경우 2개월 차부터는 수업료 전액을 학생에게 직접 지급받습니다.</p>
+            </div>
+
+            <div class="payguide-controls" aria-label="정산 조건 선택">
+              <label>
+                <span>플랜</span>
+                <select id="payGuidePlan">
+                  <option value="economy">Economy</option>
+                  <option value="standard" selected>Standard</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </label>
+              <label>
+                <span>수업 시간</span>
+                <select id="payGuideDuration"></select>
+              </label>
+              <label>
+                <span>수업 빈도</span>
+                <select id="payGuideFrequency">
+                  <option value="1">주 1회</option>
+                  <option value="2">주 2회</option>
+                </select>
+              </label>
+              <label>
+                <span>정산 수업 횟수</span>
+                <select id="payGuideSessions"></select>
+              </label>
+            </div>
+
+            <div id="payGuideSelection" class="payguide-selection">Standard · 1시간 · 주 1회 · 4회 정산</div>
+
+            <div class="payguide-summary-grid">
+              <article class="payguide-summary-card primary">
+                <span>첫 달 정산액</span>
+                <strong id="payGuideFirstPayout">-</strong>
+                <small id="payGuidePayoutNote">선택한 정산 횟수 기준</small>
+              </article>
+              <article class="payguide-summary-card">
+                <span>첫 달 환산 시급</span>
+                <strong id="payGuideFirstHourly">-</strong>
+                <small>첫 달 Teacher 정산 기준</small>
+              </article>
+              <article class="payguide-summary-card month-two">
+                <span>2개월 차부터 시급</span>
+                <strong id="payGuideMonthTwoHourly">-</strong>
+                <small>동일 학생과 수업 지속 시</small>
+              </article>
+            </div>
+
+            <div class="payguide-rate-flow" aria-live="polite">
+              <span>첫 달</span>
+              <strong id="payGuideFlowFirst">-</strong>
+              <b>→</b>
+              <span>2개월 차부터</span>
+              <strong id="payGuideFlowSecond">-</strong>
+            </div>
+
+            <div class="payguide-table-section">
+              <div class="payguide-section-head">
+                <div>
+                  <h3>시간대별 비교</h3>
+                  <p id="payGuideDurationTableCaption">선택한 플랜의 전체 수업 시간을 비교할 수 있습니다.</p>
+                </div>
+              </div>
+              <div class="payguide-table-wrap">
+                <table class="payguide-table">
+                  <thead>
+                    <tr>
+                      <th>수업 시간</th>
+                      <th>첫 달 정산액</th>
+                      <th>첫 달 시급</th>
+                      <th>2개월 차부터 시급</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payGuideDurationRows"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="payguide-table-section compact">
+              <div class="payguide-section-head">
+                <div>
+                  <h3>횟수별 첫 달 정산</h3>
+                  <p id="payGuideSessionTableCaption">선생님 교체 등으로 일부 수업만 진행한 경우의 정산액입니다.</p>
+                </div>
+              </div>
+              <div class="payguide-table-wrap">
+                <table class="payguide-table session-table">
+                  <thead>
+                    <tr>
+                      <th>정산 횟수</th>
+                      <th>첫 달 정산액</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payGuideSessionRows"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="payguide-note" role="note">
+              <strong>안내</strong>
+              <p>환산 시급은 실제 수업시간만을 기준으로 계산한 참고 금액입니다. 첫 달 정산 기준과 수수료에 대한 상세 내용은 NADO Teacher Service Agreement를 확인해주세요.</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="page-profile" class="page">
+          <div class="page-intro">
+            <div>
+              <p class="section-kicker">MY PROFILE</p>
+              <h2>내 정보</h2>
+              <p>운영팀이 매칭에 참고할 기본 정보를 관리합니다.</p>
+            </div>
+          </div>
+          <article class="panel profile-panel">
+            <div class="profile-form-head">
+              <div>
+                <h3>기본 정보 및 정산 계좌</h3>
+                <p>아래 항목은 매칭과 첫 달 수업료 정산을 위해 모두 필수입니다.</p>
+              </div>
+              <span class="required-note"><b>*</b> 필수 입력</span>
+            </div>
+            <form id="profileForm" class="profile-form">
+              <div class="profile-photo-field full-field">
+                <div class="profile-photo-preview">
+                  <img id="profilePhotoImage" alt="프로필 사진 미리보기" hidden />
+                  <span id="profilePhotoFallback">T</span>
+                </div>
+                <div class="profile-photo-copy">
+                  <div class="profile-photo-title-row">
+                    <strong>프로필 사진</strong>
+                  </div>
+                  <p>등록한 사진은 내 화면과 관리자 선생님 정보 카드에 표시됩니다. 사진을 선택한 뒤 아래의 내 정보 저장을 누르면 다른 정보와 함께 저장됩니다. JPG, PNG, WEBP / 최대 5MB</p>
+                  <div class="profile-photo-actions">
+                    <label class="button ghost small file-button" for="profilePhotoInput">사진 선택</label>
+                    <button id="profilePhotoRemoveButton" class="button ghost small danger-text" type="button" disabled>사진 삭제</button>
+                  </div>
+                  <input id="profilePhotoInput" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" />
+                  <span id="profilePhotoStatus" class="profile-photo-status">등록된 사진이 없습니다.</span>
+                </div>
+              </div>
+              <label>
+                <span class="field-label">이름 <b class="required-mark">*</b></span>
+                <input id="profileName" type="text" maxlength="50" autocomplete="name" required />
+              </label>
+              <label>
+                <span class="field-label">학교 <b class="required-mark">*</b></span>
+                <input id="profileSchool" type="text" maxlength="100" placeholder="George Mason University Korea" autocomplete="organization" required />
+              </label>
+              <label>
+                <span class="field-label">전공 <b class="required-mark">*</b></span>
+                <input id="profileMajor" type="text" maxlength="100" placeholder="Economics" required />
+              </label>
+              <label>
+                <span class="field-label">휴대전화 <b class="required-mark">*</b></span>
+                <input id="profilePhone" type="tel" inputmode="tel" maxlength="30" placeholder="010-0000-0000" autocomplete="tel" required />
+              </label>
+              <label class="profile-kakao-field full-field">
+                <span class="field-label">카카오톡 ID <b class="required-mark">*</b></span>
+                <input id="profileKakaoId" type="text" maxlength="100" placeholder="예: nado_teacher" autocomplete="off" required />
+              </label>
+              <label>
+                <span class="field-label">은행명 <b class="required-mark">*</b></span>
+                <input id="profileBankName" type="text" maxlength="50" placeholder="예: 카카오뱅크" autocomplete="off" required />
+              </label>
+              <label>
+                <span class="field-label">계좌번호 <b class="required-mark">*</b></span>
+                <input id="profileAccountNumber" type="text" inputmode="numeric" maxlength="40" placeholder="숫자와 하이픈(-)만 입력" autocomplete="off" required />
+              </label>
+              <label class="full-field">
+                <span class="field-label">한 줄 소개 <b class="required-mark">*</b></span>
+                <textarea id="profileBio" rows="4" maxlength="500" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
+              </label>
+              <div class="profile-publication-notice full-field" role="note">
+                <strong>프로필 공개 안내</strong>
+                <p>프로필 사진과 한 줄 소개는 서비스 소개 및 매칭을 위해 나도 웹사이트에 게시될 수 있습니다. 한 줄 소개는 한국어 또는 영어 중 편한 언어로 작성해주세요.</p>
+              </div>
+              <div class="profile-payment-warning full-field" role="note">
+                <strong>정산 계좌를 정확히 확인해주세요.</strong>
+                <p>은행명 또는 계좌번호가 정상적으로 입력되지 않으면 첫 달 수업료 지급이 지연되거나 차질이 발생할 수 있습니다.</p>
+              </div>
+              <button class="button primary profile-save" type="submit">내 정보 저장</button>
+            </form>
+          </article>
+
+          <article id="profileAgreementPanel" class="panel profile-agreement-panel">
+            <div>
+              <p class="section-kicker">ELECTRONIC AGREEMENT</p>
+              <h3>서비스 이용 계약</h3>
+              <p id="profileAgreementStatus">계약 동의 기록을 확인하고 있습니다.</p>
+            </div>
+            <button id="viewAgreementButton" class="button secondary" type="button" disabled>내 계약서 보기</button>
+          </article>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=20260731-integrated1"></script>
+  <script src="js/pricing.js?v=20260829-trial-free20000-v14"></script>
+  <script src="js/i18n.js?v=20260829-trial-free20000-v14"></script>
+  <script src="js/app.js?v=20260830-member-portal-v1"></script>
+</body>
+</html>

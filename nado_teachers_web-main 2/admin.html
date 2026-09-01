@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#4A90E2" />
+  <link rel="icon" href="assets/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
+  <link rel="manifest" href="assets/site.webmanifest" />
+  <meta name="apple-mobile-web-app-title" content="NADO Teachers" />
+  <title>나도 Teachers 관리자</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css?v=20260830-member-portal-v1" />
+</head>
+<body class="admin-body">
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <header class="admin-header">
+    <a class="logo" href="index.html"><img class="site-logo" src="assets/nado-logo.png" alt="NADO" /><span class="logo-text">Teachers Admin</span></a>
+    <div class="admin-header-actions">
+      <div class="language-slot language-slot-dark" data-nado-language-slot></div>
+      <a class="button ghost small" href="index.html">선생님 화면</a>
+      <button id="adminLogoutButton" class="button secondary small" type="button">로그아웃</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="page-intro admin-intro">
+      <div>
+        <p class="section-kicker">OPERATIONS DASHBOARD</p>
+        <h1>선생님 운영 관리</h1>
+        <p>학생 배정과 정산 예정일을 등록하고, 선생님별 가능 스케줄을 확인할 수 있습니다.</p>
+      </div>
+      <button id="exportCsvButton" class="button primary" type="button">CSV 다운로드</button>
+    </section>
+
+    <section class="admin-stat-grid">
+      <article class="stat-panel"><span>등록 선생님</span><strong id="teacherCount">-</strong></article>
+      <article class="stat-panel"><span>제출 시간대</span><strong id="slotTotalCount">-</strong></article>
+      <article class="stat-panel"><span>최근 업데이트</span><strong id="latestUpdate">-</strong></article>
+      <article class="stat-panel"><span>현재 학생</span><strong id="assignmentTotalCount">-</strong></article>
+      <article class="stat-panel"><span>v1.4 계약 동의</span><strong id="agreementAcceptedCount">-</strong></article>
+    </section>
+
+    <section class="admin-assignment-section">
+      <div class="page-intro admin-assignment-title">
+        <div>
+          <p class="section-kicker">STUDENT ASSIGNMENT</p>
+          <h2>학생 배정 및 정산 관리</h2>
+          <p>담당 선생님과 수업 유형을 선택하면 정규 수업 또는 무료 체험수업의 정산액이 자동 계산됩니다.</p>
+        </div>
+      </div>
+
+      <div class="admin-assignment-layout">
+        <article class="panel assignment-manager-form-card">
+          <h3 id="assignmentFormTitle">새 학생 배정</h3>
+          <form id="assignmentForm" class="manager-form">
+            <label>담당 선생님
+              <select id="assignmentTeacher" required>
+                <option value="">선생님을 선택해주세요</option>
+              </select>
+            </label>
+            <label>학생 이름
+              <input id="assignmentStudentName" type="text" maxlength="100" placeholder="학생 이름 입력" required />
+            </label>
+            <label>학생 이메일
+              <input id="assignmentStudentEmail" type="email" maxlength="200" placeholder="정규 학생 계정으로 사용할 이메일" />
+              <small class="assignment-field-help">정규 수업은 필수입니다. 계정이 없으면 이 이메일로 초대장이 자동 발송됩니다.</small>
+            </label>
+            <label>수업 유형
+              <select id="assignmentType" required>
+                <option value="regular" selected>정규 수업</option>
+                <option value="trial">무료 체험수업</option>
+              </select>
+            </label>
+            <label>학생 플랜
+              <select id="assignmentPlan" required>
+                <option value="">플랜을 선택해주세요</option>
+                <option value="economy">이코노미</option>
+                <option value="standard">스탠다드</option>
+                <option value="premium">프리미엄</option>
+              </select>
+            </label>
+            <div class="assignment-service-fields">
+              <label>수업 시간
+                <select id="assignmentLessonDuration" required>
+                  <option value="">수업 시간을 선택해주세요</option>
+                  <option value="60">1시간</option>
+                  <option value="120">2시간</option>
+                </select>
+              </label>
+              <label>수업 빈도
+                <select id="assignmentWeeklyFrequency" required>
+                  <option value="1">주 1회</option>
+                  <option value="2">주 2회</option>
+                </select>
+              </label>
+            </div>
+            <label>이번 선생님 담당 수업 횟수
+              <select id="assignmentSettlementSessions" required>
+                <option value="1">1회</option>
+                <option value="2">2회</option>
+                <option value="3">3회</option>
+                <option value="4" selected>4회</option>
+              </select>
+            </label>
+            <p id="assignmentPackageNote" class="assignment-package-note">주 1회는 4회, 주 2회는 8회 기준으로 수업료와 첫 달 정산액이 계산됩니다. 선생님 교체 등으로 일부 수업만 정산할 경우 실제 담당 횟수를 선택해주세요.</p>
+            <div id="assignmentPricingPreview" class="assignment-pricing-preview" role="status" aria-live="polite">
+              <div class="assignment-pricing-placeholder">플랜과 수업 시간을 선택하면 첫 달 정산액이 자동 계산됩니다.</div>
+            </div>
+            <div class="assignment-date-fields">
+              <label>첫 수업일
+                <input id="assignmentFirstLessonDate" type="date" required />
+              </label>
+              <label>정산 예정일
+                <input id="assignmentSettlementDate" type="date" required />
+              </label>
+            </div>
+            <div class="assignment-form-actions">
+              <button id="assignmentCancelButton" class="button ghost hidden" type="button">수정 취소</button>
+              <button id="assignmentSubmitButton" class="button primary" type="submit">배정 및 초대</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="panel assignment-manager-list-card">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">ASSIGNMENT LIST</p>
+              <h3>학생 관리 목록</h3>
+            </div>
+            <span id="adminAssignmentCount" class="count-badge">0건</span>
+          </div>
+          <div class="assignment-filter-tabs" role="tablist" aria-label="학생 상태 필터">
+            <button class="assignment-filter-tab active" data-assignment-filter="current" type="button">현재 학생 <span id="adminCurrentAssignmentCount">0</span></button>
+            <button class="assignment-filter-tab" data-assignment-filter="history" type="button">학생 기록 <span id="adminHistoryAssignmentCount">0</span></button>
+            <button class="assignment-filter-tab" data-assignment-filter="all" type="button">전체 <span id="adminAllAssignmentCount">0</span></button>
+          </div>
+          <p class="assignment-manager-note">정산 예정일 당일까지 현재 학생으로 표시되며, 다음 날 학생 기록으로 자동 분류됩니다.</p>
+          <div id="adminAssignmentList" class="admin-assignment-list">
+            <div class="skeleton assignment-skeleton"></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="admin-calendar-section">
+      <div class="page-intro admin-calendar-title">
+        <div>
+          <p class="section-kicker">STUDENT CALENDAR</p>
+          <h2>학생 일정 캘린더</h2>
+          <p>학생별 첫 수업일과 정산 예정일을 한눈에 확인할 수 있습니다.</p>
+        </div>
+      </div>
+
+      <article class="panel admin-calendar-panel">
+        <div class="admin-calendar-toolbar">
+          <div class="admin-calendar-nav">
+            <button id="calendarPrevButton" class="button ghost small" type="button" aria-label="이전 달">←</button>
+            <button id="calendarTodayButton" class="button secondary small" type="button">오늘</button>
+            <button id="calendarNextButton" class="button ghost small" type="button" aria-label="다음 달">→</button>
+          </div>
+          <h3 id="calendarMonthTitle">-</h3>
+          <div class="calendar-type-legend" aria-label="일정 종류">
+            <span><i class="calendar-legend-dot first"></i>첫 수업일</span>
+            <span><i class="calendar-legend-dot settlement"></i>정산 예정일</span>
+          </div>
+        </div>
+        <p class="calendar-color-note">학생 이름은 학생별 고유 색상, 선생님 이름은 같은 선생님끼리 같은 색상으로 표시됩니다.</p>
+        <div class="admin-calendar-scroll">
+          <div id="adminCalendar" class="admin-calendar" role="grid" aria-label="학생 일정 캘린더"></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="page-intro admin-schedule-title">
+      <div>
+        <p class="section-kicker">TEACHER AVAILABILITY</p>
+        <h2>선생님 스케줄</h2>
+        <p>선생님별 제출 시간과 정산 계좌 정보를 확인할 수 있습니다.</p>
+      </div>
+    </section>
+
+    <section class="panel admin-filter-panel">
+      <label>선생님 검색<input id="teacherSearch" type="search" placeholder="이름 또는 이메일 검색" /></label>
+      <label>요일 필터
+        <select id="dayFilter">
+          <option value="all">전체 요일</option>
+          <option value="1">월요일</option><option value="2">화요일</option><option value="3">수요일</option>
+          <option value="4">목요일</option><option value="5">금요일</option><option value="6">토요일</option><option value="0">일요일</option>
+        </select>
+      </label>
+    </section>
+
+    <section id="adminTeacherList" class="admin-teacher-list">
+      <article class="panel skeleton-card"></article>
+    </section>
+
+    <section class="admin-content-section">
+      <div class="page-intro admin-content-title">
+        <div>
+          <p class="section-kicker">CONTENT MANAGEMENT</p>
+          <h2>사이트 콘텐츠 관리</h2>
+          <p>공지사항, 커리큘럼 링크, YouTube 교육 영상을 이 화면에서 등록할 수 있습니다.</p>
+        </div>
+      </div>
+
+      <div class="admin-content-grid">
+        <article class="panel content-manager-card">
+          <h3>공지사항 등록</h3>
+          <form id="announcementForm" class="manager-form">
+            <label>한국어 제목<input id="announcementTitle" type="text" maxlength="120" required /></label>
+            <label>한국어 내용<textarea id="announcementBody" rows="4" maxlength="1000" required></textarea></label>
+            <label>영문 제목<input id="announcementTitleEn" type="text" maxlength="120" placeholder="English title" /></label>
+            <label>영문 내용<textarea id="announcementBodyEn" rows="4" maxlength="1000" placeholder="English notice content"></textarea></label>
+            <p class="manager-form-help">영어 화면에서는 영문 입력값이 표시되며, 비어 있으면 한국어가 대신 표시됩니다.</p>
+            <div class="content-form-actions">
+              <button id="announcementCancelButton" class="button ghost hidden" type="button">수정 취소</button>
+              <button id="announcementSubmitButton" class="button primary" type="submit">공지 등록</button>
+            </div>
+          </form>
+          <div id="adminAnnouncementList" class="manager-list"></div>
+        </article>
+
+        <article class="panel content-manager-card">
+          <h3>수업 자료 등록</h3>
+          <form id="resourceForm" class="manager-form">
+            <label>한국어 자료 제목<input id="resourceTitle" type="text" maxlength="120" required /></label>
+            <label>한국어 설명<textarea id="resourceDescription" rows="3" maxlength="500"></textarea></label>
+            <label>영문 자료 제목<input id="resourceTitleEn" type="text" maxlength="120" placeholder="English material title" /></label>
+            <label>영문 설명<textarea id="resourceDescriptionEn" rows="3" maxlength="500" placeholder="English description"></textarea></label>
+            <div class="manager-form-row">
+              <label>종류<select id="resourceCategory"><option>PDF</option><option>DOC</option><option>LINK</option></select></label>
+              <label>순서<input id="resourceOrder" type="number" value="1" min="0" max="999" /></label>
+            </div>
+            <label>회원 전용 파일 업로드<input id="resourceFile" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.mp3,.m4a,.wav" /></label>
+            <label>또는 외부 공유 URL<input id="resourceUrl" type="url" placeholder="https://drive.google.com/..." /></label>
+            <p class="manager-form-help">파일을 직접 올리면 로그인한 활성 회원만 열 수 있습니다. 파일 또는 외부 URL 중 하나를 입력해주세요.</p>
+            <div class="content-form-actions">
+              <button id="resourceCancelButton" class="button ghost hidden" type="button">수정 취소</button>
+              <button id="resourceSubmitButton" class="button primary" type="submit">자료 등록</button>
+            </div>
+          </form>
+          <div id="adminResourceList" class="manager-list"></div>
+        </article>
+
+        <article class="panel content-manager-card">
+          <h3>교육 영상 등록</h3>
+          <form id="videoForm" class="manager-form">
+            <label>한국어 영상 제목<input id="videoTitle" type="text" maxlength="120" required /></label>
+            <label>한국어 설명<textarea id="videoDescription" rows="3" maxlength="500"></textarea></label>
+            <label>영문 영상 제목<input id="videoTitleEn" type="text" maxlength="120" placeholder="English video title" /></label>
+            <label>영문 설명<textarea id="videoDescriptionEn" rows="3" maxlength="500" placeholder="English description"></textarea></label>
+            <div class="manager-form-row">
+              <label>YouTube URL<input id="videoUrl" type="url" placeholder="https://youtu.be/..." required /></label>
+              <label>순서<input id="videoOrder" type="number" value="1" min="0" max="999" /></label>
+            </div>
+            <div class="content-form-actions">
+              <button id="videoCancelButton" class="button ghost hidden" type="button">수정 취소</button>
+              <button id="videoSubmitButton" class="button primary" type="submit">영상 등록</button>
+            </div>
+          </form>
+          <div id="adminVideoList" class="manager-list"></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js?v=20260731-integrated1"></script>
+  <script src="js/pricing.js?v=20260829-trial-free20000-v14"></script>
+  <script src="js/i18n.js?v=20260829-trial-free20000-v14"></script>
+  <script src="js/admin.js?v=20260830-member-portal-v1"></script>
+</body>
+</html>
