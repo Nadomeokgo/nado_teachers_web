@@ -9,12 +9,12 @@ window.NADO_CONFIG = {
 // Keep teacher schedule/profile updates connected to the student matching database.
 (() => {
   const syncScript = document.createElement('script');
-  syncScript.src = 'js/matching-sync.js?v=20260909-4';
+  syncScript.src = 'js/matching-sync.js?v=20260910-1';
   syncScript.defer = true;
   document.head.appendChild(syncScript);
 
   const customAreaScript = document.createElement('script');
-  customAreaScript.src = 'js/custom-seoul-areas.js?v=20260909-2';
+  customAreaScript.src = 'js/custom-seoul-areas.js?v=20260910-1';
   customAreaScript.defer = true;
   document.head.appendChild(customAreaScript);
 })();
