@@ -6,15 +6,10 @@ window.NADO_CONFIG = {
   SITE_NAME: "나도 Teachers"
 };
 
-// Keep teacher schedule/profile updates connected to the student matching database.
+// Load the current schedule editor. Seoul availability is managed per service area.
 (() => {
-  const syncScript = document.createElement('script');
-  syncScript.src = 'js/matching-sync.js?v=20260910-1';
-  syncScript.defer = true;
-  document.head.appendChild(syncScript);
-
-  const customAreaScript = document.createElement('script');
-  customAreaScript.src = 'js/custom-seoul-areas.js?v=20260910-1';
-  customAreaScript.defer = true;
-  document.head.appendChild(customAreaScript);
+  const scheduleScript = document.createElement('script');
+  scheduleScript.src = 'js/schedule-v2.js?v=20260910-1';
+  scheduleScript.defer = true;
+  document.head.appendChild(scheduleScript);
 })();
