@@ -61,6 +61,28 @@
     return catalog.find(a => a.code === activeServiceArea)?.label || activeServiceArea || '';
   }
 
+  function renderLocationButtons() {
+    const wrap = $('nadoLocationButtons');
+    if (!wrap) return;
+    wrap.innerHTML = LOCATION_OPTIONS.map(([value, ko, en]) => `
+      <button
+        type="button"
+        class="nado-v2-location-button${value === activeLocation ? ' active' : ''}"
+        data-v2-location="${escapeHtml(value)}"
+        aria-pressed="${value === activeLocation}"
+      >${escapeHtml(tr(ko, en))}</button>
+    `).join('');
+  }
+
+  function formatMobileTimeButtons() {
+    document.querySelectorAll('#availabilityMobilePicker [data-availability-key]').forEach(button => {
+      const { minutes } = parseKey(button.dataset.availabilityKey);
+      if (!Number.isFinite(minutes)) return;
+      const label = minutesToTime(minutes);
+      if (button.textContent !== label) button.textContent = label;
+    });
+  }
+
   function setDirty(value = true) {
     dirty = value;
     const state = $('scheduleSaveState');
@@ -111,6 +133,7 @@
         ? `${Number.isInteger(hours) ? hours : hours.toFixed(1)} hr selected`
         : `${Number.isInteger(hours) ? hours : hours.toFixed(1)}시간 선택`;
     }
+    formatMobileTimeButtons();
   }
 
   function setCell(value, on) {
@@ -354,6 +377,8 @@
     }
 
     if (input) input.value = '';
+    $('nadoCustomAreaRow')?.classList.remove('open');
+    $('nadoCustomAreaToggle')?.setAttribute('aria-expanded', 'false');
     await loadCatalogAndAreas();
     await loadCurrentSchedule();
     showToast('새 가능 장소가 추가되었습니다.', 'New available location added.');
@@ -371,6 +396,7 @@
       locationSelect.innerHTML = LOCATION_OPTIONS.map(([value, ko, en]) => `<option value="${escapeHtml(value)}">${escapeHtml(tr(ko, en))}</option>`).join('');
       locationSelect.value = current;
     }
+    renderLocationButtons();
 
     const notice = document.querySelector('#page-schedule .location-assignment-notice');
     if (notice) notice.style.display = 'none';
@@ -378,6 +404,7 @@
     if ($('nadoSeoulAreaTitle')) $('nadoSeoulAreaTitle').textContent = tr('서울 가능 지역', 'Available Seoul Areas');
     if ($('nadoSeoulAreaCopy')) $('nadoSeoulAreaCopy').textContent = tr('수업할 수 있는 지역을 모두 선택해주세요.', 'Select every area where you can teach.');
     if ($('nadoCustomAreaInput')) $('nadoCustomAreaInput').placeholder = tr('기타 장소 (10자 이내)', 'Other location (max 10 chars)');
+    if ($('nadoCustomAreaToggle')) $('nadoCustomAreaToggle').textContent = tr('+ 기타 장소 추가', '+ Add another location');
     if ($('nadoCustomAreaAdd')) $('nadoCustomAreaAdd').textContent = tr('추가', 'Add');
     if ($('nadoAreaEditorLabel')) $('nadoAreaEditorLabel').textContent = tr('시간 설정 지역', 'Area for Time Setting');
     if ($('nadoAreaEditorEmpty')) $('nadoAreaEditorEmpty').textContent = tr('가능한 서울 지역을 먼저 선택해주세요.', 'Select an available Seoul area first.');
@@ -408,11 +435,13 @@
     const panel = document.createElement('div');
     panel.id = 'nadoScheduleV2';
     panel.innerHTML = `
+      <div id="nadoLocationButtons" class="nado-v2-location-buttons" aria-label="가능 장소"></div>
       <div id="nadoSeoulAreaPanel" class="nado-v2-panel" hidden>
         <strong id="nadoSeoulAreaTitle">서울 가능 지역</strong>
         <p id="nadoSeoulAreaCopy">수업할 수 있는 지역을 모두 선택해주세요.</p>
         <div id="nadoServiceAreaGrid" class="nado-v2-area-grid"></div>
-        <div class="nado-v2-custom-row">
+        <button id="nadoCustomAreaToggle" class="nado-v2-custom-toggle" type="button" aria-expanded="false">+ 기타 장소 추가</button>
+        <div id="nadoCustomAreaRow" class="nado-v2-custom-row">
           <input id="nadoCustomAreaInput" maxlength="10" placeholder="기타 장소 (10자 이내)">
           <button id="nadoCustomAreaAdd" type="button">추가</button>
         </div>
@@ -445,6 +474,7 @@
       .nado-v2-panel{margin-top:16px;padding-top:16px;border-top:1px solid #dbe7f5}
       .nado-v2-panel>strong{font-size:1rem}
       .nado-v2-panel>p{margin:6px 0 14px;color:#596579;font-size:1rem;line-height:1.55}
+      .nado-v2-location-buttons{display:none}
       .nado-v2-area-grid{display:flex;flex-wrap:wrap;gap:8px}
       .nado-area-chip{cursor:pointer}
       .nado-area-chip input{position:absolute;opacity:0;pointer-events:none}
@@ -453,10 +483,58 @@
       .nado-v2-custom-row{display:flex;gap:8px;margin-top:12px}
       .nado-v2-custom-row input{flex:1;min-width:0;border:1px solid #d7e2ef;border-radius:10px;padding:10px 12px;background:#fff}
       .nado-v2-custom-row button{border:0;border-radius:10px;background:#4A90E2;color:#fff;font-weight:700;padding:10px 16px;white-space:nowrap}
+      .nado-v2-custom-toggle{display:none;width:100%;margin-top:12px;padding:11px 14px;border:1px solid #4A90E2;border-radius:11px;background:#fff;color:#2e6dc2;font-weight:800}
       .nado-v2-editor{margin-top:16px}
       .nado-v2-editor>label{display:block;font-weight:800;margin-bottom:7px}
       .nado-v2-editor select{width:100%;padding:10px 12px;border:1px solid #d7e2ef;border-radius:10px;background:#fff}
       .nado-v2-empty{font-size:.9rem;color:#667085;margin:8px 0 0}
+      @media (max-width:620px){
+        #page-schedule{padding-bottom:88px}
+        #page-schedule .page-intro{margin-bottom:22px}
+        #page-schedule .page-intro h2{font-size:1.9rem;line-height:1.2}
+        #page-schedule .page-intro>div>p:not(.section-kicker){font-size:1rem;line-height:1.55}
+        #page-schedule #scheduleSaveState{display:none}
+        #page-schedule .schedule-form-panel{padding:0;border:0;border-radius:0;box-shadow:none;background:transparent}
+        #page-schedule .schedule-preference-field{margin:0 0 26px;padding:0;border:0;border-radius:0;background:transparent}
+        #page-schedule .schedule-preference-field>label{margin-bottom:12px;font-size:1.1rem;color:#111827}
+        #page-schedule #scheduleLocation{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+        .nado-v2-location-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+        .nado-v2-location-button{min-height:48px;padding:10px 8px;border:1px solid #d5deea;border-radius:12px;background:#fff;color:#1f2937;font-size:.9rem;font-weight:750;line-height:1.25}
+        .nado-v2-location-button.active{border-color:#2f6feb;background:linear-gradient(135deg,#3277ef,#1f63e9);color:#fff;box-shadow:0 7px 16px rgba(47,111,235,.18)}
+        .nado-v2-panel{margin-top:26px;padding-top:0;border-top:0}
+        .nado-v2-panel>strong{display:block;margin-bottom:10px;font-size:1.1rem;color:#111827}
+        .nado-v2-panel>p{margin:0 0 13px;font-size:.94rem;line-height:1.5}
+        .nado-v2-area-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+        .nado-area-chip span{display:grid;place-items:center;min-height:44px;padding:8px 5px;border-radius:11px;text-align:center;font-size:.84rem;line-height:1.2}
+        .nado-v2-custom-toggle{display:block}
+        .nado-v2-custom-row{display:none;margin-top:8px}
+        .nado-v2-custom-row.open{display:flex}
+        .nado-v2-custom-row input{min-height:46px;font-size:16px}
+        .nado-v2-custom-row button{min-width:66px}
+        .nado-v2-editor{margin-top:24px}
+        .nado-v2-editor>label{margin-bottom:10px;font-size:1.1rem;color:#111827}
+        .nado-v2-editor select{min-height:50px;padding:12px 14px;border-radius:11px;font-size:16px}
+        #page-schedule .form-section-head{margin:0 0 13px}
+        #page-schedule .form-section-head h3{font-size:1.1rem}
+        #page-schedule .form-section-head p{margin-top:6px;font-size:.94rem;line-height:1.5}
+        #page-schedule .availability-picker-head{display:none}
+        #page-schedule .availability-mobile-picker{margin-top:0}
+        #page-schedule .availability-mobile-days{grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin-bottom:14px}
+        #page-schedule .availability-mobile-day{min-height:44px;padding:6px 1px;border-radius:10px;font-size:.78rem}
+        #page-schedule .availability-mobile-hours{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+        #page-schedule .availability-mobile-hour{display:contents}
+        #page-schedule .availability-mobile-hour>strong{display:none}
+        #page-schedule .availability-mobile-half-buttons{display:contents}
+        #page-schedule .availability-mobile-half-buttons button{min-height:46px;padding:8px 3px;border:1px solid #d5deea;border-radius:10px;background:#fff;color:#1f2937;font-size:.82rem;font-weight:750}
+        #page-schedule .availability-mobile-half-buttons button.selected{border-color:#2f6feb;background:linear-gradient(135deg,#3277ef,#1f63e9);color:#fff;box-shadow:0 6px 14px rgba(47,111,235,.16)}
+        #page-schedule .schedule-actions{position:fixed;z-index:70;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr 1.35fr;gap:9px;margin:0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #e5eaf0;background:rgba(255,255,255,.96);box-shadow:0 -8px 24px rgba(22,50,79,.08);backdrop-filter:blur(12px)}
+        #page-schedule .schedule-actions .button{width:100%;min-width:0;min-height:50px;border-radius:11px;font-size:1rem}
+        #page-schedule #clearScheduleButton{order:0;background:#fff;border:1px solid #d5deea}
+        #page-schedule #saveScheduleButton{order:1;background:linear-gradient(135deg,#3277ef,#1f63e9)}
+      }
+      @media (max-width:390px){
+        .nado-v2-area-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      }
     `;
     document.head.appendChild(style);
 
@@ -488,6 +566,30 @@
         event.preventDefault();
         event.stopImmediatePropagation();
         addCustomArea();
+        return;
+      }
+
+      const customToggle = event.target.closest?.('#nadoCustomAreaToggle');
+      if (customToggle) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const row = $('nadoCustomAreaRow');
+        const willOpen = !row?.classList.contains('open');
+        row?.classList.toggle('open', willOpen);
+        customToggle.setAttribute('aria-expanded', String(willOpen));
+        if (willOpen) $('nadoCustomAreaInput')?.focus();
+        return;
+      }
+
+      const locationButton = event.target.closest?.('[data-v2-location]');
+      if (locationButton) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const select = $('scheduleLocation');
+        if (!select || locationButton.dataset.v2Location === activeLocation) return;
+        select.value = locationButton.dataset.v2Location;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        setTimeout(renderLocationButtons, 0);
         return;
       }
 
@@ -525,6 +627,7 @@
           return;
         }
         activeLocation = event.target.value;
+        renderLocationButtons();
         $('nadoSeoulAreaPanel').hidden = activeLocation !== '서울';
         loadCatalogAndAreas().then(loadCurrentSchedule);
       }
@@ -561,6 +664,11 @@
         renderSelection();
       }, 30);
     });
+
+    const mobilePicker = $('availabilityMobilePicker');
+    if (mobilePicker) {
+      new MutationObserver(() => formatMobileTimeButtons()).observe(mobilePicker, { childList: true, subtree: true });
+    }
   }
 
   async function start() {
