@@ -5,3 +5,11 @@ window.NADO_CONFIG = {
   SUPPORT_URL: "https://open.kakao.com/o/sCZAMCGi",
   SITE_NAME: "나도 Teachers"
 };
+
+// Keep teacher schedule/profile updates connected to the student matching database.
+(() => {
+  const script = document.createElement('script');
+  script.src = 'js/matching-sync.js?v=20260909-1';
+  script.defer = true;
+  document.head.appendChild(script);
+})();
