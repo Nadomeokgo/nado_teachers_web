@@ -9,7 +9,7 @@ window.NADO_CONFIG = {
 // Keep teacher schedule/profile updates connected to the student matching database.
 (() => {
   const script = document.createElement('script');
-  script.src = 'js/matching-sync.js?v=20260909-1';
+  script.src = 'js/matching-sync.js?v=20260909-2';
   script.defer = true;
   document.head.appendChild(script);
 })();
