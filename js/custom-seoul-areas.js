@@ -5,12 +5,13 @@
   let supabase = null;
   let user = null;
   let refreshing = false;
+  let lastSignature = '';
 
   function getClient() {
     if (supabase) return supabase;
     const config = window.NADO_CONFIG || {};
     if (!window.supabase || !config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) return null;
-    supabase = window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+    supabase = window.NADO_SUPABASE_CLIENT || window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
     return supabase;
   }
 
@@ -31,9 +32,23 @@
     return user;
   }
 
+  function syncLocationCopy() {
+    const label = document.querySelector('label[for="scheduleLocation"]');
+    if (label) label.textContent = '가능 장소';
+
+    const notice = document.querySelector('#page-schedule .location-assignment-notice');
+    if (notice) {
+      const title = notice.querySelector('strong');
+      const text = notice.querySelector('p');
+      if (title) title.textContent = '가능 장소 안내';
+      if (text) text.textContent = '선택한 가능 장소와 가능 시간은 학생 매칭에 사용됩니다. 실제 수업 장소는 학생과 최종 조율할 수 있습니다.';
+    }
+  }
+
   function ensureUi() {
     const wrap = $('matchingSeoulAreas');
     if (!wrap) return false;
+    syncLocationCopy();
 
     let controls = $('sharedSeoulAreaControls');
     if (!controls) {
@@ -46,7 +61,7 @@
           <input id="customSeoulAreaInput" type="text" placeholder="예: 마곡, 성수" maxlength="10" />
           <button id="customSeoulAreaAddButton" type="button">항목 추가</button>
         </div>
-        <div class="custom-seoul-area-help">10자 이내로 추가하면 모든 선생님의 서울 지역 선택지에 표시됩니다.</div>
+        <div class="custom-seoul-area-help">10자 이내로 추가하면 모든 선생님의 서울 가능 장소 선택지에 표시됩니다.</div>
         <div id="customSeoulAreaMessage" class="custom-seoul-area-message" aria-live="polite"></div>
       `;
       wrap.appendChild(controls);
@@ -118,17 +133,18 @@
           .eq('area', area);
         if (error) throw error;
       }
+      lastSignature = '';
     } catch (error) {
       input.checked = !input.checked;
       const message = $('customSeoulAreaMessage');
-      if (message) message.textContent = '지역 선택 저장에 실패했습니다.';
-      console.warn('서울 지역 선택 저장 실패:', error);
+      if (message) message.textContent = '가능 장소 저장에 실패했습니다.';
+      console.warn('서울 가능 장소 저장 실패:', error);
     } finally {
       input.disabled = false;
     }
   }
 
-  async function refreshCatalog() {
+  async function refreshCatalog(force = false) {
     if (refreshing || !ensureUi()) return;
     const currentUser = await getUser();
     if (!currentUser) return;
@@ -143,13 +159,22 @@
           .eq('teacher_id', currentUser.id)
           .eq('region', 'Seoul')
       ]);
-      if (catalogError || selectedError) return;
+      if (catalogError || selectedError) {
+        console.warn('서울 가능 장소 조회 실패:', catalogError || selectedError);
+        return;
+      }
 
       const selected = new Set((selectedRows || []).filter((row) => row.active).map((row) => row.area));
+      const rows = Array.isArray(catalog) ? catalog : [];
+      const signature = JSON.stringify({
+        catalog: rows.map((row) => [row.code, row.label]),
+        selected: [...selected].sort()
+      });
+      if (!force && signature === lastSignature) return;
+
       const grid = document.querySelector('#matchingSeoulAreas .matching-area-grid');
       if (!grid) return;
 
-      const rows = Array.isArray(catalog) ? catalog : [];
       grid.innerHTML = rows.map((row) => `
         <label>
           <input type="checkbox" data-seoul-area value="${escapeHtml(row.code)}" ${selected.has(row.code) ? 'checked' : ''}>
@@ -164,6 +189,7 @@
           if (memo) memo.dispatchEvent(new Event('input', { bubbles: true }));
         });
       });
+      lastSignature = signature;
     } finally {
       refreshing = false;
     }
@@ -217,22 +243,48 @@
     }
 
     input.value = '';
-    if (message) message.textContent = '새 장소 항목이 추가되었습니다.';
-    await refreshCatalog();
+    lastSignature = '';
+    if (message) message.textContent = '새 가능 장소 항목이 추가되었습니다.';
+    await refreshCatalog(true);
+  }
+
+  async function waitForUi() {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      if ($('matchingSeoulAreas')) return true;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return false;
   }
 
   async function start() {
-    const observer = new MutationObserver(() => {
-      const wrap = $('matchingSeoulAreas');
-      if (wrap && !wrap.hidden) refreshCatalog();
-    });
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
-
+    if (!(await waitForUi())) return;
     ensureUi();
-    await refreshCatalog();
+    await refreshCatalog(true);
+
+    const wrap = $('matchingSeoulAreas');
+    if (wrap) {
+      new MutationObserver((mutations) => {
+        if (mutations.some((mutation) => mutation.attributeName === 'hidden') && !wrap.hidden) {
+          lastSignature = '';
+          refreshCatalog(true);
+        }
+      }).observe(wrap, { attributes: true, attributeFilter: ['hidden'] });
+    }
+
+    const locationSelect = $('scheduleLocation');
+    if (locationSelect) {
+      locationSelect.addEventListener('change', () => {
+        syncLocationCopy();
+        if (locationSelect.value === '서울') {
+          lastSignature = '';
+          window.setTimeout(() => refreshCatalog(true), 0);
+        }
+      });
+    }
+
     window.setInterval(() => {
-      const wrap = $('matchingSeoulAreas');
-      if (wrap && !wrap.hidden) refreshCatalog();
+      syncLocationCopy();
+      if (wrap && !wrap.hidden) refreshCatalog(false);
     }, 15000);
   }
 
