@@ -2,8 +2,19 @@
   'use strict';
 
   const SEOUL_AREAS = [
-    ['Gangnam', '강남'], ['Daechi', '대치'], ['Jamsil', '잠실'], ['Hanti', '한티'],
-    ['Hongdae', '홍대'], ['Yongsan', '용산'], ['Line 3 vicinity', '3호선 인근']
+    ['Gangnam', '강남'],
+    ['Seocho', '서초'],
+    ['Daechi', '대치'],
+    ['Jamsil', '잠실'],
+    ['Hanti', '한티'],
+    ['Yeongdeungpo-gu', '영등포구'],
+    ['Seonyudo', '선유도'],
+    ['Yangcheon-gu', '양천구'],
+    ['Hapjeong', '합정'],
+    ['Hongdae', '홍대'],
+    ['Sinchon', '신촌'],
+    ['Yongsan', '용산'],
+    ['Line 3 vicinity', '3호선 인근']
   ];
   const LOCATION_OPTIONS = [
     ['IGC', '인천 · IGC'],
@@ -139,19 +150,41 @@
   async function saveSeoulAreas() {
     if (activeLocation !== '서울') return;
     const sb = getClient();
-    const areas = [...document.querySelectorAll('[data-seoul-area]:checked')].map((input) => input.value);
+    const selectedAreas = new Set(
+      [...document.querySelectorAll('[data-seoul-area]:checked')].map((input) => input.value)
+    );
+    const managedAreas = new Set(SEOUL_AREAS.map(([value]) => value));
 
-    const { error: deleteError } = await sb
+    const { data: existing, error: loadError } = await sb
       .from('teacher_service_areas')
-      .delete()
+      .select('id, area, active')
       .eq('teacher_id', user.id)
       .eq('region', 'Seoul');
-    if (deleteError) throw deleteError;
+    if (loadError) throw loadError;
 
-    if (areas.length) {
-      const { error } = await sb.from('teacher_service_areas').insert(
-        areas.map((area) => ({ teacher_id: user.id, region: 'Seoul', area, active: true }))
-      );
+    const rows = existing || [];
+    const deleteIds = rows
+      .filter((row) => managedAreas.has(row.area) && !selectedAreas.has(row.area))
+      .map((row) => row.id);
+    if (deleteIds.length) {
+      const { error } = await sb.from('teacher_service_areas').delete().in('id', deleteIds);
+      if (error) throw error;
+    }
+
+    const activateIds = rows
+      .filter((row) => managedAreas.has(row.area) && selectedAreas.has(row.area) && !row.active)
+      .map((row) => row.id);
+    if (activateIds.length) {
+      const { error } = await sb.from('teacher_service_areas').update({ active: true }).in('id', activateIds);
+      if (error) throw error;
+    }
+
+    const existingAreas = new Set(rows.map((row) => row.area));
+    const inserts = [...selectedAreas]
+      .filter((area) => !existingAreas.has(area))
+      .map((area) => ({ teacher_id: user.id, region: 'Seoul', area, active: true }));
+    if (inserts.length) {
+      const { error } = await sb.from('teacher_service_areas').insert(inserts);
       if (error) throw error;
     }
   }
