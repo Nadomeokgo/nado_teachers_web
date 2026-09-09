@@ -77,6 +77,57 @@
     return true;
   }
 
+  async function persistSelection(input) {
+    const currentUser = await getUser();
+    if (!currentUser || !input?.value) return;
+    const sb = getClient();
+    const area = input.value;
+
+    input.disabled = true;
+    try {
+      if (input.checked) {
+        const { data: existing, error: selectError } = await sb
+          .from('teacher_service_areas')
+          .select('id, active')
+          .eq('teacher_id', currentUser.id)
+          .eq('region', 'Seoul')
+          .eq('area', area)
+          .limit(1);
+        if (selectError) throw selectError;
+
+        if (existing?.length) {
+          if (!existing[0].active) {
+            const { error } = await sb.from('teacher_service_areas').update({ active: true }).eq('id', existing[0].id);
+            if (error) throw error;
+          }
+        } else {
+          const { error } = await sb.from('teacher_service_areas').insert({
+            teacher_id: currentUser.id,
+            region: 'Seoul',
+            area,
+            active: true
+          });
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await sb
+          .from('teacher_service_areas')
+          .delete()
+          .eq('teacher_id', currentUser.id)
+          .eq('region', 'Seoul')
+          .eq('area', area);
+        if (error) throw error;
+      }
+    } catch (error) {
+      input.checked = !input.checked;
+      const message = $('customSeoulAreaMessage');
+      if (message) message.textContent = '지역 선택 저장에 실패했습니다.';
+      console.warn('서울 지역 선택 저장 실패:', error);
+    } finally {
+      input.disabled = false;
+    }
+  }
+
   async function refreshCatalog() {
     if (refreshing || !ensureUi()) return;
     const currentUser = await getUser();
@@ -107,7 +158,8 @@
       `).join('');
 
       grid.querySelectorAll('[data-seoul-area]').forEach((input) => {
-        input.addEventListener('change', () => {
+        input.addEventListener('change', async () => {
+          await persistSelection(input);
           const memo = $('scheduleMemo');
           if (memo) memo.dispatchEvent(new Event('input', { bubbles: true }));
         });
