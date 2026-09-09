@@ -6,10 +6,32 @@ window.NADO_CONFIG = {
   SITE_NAME: "나도 Teachers"
 };
 
+// Reuse one Supabase client per page so auth does not create duplicate GoTrueClient instances.
+(() => {
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.NADO_CONFIG;
+  const supabaseLib = window.supabase;
+  if (!supabaseLib?.createClient || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+
+  const originalCreateClient = supabaseLib.createClient.bind(supabaseLib);
+
+  if (!window.NADO_SUPABASE_CLIENT) {
+    window.NADO_SUPABASE_CLIENT = originalCreateClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+
+  // Existing scripts still call supabase.createClient directly. Return the shared
+  // NADO client for this project instead of creating another auth client.
+  supabaseLib.createClient = (url, key, options) => {
+    if (url === SUPABASE_URL && key === SUPABASE_ANON_KEY) {
+      return window.NADO_SUPABASE_CLIENT;
+    }
+    return originalCreateClient(url, key, options);
+  };
+})();
+
 // Load the current schedule editor. Seoul availability is managed per service area.
 (() => {
   const scheduleScript = document.createElement('script');
-  scheduleScript.src = 'js/schedule-v2.js?v=20260910-4';
+  scheduleScript.src = 'js/schedule-v2.js?v=20260910-5';
   scheduleScript.defer = true;
   document.head.appendChild(scheduleScript);
 })();
