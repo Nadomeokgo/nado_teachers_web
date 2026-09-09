@@ -9,7 +9,7 @@ window.NADO_CONFIG = {
 // Load the current schedule editor. Seoul availability is managed per service area.
 (() => {
   const scheduleScript = document.createElement('script');
-  scheduleScript.src = 'js/schedule-v2.js?v=20260910-3';
+  scheduleScript.src = 'js/schedule-v2.js?v=20260910-4';
   scheduleScript.defer = true;
   document.head.appendChild(scheduleScript);
 })();
