@@ -29,7 +29,7 @@ window.NADO_CONFIG = {
 // Load the current schedule editor.
 (() => {
   const scheduleScript = document.createElement('script');
-  scheduleScript.src = 'js/schedule-v3.js?v=20260910-1';
+  scheduleScript.src = 'js/schedule-v4.js?v=20260910-1';
   scheduleScript.defer = true;
   document.head.appendChild(scheduleScript);
 })();
