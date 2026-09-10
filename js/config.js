@@ -18,8 +18,6 @@ window.NADO_CONFIG = {
     window.NADO_SUPABASE_CLIENT = originalCreateClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 
-  // Existing scripts still call supabase.createClient directly. Return the shared
-  // NADO client for this project instead of creating another auth client.
   supabaseLib.createClient = (url, key, options) => {
     if (url === SUPABASE_URL && key === SUPABASE_ANON_KEY) {
       return window.NADO_SUPABASE_CLIENT;
@@ -28,10 +26,10 @@ window.NADO_CONFIG = {
   };
 })();
 
-// Load the current schedule editor. Seoul availability is managed per service area.
+// Load the current schedule editor.
 (() => {
   const scheduleScript = document.createElement('script');
-  scheduleScript.src = 'js/schedule-v2.js?v=20260910-5';
+  scheduleScript.src = 'js/schedule-v3.js?v=20260910-1';
   scheduleScript.defer = true;
   document.head.appendChild(scheduleScript);
 })();
