@@ -58,10 +58,10 @@
       controls.innerHTML = `
         <div class="custom-seoul-area-title">기타 지역 추가</div>
         <div class="custom-seoul-area-row">
-          <input id="customSeoulAreaInput" type="text" placeholder="예: 마곡, 성수" maxlength="10" />
+          <input id="customSeoulAreaInput" type="text" placeholder="예: 마곡 / Magok, 성수 / Seongsu" maxlength="30" />
           <button id="customSeoulAreaAddButton" type="button">항목 추가</button>
         </div>
-        <div class="custom-seoul-area-help">10자 이내로 추가하면 모든 선생님의 서울 가능 장소 선택지에 표시됩니다.</div>
+        <div class="custom-seoul-area-help">한국어 또는 영어로 입력할 수 있어요. 기존 지역명은 같은 지역으로 자동 인식합니다.</div>
         <div id="customSeoulAreaMessage" class="custom-seoul-area-message" aria-live="polite"></div>
       `;
       wrap.appendChild(controls);
@@ -202,8 +202,8 @@
 
     const label = normalize(input.value);
     if (!label) return;
-    if (label.length > 10) {
-      if (message) message.textContent = '장소명은 10자 이내로 입력해주세요.';
+    if (label.length > 30) {
+      if (message) message.textContent = '장소명은 30자 이내로 입력해주세요.';
       return;
     }
 
@@ -215,7 +215,7 @@
     const { data, error } = await sb.rpc('add_seoul_service_area', { p_label: label });
     if (error) {
       if (message) message.textContent = error.message?.includes('AREA_LABEL_LENGTH')
-        ? '장소명은 10자 이내로 입력해주세요.'
+        ? '장소명은 30자 이내로 입력해주세요.'
         : '항목 추가에 실패했습니다.';
       return;
     }
@@ -244,7 +244,10 @@
 
     input.value = '';
     lastSignature = '';
-    if (message) message.textContent = '새 가능 장소 항목이 추가되었습니다.';
+    if (message) {
+      const shown = area?.label || label;
+      message.textContent = shown + ' 지역이 선택되었습니다.';
+    }
     await refreshCatalog(true);
   }
 
