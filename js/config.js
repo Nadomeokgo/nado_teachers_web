@@ -29,12 +29,7 @@ window.NADO_CONFIG = {
 // Load the current schedule editor.
 (() => {
   const scheduleScript = document.createElement('script');
-  scheduleScript.src = 'js/schedule-v5.js?v=20260910-2';
+  scheduleScript.src = 'js/schedule-v6.js?v=20260910-1';
   scheduleScript.defer = true;
   document.head.appendChild(scheduleScript);
-
-  const mobileDaysFix = document.createElement('script');
-  mobileDaysFix.src = 'js/schedule-mobile-days-fix.js?v=20260910-1';
-  mobileDaysFix.defer = true;
-  document.head.appendChild(mobileDaysFix);
 })();
