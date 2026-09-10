@@ -37,4 +37,9 @@ window.NADO_CONFIG = {
   layoutScript.src = 'js/schedule-layout-v2.js?v=20260910-1';
   layoutScript.defer = true;
   document.head.appendChild(layoutScript);
+
+  const layoutFixScript = document.createElement('script');
+  layoutFixScript.src = 'js/schedule-layout-fix-v3.js?v=20260910-1';
+  layoutFixScript.defer = true;
+  document.head.appendChild(layoutFixScript);
 })();
