@@ -355,6 +355,34 @@
     await loadData();
   }
 
+  async function hydrateTeacherServiceAreas() {
+    const [{ data: rows, error: rowsError }, { data: catalog, error: catalogError }] = await Promise.all([
+      supabase
+        .from("teacher_service_areas")
+        .select("teacher_id, area, active")
+        .eq("region", "Seoul")
+        .eq("active", true),
+      supabase.rpc("get_seoul_service_area_catalog")
+    ]);
+
+    if (rowsError || catalogError) {
+      console.warn("Admin Seoul service area lookup failed:", rowsError || catalogError);
+      teachers.forEach((teacher) => { teacher.seoul_service_areas = []; });
+      return;
+    }
+
+    const areaLabels = new Map((Array.isArray(catalog) ? catalog : []).map((area) => [area.code, area.label || area.code]));
+    const byTeacher = new Map();
+    (rows || []).forEach((row) => {
+      const values = byTeacher.get(row.teacher_id) || [];
+      values.push(areaLabels.get(row.area) || row.area);
+      byTeacher.set(row.teacher_id, values);
+    });
+    teachers.forEach((teacher) => {
+      teacher.seoul_service_areas = [...new Set(byTeacher.get(teacher.id) || [])].sort((a, b) => a.localeCompare(b, "ko"));
+    });
+  }
+
   async function loadData() {
     const { data, error } = await supabase
       .from("profiles")
@@ -364,7 +392,7 @@
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
     teachers = data || [];
     try {
-      await Promise.all([hydrateTeacherPhotos(), hydrateTeacherAgreements()]);
+      await Promise.all([hydrateTeacherPhotos(), hydrateTeacherAgreements(), hydrateTeacherServiceAreas()]);
     } catch (error) {
       toast("전자계약 데이터를 불러오지 못했습니다. Supabase 계약 업데이트 SQL을 확인해주세요.", true);
       return;
@@ -439,6 +467,7 @@
           <div><span>카카오톡 ID</span><strong>${escapeHtml(teacher.kakao_id || "미입력")}</strong></div>
           <div><span>정산 계좌</span><strong>${escapeHtml(teacher.bank_name || "은행 미입력")} ${escapeHtml(teacher.account_number || "계좌번호 미입력")}</strong></div>
           <div class="teacher-admin-bio"><span>한 줄 소개</span><strong>${escapeHtml(teacher.bio || "미입력")}</strong></div>
+          <div class="teacher-admin-bio"><span>서울 가능 장소</span><strong>${teacher.seoul_service_areas?.length ? escapeHtml(teacher.seoul_service_areas.join(" · ")) : "미입력"}</strong></div>
           <div class="teacher-agreement-detail"><span>서비스 계약</span>${teacher.agreement
             ? `<strong class="agreement-ok">동의 완료 · ${escapeHtml(teacher.agreement.agreement_version)}</strong><small>${escapeHtml(new Date(teacher.agreement.agreed_at).toLocaleString(currentLocale()))} · ${escapeHtml(teacher.agreement.teacher_name)}</small>`
             : `<strong class="agreement-missing">미동의 · ${CURRENT_AGREEMENT_VERSION}</strong><small>다음 로그인 시 계약 동의 화면이 표시됩니다.</small>`}</div>
@@ -977,10 +1006,11 @@
   }
 
   function exportCsv() {
-    const rows = [["선생님", "이메일", "학교", "전공", "카카오톡 ID", "요일", "시작", "종료", "장소", "메모", "업데이트"]];
+    const rows = [["선생님", "이메일", "학교", "전공", "카카오톡 ID", "서울 가능 장소", "요일", "시작", "종료", "장소", "메모", "업데이트"]];
     teachers.forEach((teacher) => {
-      if (!(teacher.availability || []).length) rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, "미제출", "", "", "", "", ""]);
-      (teacher.availability || []).forEach((slot) => rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, days[slot.day_of_week], slot.start_time.slice(0,5), slot.end_time.slice(0,5), slot.location, slot.memo, slot.updated_at]));
+      const seoulAreas = (teacher.seoul_service_areas || []).join(" · ");
+      if (!(teacher.availability || []).length) rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, seoulAreas, "미제출", "", "", "", "", ""]);
+      (teacher.availability || []).forEach((slot) => rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, seoulAreas, days[slot.day_of_week], slot.start_time.slice(0,5), slot.end_time.slice(0,5), slot.location, slot.memo, slot.updated_at]));
     });
     const csv = "\ufeff" + rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
