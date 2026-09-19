@@ -98,11 +98,20 @@ alter table public.student_assignments add constraint student_assignments_group_
 create index if not exists student_assignments_status_idx
   on public.student_assignments (status, settlement_date);
 
--- 관리자만 영구 삭제 가능. 기존 정책이 있더라도 명시적으로 다시 설정합니다.
+-- 관리자는 이메일 유무와 관계없이 브라우저에서 배정을 등록·수정·삭제할 수 있습니다.
+-- 기존 DB에 INSERT/UPDATE 정책이 없던 경우도 있어 세 정책을 모두 다시 설정합니다.
+drop policy if exists "student_assignments_admin_insert" on public.student_assignments;
+drop policy if exists "student_assignments_admin_update" on public.student_assignments;
 drop policy if exists "student_assignments_admin_delete" on public.student_assignments;
+create policy "student_assignments_admin_insert" on public.student_assignments
+  for insert to authenticated with check (public.is_admin());
+create policy "student_assignments_admin_update" on public.student_assignments
+  for update to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 create policy "student_assignments_admin_delete" on public.student_assignments
   for delete to authenticated using (public.is_admin());
-grant delete on public.student_assignments to authenticated;
+grant select, insert, update, delete on public.student_assignments to authenticated;
 
 comment on column public.availability.service_area is '선택한 대분류 장소 안의 세부 가능 지역';
 comment on column public.student_assignments.student_email is '선택 입력 학생 이메일';

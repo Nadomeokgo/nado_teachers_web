@@ -546,7 +546,7 @@
     $("pageTitle").textContent = pageMeta[page][1];
     location.hash = page;
     closeSidebar();
-    if (page === "profile" && profile?.role !== "admin") showProfileUsageModal();
+    if (page === "profile") showProfileUsageModal();
   }
 
   function showProfileUsageModal() {
