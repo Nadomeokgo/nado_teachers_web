@@ -247,6 +247,32 @@
     </div>
   </section>
 
+  <section id="profileUsageModal" class="profile-usage-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="profileUsageTitle">
+    <div class="profile-usage-dialog">
+      <div class="profile-usage-head">
+        <div>
+          <p class="section-kicker">HOW YOUR PROFILE IS USED</p>
+          <h2 id="profileUsageTitle">입력한 정보는 이렇게 사용됩니다</h2>
+          <p>프로필 사진, 학교, 전공, 소개는 학생이 선생님을 선택할 때 보는 나도 웹사이트에 표시됩니다.</p>
+        </div>
+        <button id="profileUsageCloseButton" class="icon-button" type="button" aria-label="예시 닫기">×</button>
+      </div>
+      <div class="profile-usage-examples">
+        <figure>
+          <img src="images/profile-usage-home.jpeg" alt="나도 메인 화면에서 선생님 카드가 표시되는 예시" />
+          <figcaption><strong>메인 선생님 카드</strong><span>사진, 학교, 전공, 소개 키워드가 학생에게 보입니다.</span></figcaption>
+        </figure>
+        <figure>
+          <img src="images/profile-usage-detail.jpeg" alt="나도 선생님 상세 소개 화면 예시" />
+          <figcaption><strong>선생님 상세 소개</strong><span>사진과 자기소개를 바탕으로 학생이 선생님을 선택합니다.</span></figcaption>
+        </figure>
+      </div>
+      <div class="profile-usage-actions">
+        <button id="profileUsageConfirmButton" class="button primary" type="button">확인하고 정보 입력하기</button>
+      </div>
+    </div>
+  </section>
+
   <div id="appView" class="app-shell hidden">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-head">
@@ -449,11 +475,11 @@
               </div>
 
               <div class="schedule-preference-field">
-                <label for="scheduleLocation">선호 장소</label>
+                <label for="scheduleLocation">가능 장소</label>
                 <select id="scheduleLocation" required>
-                  <option value="IGC">IGC</option>
-                  <option value="트리플스트리트">트리플스트리트</option>
-                  <option value="송도 내 협의">송도 내 협의</option>
+                  <option value="송도">송도</option>
+                  <option value="IGC &amp; 트스">IGC &amp; 트스</option>
+                  <option value="서울">서울</option>
                 </select>
                 <div class="location-assignment-notice" role="note">
                   <strong>장소 배정 안내</strong>
@@ -638,6 +664,15 @@
                 <select id="payGuideDuration"></select>
               </label>
               <label>
+                <span>수업 형태</span>
+                <select id="payGuideGroupSize">
+                  <option value="1">1:1</option>
+                  <option value="2">1:2</option>
+                  <option value="3">1:3</option>
+                  <option value="4">1:4</option>
+                </select>
+              </label>
+              <label>
                 <span>수업 빈도</span>
                 <select id="payGuideFrequency">
                   <option value="1">주 1회</option>
@@ -676,6 +711,21 @@
               <b>→</b>
               <span>2개월 차부터</span>
               <strong id="payGuideFlowSecond">-</strong>
+            </div>
+
+            <div class="payguide-table-section">
+              <div class="payguide-section-head">
+                <div>
+                  <h3>1:vN 첫 달 정산표</h3>
+                  <p>1시간 · 주 1회 · 총 4회 기준 Teacher 정산액입니다.</p>
+                </div>
+              </div>
+              <div class="payguide-table-wrap">
+                <table class="payguide-table group-payout-table">
+                  <thead><tr><th>수업 형태</th><th>Economy</th><th>Standard</th></tr></thead>
+                  <tbody id="payGuideGroupRows"></tbody>
+                </table>
+              </div>
             </div>
 
             <div class="payguide-table-section">
@@ -821,8 +871,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260731-integrated1"></script>
-  <script src="js/pricing.js?v=20260829-trial-free20000-v14"></script>
+  <script src="js/pricing.js?v=20260919-group-pricing-v1"></script>
   <script src="js/i18n.js?v=20260829-trial-free20000-v14"></script>
-  <script src="js/app.js?v=20260830-member-portal-v1"></script>
+  <script src="js/app.js?v=20260919-teacher-ops-v1"></script>
+  <script src="js/schedule-v6.js?v=20260919-location-range-v1"></script>
 </body>
 </html>

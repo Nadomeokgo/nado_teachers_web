@@ -89,25 +89,27 @@
     return PACKAGE_SESSIONS * (Number(weeklyFrequency) === 2 ? 2 : 1);
   }
 
-  function payGuideBasePricing(plan, durationMinutes) {
-    if (typeof pricingCatalog.basePricing === "function") return pricingCatalog.basePricing(plan, durationMinutes);
-    const tuition = pricingCatalog.lessonPriceTable?.[plan]?.[Number(durationMinutes)];
+  function payGuideBasePricing(plan, durationMinutes, groupSize = 1) {
+    if (typeof pricingCatalog.basePricing === "function") return pricingCatalog.basePricing(plan, durationMinutes, groupSize);
+    const tuition = typeof pricingCatalog.tuitionFor === "function"
+      ? pricingCatalog.tuitionFor(plan, durationMinutes, groupSize)
+      : pricingCatalog.lessonPriceTable?.[plan]?.[Number(durationMinutes)];
     if (!tuition) return null;
     const nadoFee = Math.round(tuition * 0.35);
     return { tuition, nadoFee, teacherPayout: tuition - nadoFee };
   }
 
-  function payGuidePayout(plan, durationMinutes, sessions) {
+  function payGuidePayout(plan, durationMinutes, sessions, groupSize = 1) {
     if (typeof pricingCatalog.teacherPayoutForSessions === "function") {
-      return pricingCatalog.teacherPayoutForSessions(plan, durationMinutes, sessions);
+      return pricingCatalog.teacherPayoutForSessions(plan, durationMinutes, sessions, groupSize);
     }
-    const base = payGuideBasePricing(plan, durationMinutes);
+    const base = payGuideBasePricing(plan, durationMinutes, groupSize);
     return base ? Math.round((base.teacherPayout * Number(sessions)) / PACKAGE_SESSIONS) : null;
   }
 
-  function payGuideHourlyRates(plan, durationMinutes) {
-    if (typeof pricingCatalog.hourlyRates === "function") return pricingCatalog.hourlyRates(plan, durationMinutes);
-    const base = payGuideBasePricing(plan, durationMinutes);
+  function payGuideHourlyRates(plan, durationMinutes, groupSize = 1) {
+    if (typeof pricingCatalog.hourlyRates === "function") return pricingCatalog.hourlyRates(plan, durationMinutes, groupSize);
+    const base = payGuideBasePricing(plan, durationMinutes, groupSize);
     const duration = Number(durationMinutes);
     if (!base || !duration) return null;
     const hours = duration / 60;
@@ -145,18 +147,23 @@
     if (!$("payGuidePlan")) return;
     const plan = $("payGuidePlan").value || "standard";
     const duration = Number($("payGuideDuration").value) || 60;
+    let groupSize = Number($("payGuideGroupSize")?.value) || 1;
+    if (plan === "premium" && groupSize !== 1) {
+      groupSize = 1;
+      $("payGuideGroupSize").value = "1";
+    }
     const weekly = Number($("payGuideFrequency").value) === 2 ? 2 : 1;
     const maxSessions = payGuidePackageSessions(weekly);
     let sessions = Number($("payGuideSessions").value) || maxSessions;
     if (sessions > maxSessions) { syncPayGuideSessionOptions({ preferFullPackage: true }); sessions = maxSessions; }
 
-    const rates = payGuideHourlyRates(plan, duration);
-    const payout = payGuidePayout(plan, duration, sessions);
+    const rates = payGuideHourlyRates(plan, duration, groupSize);
+    const payout = payGuidePayout(plan, duration, sessions, groupSize);
     if (!rates || payout === null) return;
 
     const frequencyText = currentLanguage() === "en" ? (weekly === 2 ? "Twice a week" : "Once a week") : `주 ${weekly}회`;
     const sessionsText = currentLanguage() === "en" ? `${sessions} session${sessions === 1 ? "" : "s"} payout` : `${sessions}회 정산`;
-    $("payGuideSelection").textContent = `${payGuidePlanLabel(plan)} · ${lessonDurationLabel(duration)} · ${frequencyText} · ${sessionsText}`;
+    $("payGuideSelection").textContent = `${payGuidePlanLabel(plan)} · 1:${groupSize} · ${lessonDurationLabel(duration)} · ${frequencyText} · ${sessionsText}`;
     $("payGuideFirstPayout").textContent = formatWon(payout);
     $("payGuidePayoutNote").textContent = currentLanguage() === "en" ? `Based on ${sessions} payout session${sessions === 1 ? "" : "s"}` : `선택한 ${sessions}회 정산 기준`;
     $("payGuideFirstHourly").textContent = formatHourlyWon(rates.firstMonth);
@@ -166,6 +173,11 @@
 
     const planSelect = $("payGuidePlan");
     [...planSelect.options].forEach((option) => { option.textContent = payGuidePlanLabel(option.value); });
+    const groupSelect = $("payGuideGroupSize");
+    [...groupSelect.options].forEach((option) => {
+      const size = Number(option.value);
+      option.disabled = plan === "premium" && size > 1;
+    });
     const frequencySelect = $("payGuideFrequency");
     if (frequencySelect?.options?.length >= 2) {
       frequencySelect.options[0].textContent = currentLanguage() === "en" ? "Once a week" : "주 1회";
@@ -181,8 +193,8 @@
 
     const durations = pricingCatalog.durationOptions || [60, 120];
     $("payGuideDurationRows").innerHTML = durations.map((minutes) => {
-      const rowRates = payGuideHourlyRates(plan, minutes);
-      const fullPayout = payGuidePayout(plan, minutes, maxSessions);
+      const rowRates = payGuideHourlyRates(plan, minutes, groupSize);
+      const fullPayout = payGuidePayout(plan, minutes, maxSessions, groupSize);
       return `<tr class="${minutes === duration ? "selected" : ""}" data-pay-duration="${minutes}">
         <td><strong>${escapeHtml(lessonDurationLabel(minutes))}</strong></td>
         <td>${escapeHtml(formatWon(fullPayout))}</td>
@@ -193,13 +205,25 @@
 
     $("payGuideSessionRows").innerHTML = Array.from({ length: maxSessions }, (_, index) => {
       const count = index + 1;
-      const amount = payGuidePayout(plan, duration, count);
+      const amount = payGuidePayout(plan, duration, count, groupSize);
       const label = currentLanguage() === "en" ? `${count} session${count === 1 ? "" : "s"}` : `${count}회`;
       return `<tr class="${count === sessions ? "selected" : ""}" data-pay-sessions="${count}">
         <td><strong>${escapeHtml(label)}</strong></td>
         <td>${escapeHtml(formatWon(amount))}</td>
       </tr>`;
     }).join("");
+
+    if ($("payGuideGroupRows")) {
+      $("payGuideGroupRows").innerHTML = [1, 2, 3, 4].map((size) => {
+        const economy = payGuidePayout("economy", 60, PACKAGE_SESSIONS, size);
+        const standard = payGuidePayout("standard", 60, PACKAGE_SESSIONS, size);
+        return `<tr class="${size === groupSize ? "selected" : ""}" data-pay-group-size="${size}">
+          <td><strong>1:${size}</strong></td>
+          <td>${escapeHtml(formatWon(economy))}</td>
+          <td>${escapeHtml(formatWon(standard))}</td>
+        </tr>`;
+      }).join("");
+    }
   }
 
   function initializePayGuide() {
@@ -210,6 +234,7 @@
 
     $("payGuidePlan").addEventListener("change", renderPayGuide);
     $("payGuideDuration").addEventListener("change", renderPayGuide);
+    $("payGuideGroupSize").addEventListener("change", renderPayGuide);
     $("payGuideFrequency").addEventListener("change", () => {
       syncPayGuideSessionOptions({ preferFullPackage: true });
       renderPayGuide();
@@ -225,6 +250,17 @@
       const row = event.target.closest("[data-pay-sessions]");
       if (!row) return;
       $("payGuideSessions").value = row.dataset.paySessions;
+      renderPayGuide();
+    });
+    $("payGuideGroupRows")?.addEventListener("click", (event) => {
+      const row = event.target.closest("[data-pay-group-size]");
+      if (!row) return;
+      const size = Number(row.dataset.payGroupSize);
+      if ($("payGuidePlan").value === "premium" && size > 1) {
+        showToast("Premium은 현재 1:1 수업만 지원합니다.", "error");
+        return;
+      }
+      $("payGuideGroupSize").value = String(size);
       renderPayGuide();
     });
   }
@@ -510,6 +546,23 @@
     $("pageTitle").textContent = pageMeta[page][1];
     location.hash = page;
     closeSidebar();
+    if (page === "profile" && profile?.role !== "admin") showProfileUsageModal();
+  }
+
+  function showProfileUsageModal() {
+    const modal = $("profileUsageModal");
+    if (!modal) return;
+    modal.classList.remove("hidden");
+    document.body.classList.add("profile-usage-open");
+    window.setTimeout(() => $("profileUsageConfirmButton")?.focus(), 0);
+  }
+
+  function hideProfileUsageModal() {
+    const modal = $("profileUsageModal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    document.body.classList.remove("profile-usage-open");
+    if (onboardingRequired) window.setTimeout(() => $("onboardingName")?.focus(), 0);
   }
 
   const mobileSidebarQuery = window.matchMedia("(max-width: 820px)");
@@ -624,9 +677,10 @@
     revokePreviewUrl("profile");
     revokePreviewUrl("onboarding");
 
-    document.body.classList.remove("onboarding-open", "agreement-open");
+    document.body.classList.remove("onboarding-open", "agreement-open", "profile-usage-open");
     $("agreementView").classList.add("hidden");
     $("onboardingView").classList.add("hidden");
+    $("profileUsageModal").classList.add("hidden");
     $("appView").classList.add("hidden");
     $("loginView").classList.remove("hidden");
     $("loginPassword").value = "";
@@ -925,7 +979,7 @@
     $("appView").classList.add("hidden");
     $("onboardingView").classList.remove("hidden");
     document.body.classList.add("onboarding-open");
-    window.setTimeout(() => $("onboardingName").focus(), 0);
+    window.setTimeout(showProfileUsageModal, 80);
   }
 
   function hideOnboarding() {
@@ -1035,7 +1089,7 @@
   async function loadAssignments() {
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, student_id, student_name, student_email, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status")
+      .select("id, student_id, student_name, student_email, group_size, group_members, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status")
       .eq("teacher_id", currentUser.id)
       .order("settlement_date", { ascending: true })
       .order("student_name", { ascending: true });
@@ -1074,6 +1128,7 @@
           <strong>${escapeHtml(assignment.student_name)}</strong>
         </div>
         ${assignment.lesson_duration_minutes ? `<div class="assignment-service-meta">
+          <span>1:${Number(assignment.group_size) || 1}</span>
           <span>${escapeHtml(lessonDurationLabel(assignment.lesson_duration_minutes))}</span>
           ${isTrial
             ? `<span>${escapeHtml(currentLanguage() === "en" ? "1 trial session" : "체험 1회")}</span>`
@@ -1455,7 +1510,7 @@
   }
 
   function selectionToSlots() {
-    const locationValue = $("scheduleLocation")?.value || "송도 내 협의";
+    const locationValue = $("scheduleLocation")?.value || "송도";
     const compacted = [];
 
     scheduleDayOrder.forEach((day) => {
@@ -1581,9 +1636,9 @@
 
     scheduleMemo = data?.[0]?.memo || "";
     $("scheduleMemo").value = scheduleMemo;
-    const savedLocation = data?.find((row) => row.location)?.location || "IGC";
+    const savedLocation = data?.find((row) => row.location)?.location || "송도";
     const locationSelect = $("scheduleLocation");
-    locationSelect.value = [...locationSelect.options].some((option) => option.value === savedLocation) ? savedLocation : "송도 내 협의";
+    locationSelect.value = [...locationSelect.options].some((option) => option.value === savedLocation) ? savedLocation : "송도";
 
     renderAvailabilityGridSelection();
     refreshScheduleFromSelection();
@@ -1633,7 +1688,7 @@
         <span class="slot-day">${days[Number(slot.day_of_week)]}</span>
         <div class="slot-main">
           <strong>${escapeHtml(slot.start_time.slice(0,5))} – ${escapeHtml(slot.end_time.slice(0,5))}</strong>
-          <small>${escapeHtml(slot.location || "송도 내 협의")}</small>
+          <small>${escapeHtml(slot.location || "송도")}</small>
         </div>
         <button class="remove-slot" data-remove-slot="${escapeHtml(slot.localId)}" type="button" aria-label="이 시간대 선택 해제">×</button>
       </div>`).join("");
@@ -1858,6 +1913,11 @@ function loadGuideChecks() {
     $("onboardingPhotoInput").addEventListener("change", (event) => selectProfilePhoto("onboarding", event.target.files?.[0]));
     $("profilePhotoRemoveButton").addEventListener("click", removeProfilePhoto);
     $("onboardingPhotoClearButton").addEventListener("click", () => clearSelectedProfilePhoto("onboarding"));
+    $("profileUsageCloseButton").addEventListener("click", hideProfileUsageModal);
+    $("profileUsageConfirmButton").addEventListener("click", hideProfileUsageModal);
+    $("profileUsageModal").addEventListener("click", (event) => {
+      if (event.target === $("profileUsageModal")) hideProfileUsageModal();
+    });
     $("userAvatarImage").addEventListener("error", () => updateTopbarPhoto(""));
     $("profilePhotoImage").addEventListener("error", () => renderPhotoPreview("profile", ""));
     $("onboardingPhotoImage").addEventListener("error", () => renderPhotoPreview("onboarding", ""));
@@ -1885,6 +1945,10 @@ function loadGuideChecks() {
       if (!document.hidden && currentUser) renderAssignments();
     });
     document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !$("profileUsageModal").classList.contains("hidden")) {
+        hideProfileUsageModal();
+        return;
+      }
       if (event.key === "Escape" && $("sidebar").classList.contains("open")) {
         closeSidebar({ restoreFocus: true });
       }

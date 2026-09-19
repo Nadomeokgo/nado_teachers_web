@@ -56,20 +56,26 @@ create table if not exists public.availability (
   day_of_week smallint not null check (day_of_week between 0 and 6),
   start_time time not null,
   end_time time not null,
-  location text not null default '송도 내 협의',
+  location text not null default '송도' check (location in ('송도', 'IGC & 트스', '서울')),
+  service_area text,
   memo text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint valid_time_range check (start_time < end_time),
-  constraint unique_teacher_slot unique (teacher_id, day_of_week, start_time, end_time)
+  constraint unique_teacher_slot unique (teacher_id, day_of_week, start_time, end_time, location, service_area)
 );
 create index if not exists availability_teacher_idx on public.availability(teacher_id);
+alter table public.availability add column if not exists service_area text;
 
 -- 3) 학생 배정 및 첫 달 수업료 정산 예정일
 create table if not exists public.student_assignments (
   id uuid primary key default gen_random_uuid(),
   teacher_id uuid not null references public.profiles(id) on delete cascade,
+  student_id uuid references auth.users(id) on delete set null,
   student_name text not null check (char_length(btrim(student_name)) between 1 and 100),
+  student_email text,
+  group_size smallint not null default 1 check (group_size between 1 and 4),
+  group_members jsonb not null default '[]'::jsonb,
   assignment_type text not null default 'regular' check (assignment_type in ('regular','trial')),
   plan text check (plan in ('economy', 'standard', 'premium')),
   lesson_duration_minutes smallint check (lesson_duration_minutes in (30,35,40,45,60,70,80,90,100,110,120)),
@@ -83,6 +89,8 @@ create table if not exists public.student_assignments (
   pricing_version text,
   first_lesson_date date not null,
   settlement_date date not null,
+  status text not null default 'active' check (status in ('active','ended','completed')),
+  ended_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint student_assignments_valid_dates check (settlement_date >= first_lesson_date),
@@ -90,6 +98,12 @@ create table if not exists public.student_assignments (
     weekly_frequency is null or settlement_sessions is null or settlement_sessions <= 4 * weekly_frequency
   )
 );
+alter table public.student_assignments add column if not exists student_id uuid references auth.users(id) on delete set null;
+alter table public.student_assignments add column if not exists student_email text;
+alter table public.student_assignments add column if not exists group_size smallint not null default 1;
+alter table public.student_assignments add column if not exists group_members jsonb not null default '[]'::jsonb;
+alter table public.student_assignments add column if not exists status text not null default 'active';
+alter table public.student_assignments add column if not exists ended_at timestamptz;
 alter table public.student_assignments add column if not exists assignment_type text;
 update public.student_assignments set assignment_type = 'regular' where assignment_type is null;
 alter table public.student_assignments alter column assignment_type set default 'regular';
@@ -135,6 +149,18 @@ alter table public.student_assignments add constraint student_assignments_trial_
 create index if not exists student_assignments_teacher_idx on public.student_assignments(teacher_id);
 create index if not exists student_assignments_first_lesson_idx on public.student_assignments(first_lesson_date);
 create index if not exists student_assignments_settlement_idx on public.student_assignments(settlement_date);
+
+create table if not exists public.teacher_service_areas (
+  id uuid primary key default gen_random_uuid(),
+  teacher_id uuid not null references public.profiles(id) on delete cascade,
+  region text not null check (region in ('Songdo', 'IGC_TRIPLE', 'Seoul')),
+  area text not null check (char_length(btrim(area)) between 1 and 30),
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint teacher_service_areas_unique unique (teacher_id, region, area)
+);
+create index if not exists teacher_service_areas_teacher_idx on public.teacher_service_areas(teacher_id, region, active);
 
 -- 4) 공지사항
 create table if not exists public.teacher_agreement_versions (
@@ -454,6 +480,7 @@ using (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid
 -- RLS 활성화
 alter table public.profiles enable row level security;
 alter table public.availability enable row level security;
+alter table public.teacher_service_areas enable row level security;
 alter table public.student_assignments enable row level security;
 alter table public.teacher_agreement_versions enable row level security;
 alter table public.teacher_agreements enable row level security;
@@ -469,6 +496,10 @@ DROP POLICY IF EXISTS "availability_own_or_admin_select" ON public.availability;
 DROP POLICY IF EXISTS "availability_own_or_admin_insert" ON public.availability;
 DROP POLICY IF EXISTS "availability_own_or_admin_update" ON public.availability;
 DROP POLICY IF EXISTS "availability_own_or_admin_delete" ON public.availability;
+DROP POLICY IF EXISTS "teacher_service_areas_own_or_admin_select" ON public.teacher_service_areas;
+DROP POLICY IF EXISTS "teacher_service_areas_own_or_admin_insert" ON public.teacher_service_areas;
+DROP POLICY IF EXISTS "teacher_service_areas_own_or_admin_update" ON public.teacher_service_areas;
+DROP POLICY IF EXISTS "teacher_service_areas_own_or_admin_delete" ON public.teacher_service_areas;
 DROP POLICY IF EXISTS "student_assignments_own_or_admin_select" ON public.student_assignments;
 DROP POLICY IF EXISTS "student_assignments_admin_insert" ON public.student_assignments;
 DROP POLICY IF EXISTS "student_assignments_admin_update" ON public.student_assignments;
@@ -1100,6 +1131,16 @@ for update to authenticated using (teacher_id = auth.uid() or public.is_admin())
 create policy "availability_own_or_admin_delete" on public.availability
 for delete to authenticated using (teacher_id = auth.uid() or public.is_admin());
 grant select, insert, update, delete on public.availability to authenticated;
+
+create policy "teacher_service_areas_own_or_admin_select" on public.teacher_service_areas
+for select to authenticated using (teacher_id = auth.uid() or public.is_admin());
+create policy "teacher_service_areas_own_or_admin_insert" on public.teacher_service_areas
+for insert to authenticated with check (teacher_id = auth.uid() or public.is_admin());
+create policy "teacher_service_areas_own_or_admin_update" on public.teacher_service_areas
+for update to authenticated using (teacher_id = auth.uid() or public.is_admin()) with check (teacher_id = auth.uid() or public.is_admin());
+create policy "teacher_service_areas_own_or_admin_delete" on public.teacher_service_areas
+for delete to authenticated using (teacher_id = auth.uid() or public.is_admin());
+grant select, insert, update, delete on public.teacher_service_areas to authenticated;
 
 -- student_assignments: 선생님은 자신의 배정만 조회, 관리자는 전체 CRUD
 create policy "student_assignments_own_or_admin_select" on public.student_assignments
