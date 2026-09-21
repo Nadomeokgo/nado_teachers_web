@@ -1,5 +1,7 @@
 (() => {
   'use strict';
+  if (window.__NADO_SCHEDULE_V6_LOADED__) return;
+  window.__NADO_SCHEDULE_V6_LOADED__ = true;
   const config=window.NADO_CONFIG||{};
   const client=window.NADO_SUPABASE_CLIENT||window.supabase?.createClient?.(config.SUPABASE_URL,config.SUPABASE_ANON_KEY);
   if(!client)return;
@@ -10,6 +12,11 @@
     IGC_TRIPLE:['IGC','트리플스트리트'],
     Seoul:['서울 전체','강남','대치','잠실','한티','용산','신촌','홍대','합정','성수','마곡','선유도','서초','영등포구','양천구','3호선 인근']
   };
+  const AREA_LABELS_EN={
+    '송도 전체':'All Songdo','센트럴파크':'Central Park','커낼워크':'Canal Walk','테크노파크':'Techno Park','캠퍼스타운':'Campus Town',
+    'IGC':'IGC','트리플스트리트':'Triple Street',
+    '서울 전체':'All Seoul','강남':'Gangnam','대치':'Daechi','잠실':'Jamsil','한티':'Hanti','용산':'Yongsan','신촌':'Sinchon','홍대':'Hongdae','합정':'Hapjeong','성수':'Seongsu','마곡':'Magok','선유도':'Seonyudo','서초':'Seocho','영등포구':'Yeongdeungpo-gu','양천구':'Yangcheon-gu','3호선 인근':'Near Line 3'
+  };
   const DKO=['일','월','화','수','목','금','토'],DEN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],ORDER=[1,2,3,4,5,6,0];
   const START=480,END=1440,STEP=30;
   let user=null,activeLocation='송도',activeArea='',catalog=[],selectedAreas=new Set(),activeDay=1,dirty=false,slots=Array.from({length:7},()=>new Set());
@@ -19,7 +26,7 @@
   const esc=(v='')=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const region=()=>activeLocation==='서울'?'Seoul':activeLocation==='IGC & 트스'?'IGC_TRIPLE':'Songdo';
   const needsArea=()=>true;
-  const areaLabel=a=>a.label||a.code;
+  const areaLabel=a=>en()?(AREA_LABELS_EN[a.code]||a.label||a.code):(a.label||a.code);
   const t2m=v=>{const [h,m]=String(v||'').slice(0,5).split(':').map(Number);return Number.isFinite(h)&&Number.isFinite(m)?h*60+m:NaN};
   const m2t=m=>m===1440?'24:00':`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
   const showTime=m=>m===1440?'24:00':`${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;

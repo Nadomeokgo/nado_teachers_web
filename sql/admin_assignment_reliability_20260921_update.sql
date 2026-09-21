@@ -5,6 +5,8 @@
 
 begin;
 
+create extension if not exists pg_cron with schema pg_catalog;
+
 -- 정산 예정일 다음 날부터 실제 DB 상태도 학생 기록(completed)으로 맞춥니다.
 update public.student_assignments
 set status = 'completed',
@@ -34,6 +36,53 @@ create trigger normalize_student_assignment_status_trigger
 before insert or update of settlement_date, status
 on public.student_assignments
 for each row execute function public.normalize_student_assignment_status();
+
+-- 관리자 화면을 열지 않아도 서버가 정산일 경과 배정을 자동으로 기록 처리합니다.
+create or replace function public.archive_expired_student_assignments()
+returns integer
+language plpgsql
+set search_path = ''
+as $$
+declare
+  archived_count integer;
+begin
+  update public.student_assignments
+  set status = 'completed',
+      ended_at = coalesce(ended_at, now())
+  where status = 'active'
+    and settlement_date < (now() at time zone 'Asia/Seoul')::date;
+
+  get diagnostics archived_count = row_count;
+  return archived_count;
+end;
+$$;
+
+revoke all on function public.archive_expired_student_assignments()
+  from public, anon, authenticated;
+grant execute on function public.archive_expired_student_assignments()
+  to postgres;
+
+do $$
+declare
+  existing_job record;
+begin
+  for existing_job in
+    select jobid
+    from cron.job
+    where jobname = 'archive-expired-student-assignments'
+  loop
+    perform cron.unschedule(existing_job.jobid);
+  end loop;
+end;
+$$;
+
+select cron.schedule(
+  'archive-expired-student-assignments',
+  '*/5 * * * *',
+  'select public.archive_expired_student_assignments();'
+);
+
+select public.archive_expired_student_assignments();
 
 create index if not exists student_assignments_status_settlement_idx
   on public.student_assignments (status, settlement_date);
@@ -71,3 +120,4 @@ commit;
 -- 확인용
 -- select status, count(*) from public.student_assignments group by status order by status;
 -- select pg_get_constraintdef(oid) from pg_constraint where conname = 'audio_submissions_assignment_id_fkey';
+-- select jobid, jobname, schedule, active from cron.job where jobname = 'archive-expired-student-assignments';

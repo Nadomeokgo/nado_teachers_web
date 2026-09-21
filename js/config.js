@@ -29,17 +29,17 @@ window.NADO_CONFIG = {
 // Load the current schedule editor.
 (() => {
   const scheduleScript = document.createElement('script');
-  scheduleScript.src = 'js/schedule-v6.js?v=20260911-1';
+  scheduleScript.src = 'js/schedule-v6.js?v=20260921-schedule-fix-v4';
   scheduleScript.defer = true;
   document.head.appendChild(scheduleScript);
 
   const layoutScript = document.createElement('script');
-  layoutScript.src = 'js/schedule-layout-v2.js?v=20260910-1';
+  layoutScript.src = 'js/schedule-layout-v2.js?v=20260921-schedule-fix-v4';
   layoutScript.defer = true;
   document.head.appendChild(layoutScript);
 
   const layoutFixScript = document.createElement('script');
-  layoutFixScript.src = 'js/schedule-layout-fix-v3.js?v=20260910-1';
+  layoutFixScript.src = 'js/schedule-layout-fix-v3.js?v=20260921-schedule-fix-v4';
   layoutFixScript.defer = true;
   document.head.appendChild(layoutFixScript);
 })();

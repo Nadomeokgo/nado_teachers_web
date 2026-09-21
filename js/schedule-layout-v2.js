@@ -134,24 +134,21 @@
       line-height: 1 !important;
     }
 
-    /* Time buttons use a fixed compact size instead of stretching to fill each row. */
+    /* A vertical timeline makes press-and-drag selection follow one clear direction. */
     #page-schedule .nado-v6-time-grid {
-      display: flex !important;
-      flex-wrap: wrap !important;
-      align-items: flex-start !important;
-      justify-content: flex-start !important;
-      gap: 8px !important;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) !important;
+      gap: 0 !important;
     }
 
     #page-schedule .nado-v6-time {
-      flex: 0 0 92px !important;
-      width: 92px !important;
-      min-width: 92px !important;
-      min-height: 46px !important;
-      padding: 8px 6px !important;
-      border-radius: 10px !important;
-      font-size: .9rem !important;
-      line-height: 1 !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      min-height: 50px !important;
+      padding: 0 18px !important;
+      border-radius: 0 !important;
+      font-size: .95rem !important;
+      line-height: 1.2 !important;
     }
 
     #page-schedule .nado-v6-status {
@@ -269,17 +266,17 @@
       }
 
       #page-schedule .nado-v6-time-grid {
-        gap: 7px !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 0 !important;
       }
 
       #page-schedule .nado-v6-time {
-        flex-basis: 84px !important;
-        width: 84px !important;
-        min-width: 84px !important;
-        min-height: 44px !important;
-        padding: 7px 5px !important;
-        font-size: .84rem !important;
-        border-radius: 9px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 48px !important;
+        padding: 0 14px !important;
+        font-size: .9rem !important;
+        border-radius: 0 !important;
       }
     }
 
@@ -295,11 +292,7 @@
         font-size: .78rem !important;
       }
 
-      #page-schedule .nado-v6-time {
-        flex-basis: 80px !important;
-        width: 80px !important;
-        min-width: 80px !important;
-      }
+      #page-schedule .nado-v6-time { width: 100% !important; min-width: 0 !important; }
     }
   `;
 
