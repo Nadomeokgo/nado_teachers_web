@@ -500,10 +500,15 @@
     return planLabels[plan] || "플랜 미지정";
   }
 
+  function isAssignmentHistory(assignment) {
+    if (assignment?.status && assignment.status !== "active") return true;
+    return Boolean(assignment?.settlement_date && assignment.settlement_date < localDateKey());
+  }
+
   function assignmentGroups() {
     return {
-      current: assignments.filter((item) => !item.status || item.status === "active"),
-      history: assignments.filter((item) => item.status && item.status !== "active")
+      current: assignments.filter((item) => !isAssignmentHistory(item)),
+      history: assignments.filter(isAssignmentHistory)
     };
   }
 

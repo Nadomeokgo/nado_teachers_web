@@ -29,6 +29,7 @@
   let assignments = [];
   let assignmentFilter = "current";
   let editingAssignmentId = null;
+  let reactivatingAssignmentId = null;
   let adminLogoutInProgress = false;
   let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const contentCache = { announcement: [], resource: [], video: [] };
@@ -398,10 +399,15 @@
         : `주 1회는 4회, 주 2회는 8회 기준입니다. 부분 정산은 4회 기준 1회당 정산 단가에 실제 담당 횟수를 적용하고 원 단위로 반올림합니다.`)}</p>`;
   }
 
+  function isAssignmentHistory(assignment) {
+    if (assignment?.status && assignment.status !== "active") return true;
+    return Boolean(assignment?.settlement_date && assignment.settlement_date < localDateKey());
+  }
+
   function assignmentGroups() {
     return {
-      current: assignments.filter((item) => !item.status || item.status === "active"),
-      history: assignments.filter((item) => item.status && item.status !== "active")
+      current: assignments.filter((item) => !isAssignmentHistory(item)),
+      history: assignments.filter(isAssignmentHistory)
     };
   }
 
@@ -463,14 +469,38 @@
   }
 
   function populateTeacherOptions() {
-    const select = $("assignmentTeacher");
-    const previousValue = select.value;
-    select.innerHTML = '<option value="">선생님을 선택해주세요</option>' + teachers.map((teacher) =>
-      `<option value="${escapeHtml(teacher.id)}">${escapeHtml(teacher.full_name || "이름 미입력")} · ${escapeHtml(teacher.email || "")}</option>`
+    const previousValue = $("assignmentTeacher").value;
+    $("assignmentTeacherOptions").innerHTML = teachers.map((teacher) =>
+      `<option value="${escapeHtml(teacherSearchLabel(teacher))}"></option>`
     ).join("");
-    if (teachers.some((teacher) => teacher.id === previousValue)) select.value = previousValue;
-    select.disabled = teachers.length === 0;
+    if (teachers.some((teacher) => teacher.id === previousValue)) setSelectedTeacher(previousValue);
+    $("assignmentTeacherSearch").disabled = teachers.length === 0;
     $("assignmentSubmitButton").disabled = teachers.length === 0;
+  }
+
+  function teacherSearchLabel(teacher) {
+    const name = teacher?.full_name || "이름 미입력";
+    return teacher?.email ? `${name} · ${teacher.email}` : name;
+  }
+
+  function setSelectedTeacher(teacherId) {
+    const teacher = teachers.find((item) => item.id === teacherId);
+    $("assignmentTeacher").value = teacher?.id || "";
+    $("assignmentTeacherSearch").value = teacher ? teacherSearchLabel(teacher) : "";
+  }
+
+  function resolveTeacherSearchValue() {
+    const value = $("assignmentTeacherSearch").value.trim().toLocaleLowerCase("ko");
+    if (!value) {
+      $("assignmentTeacher").value = "";
+      return null;
+    }
+    const exactLabel = teachers.find((teacher) => teacherSearchLabel(teacher).toLocaleLowerCase("ko") === value);
+    const exactNames = teachers.filter((teacher) => String(teacher.full_name || "").trim().toLocaleLowerCase("ko") === value);
+    const teacher = exactLabel || (exactNames.length === 1 ? exactNames[0] : null);
+    $("assignmentTeacher").value = teacher?.id || "";
+    if (teacher) $("assignmentTeacherSearch").value = teacherSearchLabel(teacher);
+    return teacher;
   }
 
   function updateStats() {
@@ -598,6 +628,14 @@
   }
 
   async function loadAssignments() {
+    const today = localDateKey();
+    const { error: syncError } = await supabase
+      .from("student_assignments")
+      .update({ status: "completed", ended_at: new Date().toISOString() })
+      .eq("status", "active")
+      .lt("settlement_date", today);
+    if (syncError) console.warn("Expired assignment sync failed:", syncError);
+
     const { data, error } = await supabase
       .from("student_assignments")
       .select("id, teacher_id, student_id, student_name, student_email, group_size, group_members, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status, ended_at, created_at, updated_at")
@@ -729,7 +767,7 @@
 
     target.innerHTML = visible.map((assignment) => {
       const teacher = teacherById(assignment.teacher_id);
-      const isHistory = Boolean(assignment.status && assignment.status !== "active");
+      const isHistory = isAssignmentHistory(assignment);
       const isTrial = isTrialAssignment(assignment);
       const plan = assignment.plan || "unassigned";
       const typeBadge = isTrial
@@ -787,6 +825,7 @@
         <div class="admin-assignment-actions">
           ${!isHistory && !isTrial && assignment.student_id ? `<a class="button primary small" href="classroom.html?assignment=${escapeHtml(assignment.id)}">공유 공간</a>` : ""}
           <button class="button secondary small" data-edit-assignment="${escapeHtml(assignment.id)}" type="button">수정</button>
+          ${isHistory ? `<button class="button primary small" data-reactivate-assignment="${escapeHtml(assignment.id)}" type="button">다시 활성화</button>` : ""}
           ${!isHistory ? `<button class="button ghost small assignment-delete-button" data-end-assignment="${escapeHtml(assignment.id)}" type="button">배정 종료</button>` : ""}
           <button class="button ghost small assignment-delete-button" data-delete-assignment="${escapeHtml(assignment.id)}" type="button">영구 삭제</button>
         </div>
@@ -796,7 +835,10 @@
 
   function resetAssignmentForm() {
     editingAssignmentId = null;
+    reactivatingAssignmentId = null;
     $("assignmentForm").reset();
+    setSelectedTeacher("");
+    $("assignmentSettlementDate").removeAttribute("min");
     $("assignmentType").value = "regular";
     $("assignmentGroupSize").value = "1";
     $("assignmentWeeklyFrequency").value = "1";
@@ -808,11 +850,12 @@
     renderGroupMemberFields([]);
   }
 
-  function startAssignmentEdit(id) {
+  function startAssignmentEdit(id, reactivate = false) {
     const assignment = assignments.find((item) => item.id === id);
     if (!assignment) return;
     editingAssignmentId = id;
-    $("assignmentTeacher").value = assignment.teacher_id;
+    reactivatingAssignmentId = reactivate ? id : null;
+    setSelectedTeacher(assignment.teacher_id);
     $("assignmentStudentName").value = assignment.student_name;
     $("assignmentStudentEmail").value = assignment.student_email || "";
     $("assignmentGroupSize").value = String(Number(assignment.group_size) || 1);
@@ -823,17 +866,41 @@
     $("assignmentWeeklyFrequency").value = assignment.weekly_frequency ? String(assignment.weekly_frequency) : "1";
     syncAssignmentTypeFields(assignment.settlement_sessions || packageSessionCount(assignment.weekly_frequency || 1));
     $("assignmentFirstLessonDate").value = assignment.first_lesson_date;
-    $("assignmentSettlementDate").value = assignment.settlement_date;
-    $("assignmentFormTitle").textContent = "학생 배정 수정";
-    $("assignmentSubmitButton").textContent = "배정 정보 수정";
+    $("assignmentSettlementDate").value = reactivate && assignment.settlement_date < localDateKey()
+      ? localDateKey()
+      : assignment.settlement_date;
+    if (reactivate) $("assignmentSettlementDate").min = localDateKey();
+    else $("assignmentSettlementDate").removeAttribute("min");
+    $("assignmentFormTitle").textContent = reactivate ? "학생 다시 활성화" : "학생 배정 수정";
+    $("assignmentSubmitButton").textContent = reactivate ? "다시 활성화" : "배정 정보 수정";
     $("assignmentCancelButton").classList.remove("hidden");
     renderAssignmentPricingPreview();
     $("assignmentForm").scrollIntoView({ behavior: "smooth", block: "center" });
+    if (reactivate) toast("정산 예정일을 확인한 뒤 다시 활성화해주세요.");
+  }
+
+  async function edgeFunctionErrorMessage(result) {
+    if (result?.data?.error) return result.data.error;
+    const response = result?.error?.context;
+    if (response?.clone) {
+      try {
+        const body = await response.clone().json();
+        if (body?.error) return body.error;
+      } catch (error) {
+        console.warn("Edge Function error response parse failed:", error);
+      }
+    }
+    return result?.error?.message || "알 수 없는 오류";
   }
 
   async function saveAssignment(event) {
     event.preventDefault();
     const button = event.submitter || $("assignmentSubmitButton");
+    const selectedTeacher = resolveTeacherSearchValue();
+    const existingAssignment = editingAssignmentId
+      ? assignments.find((item) => item.id === editingAssignmentId)
+      : null;
+    const isReactivation = Boolean(existingAssignment && reactivatingAssignmentId === editingAssignmentId);
     const assignmentType = $("assignmentType").value === "trial" ? "trial" : "regular";
     const isTrial = assignmentType === "trial";
     const groupSize = isTrial ? 1 : currentGroupSize();
@@ -847,7 +914,7 @@
       : pricingFor(plan, lessonDurationMinutes, weeklyFrequency, settlementSessions, groupSize);
 
     const payload = {
-      teacher_id: $("assignmentTeacher").value,
+      teacher_id: selectedTeacher?.id || "",
       student_name: $("assignmentStudentName").value.trim(),
       student_email: $("assignmentStudentEmail").value.trim().toLowerCase() || null,
       group_size: groupSize,
@@ -876,22 +943,31 @@
 
     const membersComplete = groupMembers.length === groupSize && groupMembers.every((member) => member.name);
     if (!payload.teacher_id || !payload.student_name || !membersComplete || !payload.plan || !lessonDurationMinutes || !validAssignment || !payload.first_lesson_date || !payload.settlement_date) {
+      if (!payload.teacher_id) $("assignmentTeacherSearch").focus();
       return toast(isTrial ? "체험수업 배정 정보를 모두 입력해주세요." : "모든 학생 배정 및 정산 정보를 입력해주세요.", true);
     }
     if (payload.settlement_date < payload.first_lesson_date) {
       $("assignmentSettlementDate").focus();
       return toast("정산 예정일은 첫 수업일과 같거나 이후여야 합니다.", true);
     }
+    if (isReactivation && payload.settlement_date < localDateKey()) {
+      $("assignmentSettlementDate").focus();
+      return toast("다시 활성화하려면 정산 예정일을 오늘 이후로 변경해주세요.", true);
+    }
 
     const originalText = button.textContent;
     button.disabled = true;
     button.textContent = editingAssignmentId ? "수정 중..." : "등록 중...";
 
-    const confirmation = isTrial
-      ? `${payload.student_name} 학생의 무료 체험수업을 배정할까요?`
-      : payload.student_email && groupSize === 1
-        ? `${payload.student_name} 학생을 배정하고 계정이 없으면 초대 이메일을 보낼까요?`
-        : `${groupSize > 1 ? `1:${groupSize} 수업` : `${payload.student_name} 학생`}을 이메일 계정 연결 없이 배정할까요?`;
+    const confirmation = isReactivation
+      ? `${payload.student_name} 학생을 다시 현재 학생으로 활성화할까요?`
+      : existingAssignment
+        ? `${payload.student_name} 학생의 배정 정보를 수정할까요?`
+        : isTrial
+          ? `${payload.student_name} 학생의 무료 체험수업을 배정할까요?`
+          : payload.student_email && groupSize === 1
+            ? `${payload.student_name} 학생을 배정하고 계정이 없으면 초대 이메일을 보낼까요?`
+            : `${groupSize > 1 ? `1:${groupSize} 수업` : `${payload.student_name} 학생`}을 이메일 계정 연결 없이 배정할까요?`;
     if (!confirm(confirmation)) {
       button.disabled = false;
       button.textContent = originalText;
@@ -900,27 +976,41 @@
 
     let resultData = null;
     let resultError = null;
-    if (payload.student_email && groupSize === 1 && !isTrial) {
+    let resultErrorMessage = "";
+    if (existingAssignment) {
+      const directPayload = {
+        ...payload,
+        status: isReactivation ? "active" : (existingAssignment.status || "active"),
+        ended_at: isReactivation ? null : (existingAssignment.ended_at || null)
+      };
+      const result = await supabase
+        .from("student_assignments")
+        .update(directPayload)
+        .eq("id", editingAssignmentId)
+        .select()
+        .single();
+      resultData = result.data;
+      resultError = result.error;
+    } else if (payload.student_email && groupSize === 1 && !isTrial) {
       const result = await supabase.functions.invoke("assign-student", {
-        body: { ...payload, assignment_id: editingAssignmentId || null }
+        body: { ...payload, assignment_id: null }
       });
       resultData = result.data;
       resultError = result.error;
+      if (resultError || resultData?.error) resultErrorMessage = await edgeFunctionErrorMessage(result);
     } else {
       const directPayload = { ...payload, student_id: null, status: "active", ended_at: null };
-      const result = editingAssignmentId
-        ? await supabase.from("student_assignments").update(directPayload).eq("id", editingAssignmentId).select().single()
-        : await supabase.from("student_assignments").insert(directPayload).select().single();
+      const result = await supabase.from("student_assignments").insert(directPayload).select().single();
       resultData = result.data;
       resultError = result.error;
     }
 
     button.disabled = false;
     button.textContent = originalText;
-    if (resultError || resultData?.error) return toast("학생 배정 저장 실패: " + (resultData?.error || resultError?.message || "알 수 없는 오류"), true);
+    if (resultError || resultData?.error) return toast("학생 배정 저장 실패: " + (resultErrorMessage || resultData?.error || resultError?.message || "알 수 없는 오류"), true);
 
-    toast(editingAssignmentId
-      ? (resultData?.reassigned ? "새 선생님으로 재배정했습니다. 기존 공유 공간 접근은 종료되었습니다." : "학생 배정 정보를 수정했습니다.")
+    toast(existingAssignment
+      ? (isReactivation ? "학생을 다시 활성화했습니다." : "학생 배정 정보를 수정했습니다.")
       : (isTrial ? "무료 체험수업을 배정했습니다." : (resultData?.invitation_sent ? "학생 배정과 계정 초대를 완료했습니다." : "학생 배정을 저장했습니다.")));
     resetAssignmentForm();
     await loadAssignments();
@@ -941,7 +1031,7 @@
   async function deleteAssignmentPermanently(id) {
     const assignment = assignments.find((item) => item.id === id);
     if (!assignment) return;
-    if (!confirm(`${assignment.student_name} 학생 기록을 영구 삭제할까요? 삭제 후에는 복구할 수 없습니다.`)) return;
+    if (!confirm(`${assignment.student_name} 학생 배정 기록을 영구 삭제할까요? 배정 기록은 복구할 수 없으며, 기존 음성 및 학습 데이터는 보존됩니다.`)) return;
     const { error } = await supabase.from("student_assignments").delete().eq("id", id);
     if (error) return toast("학생 기록 삭제 실패: " + error.message, true);
     if (editingAssignmentId === id) resetAssignmentForm();
@@ -1180,6 +1270,8 @@
 
   $("assignmentForm").addEventListener("submit", saveAssignment);
   $("assignmentCancelButton").addEventListener("click", resetAssignmentForm);
+  $("assignmentTeacherSearch").addEventListener("input", resolveTeacherSearchValue);
+  $("assignmentTeacherSearch").addEventListener("change", resolveTeacherSearchValue);
   $("assignmentType").addEventListener("change", () => {
     syncAssignmentTypeFields();
     renderAssignmentPricingPreview();
@@ -1208,6 +1300,8 @@
   $("adminAssignmentList").addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-edit-assignment]");
     if (editButton) return startAssignmentEdit(editButton.dataset.editAssignment);
+    const reactivateButton = event.target.closest("[data-reactivate-assignment]");
+    if (reactivateButton) return startAssignmentEdit(reactivateButton.dataset.reactivateAssignment, true);
     const endButton = event.target.closest("[data-end-assignment]");
     if (endButton) return endAssignment(endButton.dataset.endAssignment);
     const deleteButton = event.target.closest("[data-delete-assignment]");

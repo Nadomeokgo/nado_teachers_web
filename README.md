@@ -181,6 +181,32 @@ sql/teacher_operations_20260919_update.sql
 
 이 SQL은 기존 스케줄을 삭제하지 않고 `IGC`, `트리플스트리트`, `송도 내 협의` 값을 새 지역 체계로 변환합니다.
 
+## 2026-09-21 관리자 학생 배정 오류 수정 적용
+
+이번 수정은 선생님 이름 검색, 정산일 경과 학생의 기록 이동, 기록 영구 삭제, 기존 학생 재활성화 및 이메일 계정 중복 처리를 포함합니다. 아래 순서대로 적용하세요.
+
+1. Supabase `SQL Editor`에서 다음 파일 전체를 실행합니다.
+
+```text
+sql/admin_assignment_reliability_20260921_update.sql
+```
+
+2. Supabase `Edge Functions → assign-student`의 코드를 다음 파일 내용으로 교체하고 배포합니다.
+
+```text
+supabase/functions/assign-student/index.ts
+```
+
+Supabase CLI를 사용하는 경우 프로젝트 폴더에서 아래 명령으로 배포할 수 있습니다.
+
+```bash
+supabase functions deploy assign-student --project-ref ouanvcvzrjbzbpefslgd
+```
+
+3. 그다음 이 프로젝트의 최상위 파일과 폴더를 GitHub에 업로드합니다. `sql`과 `supabase` 폴더도 수정 이력 보관을 위해 함께 올리는 것을 권장합니다.
+
+학생 기록의 `영구 삭제`는 선택한 학생 배정 행만 삭제합니다. 연결되어 있던 음성 제출과 학습 데이터는 보존되고, 삭제된 배정과의 연결만 해제됩니다.
+
 ## 수정할 가능성이 높은 부분
 
 - 첫 수업 가이드 문구: `index.html`의 `page-guide`
