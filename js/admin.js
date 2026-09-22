@@ -521,7 +521,16 @@
 
     const dayOrder = [1, 2, 3, 4, 5, 6, 0];
     const shortDays = ["일", "월", "화", "수", "목", "금", "토"];
-    const uniqueHalfHours = new Set();
+    const periods = [
+      { label: "오전", time: "08–12", start: 8 * 60, end: 12 * 60 },
+      { label: "오후", time: "12–18", start: 12 * 60, end: 18 * 60 },
+      { label: "저녁", time: "18–24", start: 18 * 60, end: 24 * 60 }
+    ];
+    const regions = [
+      { key: "seoul", label: "서울", note: "서울 가능 시간" },
+      { key: "songdo", label: "송도", note: "IGC·트리플스트리트 포함" }
+    ];
+    const availableTeachers = new Map();
 
     teachers.forEach((teacher) => {
       (teacher.availability || []).forEach((slot) => {
@@ -529,25 +538,54 @@
         const start = Number(slot.start_time?.slice(0, 2)) * 60 + Number(slot.start_time?.slice(3, 5));
         const end = Number(slot.end_time?.slice(0, 2)) * 60 + Number(slot.end_time?.slice(3, 5));
         if (!Number.isInteger(day) || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+        const location = normalizedLocation(slot.location);
+        const region = location === "서울" ? "seoul" : ["송도", "IGC & 트스"].includes(location) ? "songdo" : "";
+        if (!region) return;
         for (let minutes = start; minutes < end; minutes += 30) {
-          uniqueHalfHours.add(`${teacher.id}:${day}:${minutes}`);
+          const key = `${region}:${day}:${minutes}`;
+          if (!availableTeachers.has(key)) availableTeachers.set(key, new Set());
+          availableTeachers.get(key).add(teacher.id);
         }
       });
     });
 
-    const counts = dayOrder.map((day) => [...uniqueHalfHours].filter((key) => Number(key.split(":")[1]) === day).length);
-    const maxCount = Math.max(...counts, 0);
-    target.innerHTML = dayOrder.map((day, index) => {
-      const count = counts[index];
-      const density = maxCount ? count / maxCount : 0;
-      const height = count ? Math.max(18, Math.round(density * 100)) : 6;
-      const level = density >= .75 ? "매우 많음" : density >= .5 ? "많음" : density >= .25 ? "보통" : count ? "적음" : "없음";
-      return `<div class="weekly-density-day" title="${shortDays[day]}요일 · ${level}">
-        <div class="weekly-density-track" aria-hidden="true"><i style="height:${height}%"></i></div>
-        <strong>${shortDays[day]}</strong>
-        <span class="sr-only">${level}</span>
-      </div>`;
-    }).join("");
+    const regionData = regions.map((region) => ({
+      ...region,
+      rows: periods.map((period) => ({
+        ...period,
+        cells: dayOrder.map((day) => {
+          const counts = [];
+          for (let minutes = period.start; minutes < period.end; minutes += 30) {
+            counts.push(availableTeachers.get(`${region.key}:${day}:${minutes}`)?.size || 0);
+          }
+          return {
+            day,
+            average: counts.length ? counts.reduce((sum, count) => sum + count, 0) / counts.length : 0,
+            maximum: Math.max(...counts, 0)
+          };
+        })
+      }))
+    }));
+    const maxAverage = Math.max(...regionData.flatMap((region) => region.rows.flatMap((row) => row.cells.map((cell) => cell.average))), 0);
+
+    target.innerHTML = regionData.map((region) => `<section class="regional-density-card" aria-label="${region.label} 가능 선생님 밀도">
+      <div class="regional-density-head"><strong>${region.label}</strong><span>${region.note}</span></div>
+      <div class="density-matrix">
+        <span class="density-corner">시간</span>
+        ${dayOrder.map((day) => `<strong class="density-day-head">${shortDays[day]}</strong>`).join("")}
+        ${region.rows.map((row) => `
+          <div class="density-period-label"><strong>${row.label}</strong><span>${row.time}</span></div>
+          ${row.cells.map((cell) => {
+            const density = maxAverage ? cell.average / maxAverage : 0;
+            const alpha = cell.average ? (.12 + density * .78).toFixed(2) : .05;
+            const highDensity = density >= .58 ? " high-density" : "";
+            const averageLabel = cell.average ? cell.average.toFixed(1) : "–";
+            const details = `${region.label} · ${shortDays[cell.day]}요일 ${row.label} ${row.time}시 · 평균 ${cell.average.toFixed(1)}명 · 최대 ${cell.maximum}명`;
+            return `<button class="density-cell${highDensity}" type="button" style="background:rgba(74,144,226,${alpha})" data-density-region="${region.key}" data-density-day="${cell.day}" data-density-start="${row.start}" data-density-end="${row.end}" title="${details}" aria-label="${details}"><strong>${averageLabel}</strong><small>명</small></button>`;
+          }).join("")}
+        `).join("")}
+      </div>
+    </section>`).join("");
   }
 
   function normalizedLocation(value = "") {
@@ -566,12 +604,15 @@
     const location = $("availabilityLocationFilter").value;
     const previous = $("availabilityAreaFilter").value;
     const region = serviceRegionForLocation(location);
+    const serviceRegions = location === "songdo_all" ? ["Songdo", "IGC_TRIPLE"] : region ? [region] : [];
     const values = new Set();
     teachers.forEach((teacher) => {
       (teacher.availability || []).forEach((slot) => {
-        if ((location === "all" || normalizedLocation(slot.location) === location) && slot.service_area) values.add(slot.service_area);
+        const slotLocation = normalizedLocation(slot.location);
+        const matchesLocation = location === "all" || (location === "songdo_all" ? ["송도", "IGC & 트스"].includes(slotLocation) : slotLocation === location);
+        if (matchesLocation && slot.service_area) values.add(slot.service_area);
       });
-      if (region) (teacher.service_areas?.[region] || []).forEach((area) => values.add(area));
+      serviceRegions.forEach((serviceRegion) => (teacher.service_areas?.[serviceRegion] || []).forEach((area) => values.add(area)));
     });
     const sorted = [...values].sort((a, b) => a.localeCompare(b, "ko"));
     $("availabilityAreaFilter").innerHTML = '<option value="all">전체 세부 지역</option>' + sorted.map((area) => `<option value="${escapeHtml(area)}">${escapeHtml(area)}</option>`).join("");
@@ -583,7 +624,7 @@
     return teachers.filter((teacher) => (teacher.availability || []).some((slot) => {
       if (Number(slot.day_of_week) !== day) return false;
       const slotLocation = normalizedLocation(slot.location);
-      if (locationFilter !== "all" && slotLocation !== locationFilter) return false;
+      if (locationFilter !== "all" && (locationFilter === "songdo_all" ? !["송도", "IGC & 트스"].includes(slotLocation) : slotLocation !== locationFilter)) return false;
       if (areaFilter !== "all" && slot.service_area !== areaFilter) return false;
       const start = Number(slot.start_time.slice(0, 2)) * 60 + Number(slot.start_time.slice(3, 5));
       const end = Number(slot.end_time.slice(0, 2)) * 60 + Number(slot.end_time.slice(3, 5));
@@ -598,16 +639,38 @@
     const areaFilter = $("availabilityAreaFilter").value;
     const dayOrder = [1, 2, 3, 4, 5, 6, 0];
     const shortDays = ["일", "월", "화", "수", "목", "금", "토"];
-    const cells = ['<div class="availability-board-corner">시간</div>', ...dayOrder.map((day) => `<div class="availability-board-day">${shortDays[day]}</div>`)];
+    const cells = ['<div class="availability-board-corner">시간</div>', ...dayOrder.map((day) => `<div class="availability-board-day" data-board-day="${day}">${shortDays[day]}</div>`)];
     for (let minutes = 8 * 60; minutes < 24 * 60; minutes += 30) {
       const time = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-      cells.push(`<div class="availability-board-time">${time}</div>`);
+      cells.push(`<div class="availability-board-time" data-board-minutes="${minutes}">${time}</div>`);
       dayOrder.forEach((day) => {
         const available = teachersForAvailabilityCell(day, minutes, locationFilter, areaFilter);
-        cells.push(`<div class="availability-board-cell${available.length ? " has-teachers" : ""}">${available.map((teacher) => `<span title="${escapeHtml(teacher.email || "")}">${escapeHtml(teacher.full_name || "이름 미입력")}</span>`).join("")}</div>`);
+        cells.push(`<div class="availability-board-cell${available.length ? " has-teachers" : ""}" data-board-day="${day}" data-board-minutes="${minutes}">${available.map((teacher) => `<span title="${escapeHtml(teacher.email || "")}">${escapeHtml(teacher.full_name || "이름 미입력")}</span>`).join("")}</div>`);
       });
     }
     target.innerHTML = cells.join("");
+  }
+
+  function focusDensityCell(button) {
+    const region = button.dataset.densityRegion;
+    const day = Number(button.dataset.densityDay);
+    const start = Number(button.dataset.densityStart);
+    const end = Number(button.dataset.densityEnd);
+    $("availabilityLocationFilter").value = region === "seoul" ? "서울" : "songdo_all";
+    syncAvailabilityAreaFilter();
+    renderAvailabilityBoard();
+    $("dayFilter").value = String(day);
+    render();
+
+    const board = $("adminAvailabilityBoard");
+    board.querySelectorAll(".density-focus, .density-focus-day").forEach((cell) => cell.classList.remove("density-focus", "density-focus-day"));
+    board.querySelector(`[data-board-day="${day}"]:not([data-board-minutes])`)?.classList.add("density-focus-day");
+    const focusedCells = [...board.querySelectorAll(`[data-board-day="${day}"][data-board-minutes]`)].filter((cell) => {
+      const minutes = Number(cell.dataset.boardMinutes);
+      return minutes >= start && minutes < end;
+    });
+    focusedCells.forEach((cell) => cell.classList.add("density-focus"));
+    focusedCells[0]?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
   }
 
   function filteredTeachers() {
@@ -1378,6 +1441,10 @@
   });
   $("teacherSearch").addEventListener("input", render);
   $("dayFilter").addEventListener("change", render);
+  $("weeklyAvailabilityDensity").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-density-region]");
+    if (button) focusDensityCell(button);
+  });
   $("availabilityLocationFilter").addEventListener("change", () => {
     syncAvailabilityAreaFilter();
     renderAvailabilityBoard();

@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="NADO Teachers" />
   <title>나도 Teachers 관리자</title>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260922-weekly-density-v1" />
+  <link rel="stylesheet" href="css/style.css?v=20260922-region-period-density-v2" />
 </head>
 <body class="admin-body">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -39,10 +39,10 @@
       <article class="stat-panel"><span>등록 선생님</span><strong id="teacherCount">-</strong></article>
       <article class="stat-panel availability-density-panel">
         <div class="availability-density-title">
-          <span>요일별 가능 시간 밀도</span>
-          <small>높을수록 가능한 시간이 많아요</small>
+          <span>지역·시간대별 가능 선생님</span>
+          <small>색이 진할수록 동시에 가능한 선생님이 많아요</small>
         </div>
-        <div id="weeklyAvailabilityDensity" class="weekly-availability-density" aria-label="요일별 가능 시간 밀도"></div>
+        <div id="weeklyAvailabilityDensity" class="weekly-availability-density" aria-label="서울과 송도의 요일 및 시간대별 가능 선생님 밀도"></div>
       </article>
       <article class="stat-panel"><span>최근 업데이트</span><strong id="latestUpdate">-</strong></article>
       <article class="stat-panel"><span>현재 학생</span><strong id="assignmentTotalCount">-</strong></article>
@@ -209,6 +209,7 @@
           <label>지역
             <select id="availabilityLocationFilter">
               <option value="all">전체 지역</option>
+              <option value="songdo_all">송도 전체 (IGC·트스 포함)</option>
               <option value="송도">송도</option>
               <option value="IGC &amp; 트스">IGC &amp; 트스</option>
               <option value="서울">서울</option>
@@ -313,6 +314,6 @@
   <script src="js/config.js?v=20260731-integrated1"></script>
   <script src="js/pricing.js?v=20260919-group-pricing-v1"></script>
   <script src="js/i18n.js?v=20260829-trial-free20000-v14"></script>
-  <script src="js/admin.js?v=20260922-weekly-density-v1"></script>
+  <script src="js/admin.js?v=20260922-region-period-density-v2"></script>
 </body>
 </html>
