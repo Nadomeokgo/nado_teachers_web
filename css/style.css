@@ -401,6 +401,16 @@ textarea { resize: vertical; }
 .stat-panel { display: grid; gap: 10px; background: white; border: 1px solid rgba(22,50,79,.07); border-radius: 18px; padding: 22px; }
 .stat-panel span { color: var(--gray); font-size: .82rem; font-weight: 700; }
 .stat-panel strong { font-size: 1.7rem; letter-spacing: -.04em; }
+.availability-density-panel { gap: 12px; padding: 17px 18px 15px; }
+.availability-density-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.availability-density-title > span { color: var(--gray); font-size: .82rem; font-weight: 700; }
+.availability-density-title > small { color: #9aa8b5; font-size: .62rem; white-space: nowrap; }
+.weekly-availability-density { height: 58px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; align-items: end; }
+.weekly-density-day { min-width: 0; height: 100%; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 4px; align-items: end; text-align: center; }
+.weekly-density-track { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 6px; background: #edf3f8; }
+.weekly-density-track i { position: absolute; right: 0; bottom: 0; left: 0; min-height: 4px; border-radius: 6px; background: linear-gradient(180deg, #7eb8ef 0%, var(--accent) 100%); }
+.weekly-density-day strong { color: #697b8c; font-size: .65rem; font-weight: 850; letter-spacing: 0; }
+.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
 .admin-filter-panel { display: grid; grid-template-columns: 1fr 220px; gap: 15px; padding: 18px; margin-bottom: 18px; }
 .admin-filter-panel label { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; }
 .admin-filter-panel input, .admin-filter-panel select { padding: 10px 12px; }

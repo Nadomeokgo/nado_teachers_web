@@ -507,12 +507,47 @@
     const slots = teachers.flatMap((teacher) => teacher.availability || []);
     const latest = slots.map((slot) => slot.updated_at).filter(Boolean).sort().at(-1);
     $("teacherCount").textContent = `${teachers.length}명`;
-    $("slotTotalCount").textContent = `${slots.length}개`;
+    renderWeeklyAvailabilityDensity();
     $("latestUpdate").textContent = latest ? new Date(latest).toLocaleDateString("ko-KR") : "없음";
     const { current } = assignmentGroups();
     $("assignmentTotalCount").textContent = `${current.length}명`;
     const acceptedCount = teachers.filter((teacher) => teacher.agreement?.agreement_version === CURRENT_AGREEMENT_VERSION).length;
     $("agreementAcceptedCount").textContent = `${acceptedCount}/${teachers.length}명`;
+  }
+
+  function renderWeeklyAvailabilityDensity() {
+    const target = $("weeklyAvailabilityDensity");
+    if (!target) return;
+
+    const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+    const shortDays = ["일", "월", "화", "수", "목", "금", "토"];
+    const uniqueHalfHours = new Set();
+
+    teachers.forEach((teacher) => {
+      (teacher.availability || []).forEach((slot) => {
+        const day = Number(slot.day_of_week);
+        const start = Number(slot.start_time?.slice(0, 2)) * 60 + Number(slot.start_time?.slice(3, 5));
+        const end = Number(slot.end_time?.slice(0, 2)) * 60 + Number(slot.end_time?.slice(3, 5));
+        if (!Number.isInteger(day) || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+        for (let minutes = start; minutes < end; minutes += 30) {
+          uniqueHalfHours.add(`${teacher.id}:${day}:${minutes}`);
+        }
+      });
+    });
+
+    const counts = dayOrder.map((day) => [...uniqueHalfHours].filter((key) => Number(key.split(":")[1]) === day).length);
+    const maxCount = Math.max(...counts, 0);
+    target.innerHTML = dayOrder.map((day, index) => {
+      const count = counts[index];
+      const density = maxCount ? count / maxCount : 0;
+      const height = count ? Math.max(18, Math.round(density * 100)) : 6;
+      const level = density >= .75 ? "매우 많음" : density >= .5 ? "많음" : density >= .25 ? "보통" : count ? "적음" : "없음";
+      return `<div class="weekly-density-day" title="${shortDays[day]}요일 · ${level}">
+        <div class="weekly-density-track" aria-hidden="true"><i style="height:${height}%"></i></div>
+        <strong>${shortDays[day]}</strong>
+        <span class="sr-only">${level}</span>
+      </div>`;
+    }).join("");
   }
 
   function normalizedLocation(value = "") {
