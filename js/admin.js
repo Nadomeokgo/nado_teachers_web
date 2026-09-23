@@ -515,6 +515,32 @@
     $("agreementAcceptedCount").textContent = `${acceptedCount}/${teachers.length}명`;
   }
 
+  function rdBuHeatColor(value) {
+    const stops = [
+      { t: 0.00, rgb: [5, 48, 97] },
+      { t: 0.10, rgb: [33, 102, 172] },
+      { t: 0.20, rgb: [67, 147, 195] },
+      { t: 0.30, rgb: [146, 197, 222] },
+      { t: 0.40, rgb: [209, 229, 240] },
+      { t: 0.50, rgb: [247, 247, 247] },
+      { t: 0.60, rgb: [253, 219, 199] },
+      { t: 0.70, rgb: [244, 165, 130] },
+      { t: 0.80, rgb: [214, 96, 77] },
+      { t: 0.90, rgb: [178, 24, 43] },
+      { t: 1.00, rgb: [103, 0, 31] }
+    ];
+    const t = Math.max(0, Math.min(1, Number(value) || 0));
+    let rightIndex = stops.findIndex((stop) => t <= stop.t);
+    if (rightIndex <= 0) rightIndex = 1;
+    const left = stops[rightIndex - 1];
+    const right = stops[rightIndex];
+    const local = right.t === left.t ? 0 : (t - left.t) / (right.t - left.t);
+    const rgb = left.rgb.map((channel, index) =>
+      Math.round(channel + (right.rgb[index] - channel) * local)
+    );
+    return `rgb(${rgb.join(",")})`;
+  }
+
   function renderWeeklyAvailabilityDensity() {
     const target = $("weeklyAvailabilityDensity");
     if (!target) return;
@@ -531,6 +557,7 @@
       { key: "songdo", label: "송도", note: "IGC·트리플스트리트 포함" }
     ];
     const availableTeachers = new Map();
+    const teacherById = new Map(teachers.map((teacher) => [teacher.id, teacher]));
 
     teachers.forEach((teacher) => {
       (teacher.availability || []).forEach((slot) => {
@@ -555,13 +582,21 @@
         ...period,
         cells: dayOrder.map((day) => {
           const counts = [];
+          const teacherIds = new Set();
           for (let minutes = period.start; minutes < period.end; minutes += 30) {
-            counts.push(availableTeachers.get(`${region.key}:${day}:${minutes}`)?.size || 0);
+            const ids = availableTeachers.get(`${region.key}:${day}:${minutes}`) || new Set();
+            counts.push(ids.size);
+            ids.forEach((id) => teacherIds.add(id));
           }
+          const teacherNames = [...teacherIds]
+            .map((id) => teacherById.get(id)?.full_name || teacherById.get(id)?.name || "")
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b, "ko"));
           return {
             day,
             average: counts.length ? counts.reduce((sum, count) => sum + count, 0) / counts.length : 0,
-            maximum: Math.max(...counts, 0)
+            maximum: Math.max(...counts, 0),
+            teacherNames
           };
         })
       }))
@@ -577,14 +612,11 @@
           <div class="density-period-label"><strong>${row.label}</strong><span>${row.time}</span></div>
           ${row.cells.map((cell) => {
             const density = maxAverage ? cell.average / maxAverage : 0;
-            const blue = { r: 59, g: 130, b: 246 };
-            const red = { r: 239, g: 68, b: 68 };
-            const mix = (start, end) => Math.round(start + (end - start) * density);
-            const heatColor = `rgb(${mix(blue.r, red.r)}, ${mix(blue.g, red.g)}, ${mix(blue.b, red.b)})`;
-            const highDensity = density >= .58 ? " high-density" : "";
+            const heatColor = rdBuHeatColor(density);
             const averageLabel = cell.average ? cell.average.toFixed(1) : "0";
-            const details = `${region.label} · ${shortDays[cell.day]}요일 ${row.label} ${row.time}시 · 평균 ${cell.average.toFixed(1)}명 · 최대 ${cell.maximum}명`;
-            return `<button class="density-cell${highDensity}" type="button" style="background:${heatColor}" data-density-region="${region.key}" data-density-day="${cell.day}" data-density-start="${row.start}" data-density-end="${row.end}" title="${details}" aria-label="${details}"><strong>${averageLabel}</strong><small>명</small></button>`;
+            const teacherList = cell.teacherNames.length ? cell.teacherNames.join(", ") : "없음";
+            const details = `${region.label} · ${shortDays[cell.day]}요일 ${row.label} ${row.time}시\n가능 선생님: ${teacherList}\n평균 ${cell.average.toFixed(1)}명 · 최대 ${cell.maximum}명`;
+            return `<button class="density-cell" type="button" style="background:${heatColor}" data-density-region="${region.key}" data-density-day="${cell.day}" data-density-start="${row.start}" data-density-end="${row.end}" title="${escapeHtml(details)}" aria-label="${escapeHtml(details)}"><strong>${averageLabel}<span>명</span></strong></button>`;
           }).join("")}
         `).join("")}
       </div>
