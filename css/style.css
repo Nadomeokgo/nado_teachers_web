@@ -357,6 +357,35 @@ textarea { resize: vertical; }
 .profile-form textarea {
   min-height: 116px;
 }
+.experience-section { min-width: 0; padding: 20px; border: 1px solid #dce8f4; border-radius: 17px; background: #f9fcff; }
+.experience-heading, .experience-category-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.experience-heading h3 { margin: 0 0 5px; font-size: 1rem; color: var(--navy); }
+.experience-heading p, .experience-category-head p { margin: 0; color: var(--gray); font-size: .78rem; line-height: 1.5; }
+.experience-categories { display: grid; gap: 16px; margin-top: 18px; }
+.experience-category { padding-top: 15px; border-top: 1px solid #e3ecf5; }
+.experience-category-head h4 { margin: 0 0 4px; font-size: .9rem; color: var(--navy); }
+.experience-category-head .button { flex: 0 0 auto; }
+.experience-entry-list { display: grid; gap: 10px; margin-top: 12px; }
+.experience-empty { margin: 0; color: var(--gray); font-size: .76rem; }
+.experience-entry { padding: 14px; border: 1px solid #e1e9f1; border-radius: 13px; background: #fff; }
+.experience-entry-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.experience-entry-head strong { color: var(--navy); font-size: .82rem; }
+.experience-entry-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.experience-entry-fields label { min-width: 0; display: grid; gap: 5px; color: var(--gray); font-size: .75rem; font-weight: 700; }
+.experience-entry-fields input, .experience-entry-fields textarea { width: 100%; }
+.experience-entry-fields textarea { min-height: 80px; resize: vertical; }
+.experience-entry-fields .experience-description { grid-column: 1 / -1; }
+.teacher-admin-experience { grid-column: 1 / -1; }
+.teacher-admin-experience-list { display: grid; gap: 12px; }
+.teacher-admin-experience-group b { display: block; margin-bottom: 6px; color: var(--navy); font-size: .8rem; }
+.teacher-admin-experience-item { margin: 0 0 7px; color: var(--navy); font-size: .8rem; line-height: 1.5; overflow-wrap: anywhere; }
+.teacher-admin-experience-item small { color: var(--gray); }
+.teacher-admin-experience-item p { margin: 3px 0 0; white-space: pre-wrap; }
+@media (max-width: 600px) {
+  .experience-section { padding: 16px; }
+  .experience-category-head { flex-wrap: wrap; }
+  .experience-entry-fields { grid-template-columns: 1fr; }
+}
 .profile-kakao-field {
   grid-column: 1 / -1;
 }

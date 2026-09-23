@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260921-assignment-fix-v3" />
+  <link rel="stylesheet" href="css/style.css?v=20260923-experience-v1" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -170,7 +170,7 @@
           <div>
             <p class="section-kicker">PROFILE SETUP</p>
             <h2 id="onboardingTitle">필수 프로필 작성</h2>
-            <p>모든 항목을 입력해야 나도 Teachers를 이용할 수 있습니다.</p>
+            <p>별표 표시된 항목을 입력해야 나도 Teachers를 이용할 수 있습니다.</p>
           </div>
           <div class="onboarding-head-actions">
             <div class="language-slot" data-nado-language-slot></div>
@@ -230,6 +230,13 @@
             <span class="field-label">한 줄 소개 <b class="required-mark">*</b></span>
             <textarea id="onboardingBio" rows="4" maxlength="500" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
           </label>
+          <section class="experience-section full-field" data-experience-scope="onboarding" aria-label="경험 및 활동">
+            <div class="experience-heading">
+              <div><h3>경험 및 활동</h3><p>해당되는 경험을 추가해주세요. 각 항목은 선택 사항이며 나도 운영팀이 매칭에 참고합니다.</p></div>
+              <span class="optional-badge">선택</span>
+            </div>
+            <div class="experience-categories"></div>
+          </section>
           <div class="profile-publication-notice full-field" role="note">
             <strong>프로필 공개 안내</strong>
             <p>프로필 사진과 한 줄 소개는 서비스 소개 및 매칭을 위해 나도 웹사이트에 게시될 수 있습니다. 한 줄 소개는 한국어 또는 영어 중 편한 언어로 작성해주세요.</p>
@@ -789,7 +796,7 @@
             <div class="profile-form-head">
               <div>
                 <h3>기본 정보 및 정산 계좌</h3>
-                <p>아래 항목은 매칭과 첫 달 수업료 정산을 위해 모두 필수입니다.</p>
+                <p>별표 표시된 기본 정보와 정산 계좌는 필수입니다. 경험 및 활동은 선택 사항입니다.</p>
               </div>
               <span class="required-note"><b>*</b> 필수 입력</span>
             </div>
@@ -844,6 +851,13 @@
                 <span class="field-label">한 줄 소개 <b class="required-mark">*</b></span>
                 <textarea id="profileBio" rows="4" maxlength="500" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
               </label>
+              <section class="experience-section full-field" data-experience-scope="profile" aria-label="경험 및 활동">
+                <div class="experience-heading">
+                  <div><h3>경험 및 활동</h3><p>해당되는 경험을 추가해주세요. 각 항목은 선택 사항이며 나도 운영팀이 매칭에 참고합니다.</p></div>
+                  <span class="optional-badge">선택</span>
+                </div>
+                <div class="experience-categories"></div>
+              </section>
               <div class="profile-publication-notice full-field" role="note">
                 <strong>프로필 공개 안내</strong>
                 <p>프로필 사진과 한 줄 소개는 서비스 소개 및 매칭을 위해 나도 웹사이트에 게시될 수 있습니다. 한 줄 소개는 한국어 또는 영어 중 편한 언어로 작성해주세요.</p>
@@ -872,8 +886,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260921-when2meet-v5"></script>
   <script src="js/pricing.js?v=20260919-group-pricing-v1"></script>
-  <script src="js/i18n.js?v=20260829-trial-free20000-v14"></script>
-  <script src="js/app.js?v=20260921-assignment-fix-v4"></script>
+  <script src="js/i18n.js?v=20260923-experience-v1"></script>
+  <script src="js/app.js?v=20260923-experience-v1"></script>
   <script src="js/schedule-v6.js?v=20260921-when2meet-v5"></script>
 </body>
 </html>

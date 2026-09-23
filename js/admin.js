@@ -38,6 +38,24 @@
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+  const experienceCategories = [
+    ["teaching", "Teaching experience"], ["work", "Work experience"],
+    ["internship", "Internship"], ["activities", "활동/리더십"]
+  ];
+
+  function renderTeacherExperience(value) {
+    const groups = experienceCategories.map(([key, label]) => {
+      const entries = Array.isArray(value?.[key]) ? value[key] : [];
+      if (!entries.length) return "";
+      return `<div class="teacher-admin-experience-group"><b>${label}</b>${entries.map((entry) => `
+        <div class="teacher-admin-experience-item experience-value">
+          <strong>${escapeHtml(entry.organization || "")}${entry.role ? ` · ${escapeHtml(entry.role)}` : ""}</strong>
+          ${entry.period ? `<small> · ${escapeHtml(entry.period)}</small>` : ""}
+          ${entry.description ? `<p>${escapeHtml(entry.description)}</p>` : ""}
+        </div>`).join("")}</div>`;
+    }).filter(Boolean);
+    return groups.length ? `<div class="teacher-admin-experience-list">${groups.join("")}</div>` : "<strong>미입력</strong>";
+  }
 
   function currentLanguage() {
     return window.NADO_I18N?.getLanguage?.() || "ko";
@@ -450,7 +468,7 @@
   async function loadData() {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, school, major, phone, kakao_id, bio, bank_name, account_number, profile_photo_path, is_active, availability(id, day_of_week, start_time, end_time, location, service_area, memo, updated_at)")
+      .select("id, full_name, email, school, major, phone, kakao_id, bio, experience, bank_name, account_number, profile_photo_path, is_active, availability(id, day_of_week, start_time, end_time, location, service_area, memo, updated_at)")
       .neq("role", "admin")
       .order("full_name");
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
@@ -719,7 +737,7 @@
       ...teacher,
       availability: (teacher.availability || []).filter((slot) => day === "all" || String(slot.day_of_week) === day)
     })).filter((teacher) => {
-      const matchesText = !keyword || `${teacher.full_name || ""} ${teacher.email || ""} ${teacher.school || ""} ${teacher.major || ""} ${teacher.phone || ""} ${teacher.kakao_id || ""}`.toLowerCase().includes(keyword);
+      const matchesText = !keyword || `${teacher.full_name || ""} ${teacher.email || ""} ${teacher.school || ""} ${teacher.major || ""} ${teacher.phone || ""} ${teacher.kakao_id || ""} ${JSON.stringify(teacher.experience || {})}`.toLowerCase().includes(keyword);
       const matchesDay = day === "all" || teacher.availability.length > 0;
       const matchesStatus = status === "all" || (status === "active") === (teacher.is_active !== false);
       return matchesText && matchesDay && matchesStatus;
@@ -758,6 +776,7 @@
           <div><span>카카오톡 ID</span><strong>${escapeHtml(teacher.kakao_id || "미입력")}</strong></div>
           <div><span>정산 계좌</span><strong>${escapeHtml(teacher.bank_name || "은행 미입력")} ${escapeHtml(teacher.account_number || "계좌번호 미입력")}</strong></div>
           <div class="teacher-admin-bio"><span>한 줄 소개</span><strong>${escapeHtml(teacher.bio || "미입력")}</strong></div>
+          <div class="teacher-admin-experience"><span>경험 및 활동</span>${renderTeacherExperience(teacher.experience)}</div>
           <div class="teacher-admin-bio"><span>가능 장소</span><strong>${Object.entries(teacher.service_areas || {}).length ? Object.entries(teacher.service_areas).map(([region, areas]) => `${escapeHtml(({Seoul:"서울",Songdo:"송도",IGC_TRIPLE:"IGC & 트스"})[region] || region)}: ${escapeHtml(areas.join(" · "))}`).join("<br>") : "미입력"}</strong></div>
           <div class="teacher-agreement-detail"><span>서비스 계약</span>${teacher.agreement
             ? `<strong class="agreement-ok">동의 완료 · ${escapeHtml(teacher.agreement.agreement_version)}</strong><small>${escapeHtml(new Date(teacher.agreement.agreed_at).toLocaleString(currentLocale()))} · ${escapeHtml(teacher.agreement.teacher_name)}</small>`

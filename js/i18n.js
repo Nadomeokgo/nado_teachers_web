@@ -42,7 +42,7 @@
   "입력하신 정보는 학생 매칭과 첫 달 수업료 정산을 위해 사용됩니다. 필수 정보가 추가되거나 미입력된 경우 다시 확인을 요청할 수 있습니다.": "This information is used for student matching and your first-month payout. If required information is added or missing, you may be asked to review your profile again.",
   "로그인 계정": "Signed-in account",
   "필수 프로필 작성": "Required Profile Setup",
-  "모든 항목을 입력해야 나도 Teachers를 이용할 수 있습니다.": "Complete every field before using NADO Teachers.",
+  "별표 표시된 항목을 입력해야 나도 Teachers를 이용할 수 있습니다.": "Complete the starred fields before using NADO Teachers.",
   "필수 입력": "Required",
   "이름": "Name",
   "학교": "University",
@@ -54,6 +54,24 @@
   "은행명": "Bank name",
   "계좌번호": "Account number",
   "한 줄 소개": "Short introduction",
+  "경험 및 활동": "Experience and Activities",
+  "해당되는 경험을 추가해주세요. 각 항목은 선택 사항이며 나도 운영팀이 매칭에 참고합니다.": "Add any relevant experience. These fields are optional and help the NADO team with matching.",
+  "가르친 대상, 과목, 수업 방식 등을 적어주세요.": "Describe who you taught, the subjects, and your teaching approach.",
+  "직장과 담당 업무를 적어주세요.": "Describe your workplace and responsibilities.",
+  "인턴십에서 맡은 업무를 적어주세요.": "Describe your internship responsibilities.",
+  "활동/리더십": "Activities / Leadership",
+  "동아리, 봉사, 대표 활동과 맡은 역할을 적어주세요.": "Describe clubs, volunteering, leadership, and your role.",
+  "+ 경험 추가": "+ Add experience",
+  "등록된 경험이 없습니다.": "No experience added yet.",
+  "기관·회사·단체": "Organization / Company",
+  "역할·직책": "Role / Title",
+  "활동 기간": "Period",
+  "상세 내용": "Details",
+  "예: 나도": "e.g. NADO",
+  "예: 영어 회화 튜터": "e.g. English conversation tutor",
+  "예: 2025.03–2026.08": "e.g. Mar 2025–Aug 2026",
+  "담당한 일과 성과를 간단히 적어주세요.": "Briefly describe your work and achievements.",
+  "경험을 추가할 때는 기관과 역할을 모두 입력해주세요.": "Enter both an organization and a role for each experience.",
   "예: 카카오뱅크": "e.g. KakaoBank",
   "숫자와 하이픈(-)만 입력": "Use numbers and hyphens (-) only",
   "학생들에게 보여줄 간단한 소개를 작성해주세요.": "Write a short introduction for students.",
@@ -64,7 +82,7 @@
   "내 정보": "My Profile",
   "운영팀이 매칭에 참고할 기본 정보를 관리합니다.": "Manage the basic information used by the operations team for matching.",
   "기본 정보 및 정산 계좌": "Profile and Payout Account",
-  "아래 항목은 매칭과 첫 달 수업료 정산을 위해 모두 필수입니다.": "All fields below are required for matching and the first-month payout.",
+  "별표 표시된 기본 정보와 정산 계좌는 필수입니다. 경험 및 활동은 선택 사항입니다.": "Starred profile and payout fields are required. Experience is optional.",
   "내 정보 저장": "Save Profile",
   "프로필 사진": "Profile photo",
   "필수": "Required",
@@ -506,7 +524,9 @@
     if (!value) return value;
     if (translations[value]) return translations[value];
 
-    let match = value.match(/^(\d+)\s*명$/);
+    let match = value.match(/^경험 (\d+)( 삭제)?$/);
+    if (match) return `Experience ${match[1]}${match[2] ? " remove" : ""}`;
+    match = value.match(/^(\d+)\s*명$/);
     if (match) return match[1];
     match = value.match(/^(\d+)\/(\d+)명$/);
     if (match) return `${match[1]}/${match[2]}`;
@@ -559,7 +579,7 @@
       "#announcementList h4, #announcementList p, #announcementList .announcement-item strong, " +
       "#resourceGrid h3, #resourceGrid p, " +
       ".assignment-student-name strong, .admin-assignment-person > strong, " +
-      ".teacher-admin-profile strong, .teacher-admin-profile span, .teacher-admin-bio strong, .admin-memo, " +
+      ".teacher-admin-profile strong, .teacher-admin-profile span, .teacher-admin-bio strong, .experience-value, .admin-memo, " +
       ".calendar-student-name, .calendar-teacher-name, .manager-item strong, .manager-item-en, " +
       "#agreementContractContent, #agreementContractContent *"
     ));

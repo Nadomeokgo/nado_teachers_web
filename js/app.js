@@ -8,6 +8,12 @@
   const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
   const PROFILE_PHOTO_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
+  const EXPERIENCE_CATEGORIES = [
+    { key: "teaching", title: "Teaching experience", help: "가르친 대상, 과목, 수업 방식 등을 적어주세요." },
+    { key: "work", title: "Work experience", help: "직장과 담당 업무를 적어주세요." },
+    { key: "internship", title: "Internship", help: "인턴십에서 맡은 업무를 적어주세요." },
+    { key: "activities", title: "활동/리더십", help: "동아리, 봉사, 대표 활동과 맡은 역할을 적어주세요." }
+  ];
   const CURRENT_AGREEMENT_VERSION = "v1.4";
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   const scheduleDayOrder = [1, 2, 3, 4, 5, 6, 0];
@@ -963,6 +969,102 @@
       if (profileField) profileField.value = value;
       if (onboardingField) onboardingField.value = value;
     });
+    renderExperienceEditor("profile", data.experience);
+    renderExperienceEditor("onboarding", data.experience);
+  }
+
+  function normalizeExperience(value) {
+    return Object.fromEntries(EXPERIENCE_CATEGORIES.map(({ key }) => [key,
+      (Array.isArray(value?.[key]) ? value[key] : []).slice(0, 10).map((entry) => ({
+        organization: String(entry?.organization || ""),
+        role: String(entry?.role || ""),
+        period: String(entry?.period || ""),
+        description: String(entry?.description || "")
+      }))
+    ]));
+  }
+
+  function experienceSection(scope) {
+    return document.querySelector(`[data-experience-scope="${scope}"]`);
+  }
+
+  function experienceEntryMarkup(entry, index) {
+    return `<div class="experience-entry">
+      <div class="experience-entry-head"><strong>경험 ${index + 1}</strong><button class="button ghost small danger-text" type="button" data-remove-experience="${index}" aria-label="경험 ${index + 1} 삭제">삭제</button></div>
+      <div class="experience-entry-fields">
+        <label>기관·회사·단체<input data-experience-field="organization" type="text" maxlength="120" value="${escapeHtml(entry.organization)}" placeholder="예: 나도" /></label>
+        <label>역할·직책<input data-experience-field="role" type="text" maxlength="120" value="${escapeHtml(entry.role)}" placeholder="예: 영어 회화 튜터" /></label>
+        <label>활동 기간<input data-experience-field="period" type="text" maxlength="80" value="${escapeHtml(entry.period)}" placeholder="예: 2025.03–2026.08" /></label>
+        <label class="experience-description">상세 내용<textarea data-experience-field="description" rows="3" maxlength="600" placeholder="담당한 일과 성과를 간단히 적어주세요.">${escapeHtml(entry.description)}</textarea></label>
+      </div>
+    </div>`;
+  }
+
+  function renderExperienceEditor(scope, value) {
+    const section = experienceSection(scope);
+    if (!section) return;
+    const experience = normalizeExperience(value);
+    section.querySelector(".experience-categories").innerHTML = EXPERIENCE_CATEGORIES.map(({ key, title, help }) => `
+      <div class="experience-category" data-experience-category="${key}">
+        <div class="experience-category-head"><div><h4>${title}</h4><p>${help}</p></div>
+          <button class="button ghost small" type="button" data-add-experience="${key}" ${experience[key].length >= 10 ? "disabled" : ""}>+ 경험 추가</button></div>
+        <div class="experience-entry-list">${experience[key].length
+          ? experience[key].map(experienceEntryMarkup).join("")
+          : '<p class="experience-empty">등록된 경험이 없습니다.</p>'}</div>
+      </div>`).join("");
+  }
+
+  function collectExperience(scope) {
+    const section = experienceSection(scope);
+    return Object.fromEntries(EXPERIENCE_CATEGORIES.map(({ key }) => [key,
+      [...section.querySelectorAll(`[data-experience-category="${key}"] .experience-entry`)].map((entry) =>
+        Object.fromEntries(["organization", "role", "period", "description"].map((field) =>
+          [field, entry.querySelector(`[data-experience-field="${field}"]`).value.trim()])))
+        .filter((entry) => Object.values(entry).some(Boolean))
+    ]));
+  }
+
+  function validateExperience(scope) {
+    for (const category of experienceSection(scope).querySelectorAll(".experience-category")) {
+      for (const entry of category.querySelectorAll(".experience-entry")) {
+        const inputs = [...entry.querySelectorAll("[data-experience-field]")];
+        if (!inputs.some((input) => input.value.trim())) continue;
+        const missing = inputs.find((input) => ["organization", "role"].includes(input.dataset.experienceField) && !input.value.trim());
+        if (missing) {
+          missing.focus();
+          showToast("경험을 추가할 때는 기관과 역할을 모두 입력해주세요.", "error");
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function handleExperienceClick(event) {
+    const add = event.target.closest("[data-add-experience]");
+    const remove = event.target.closest("[data-remove-experience]");
+    if (!add && !remove) return;
+    const scope = event.currentTarget.dataset.experienceScope;
+    const experience = Object.fromEntries(EXPERIENCE_CATEGORIES.map(({ key }) => [key,
+      readExperienceCategory(experienceSection(scope).querySelector(`[data-experience-category="${key}"]`))]));
+    const key = (add || remove).closest("[data-experience-category]").dataset.experienceCategory;
+    if (add) {
+      if (experience[key].length >= 10) return;
+      experience[key].push({ organization: "", role: "", period: "", description: "" });
+    } else {
+      const category = (add || remove).closest("[data-experience-category]");
+      const entries = [...category.querySelectorAll(".experience-entry")];
+      const index = entries.indexOf(remove.closest(".experience-entry"));
+      experience[key].splice(index, 1);
+    }
+    renderExperienceEditor(scope, experience);
+    if (add) experienceSection(scope).querySelector(`[data-experience-category="${key}"] .experience-entry:last-child [data-experience-field="organization"]`)?.focus();
+  }
+
+  function readExperienceCategory(category) {
+    return [...category.querySelectorAll(".experience-entry")].map((entry) =>
+      Object.fromEntries(["organization", "role", "period", "description"].map((field) =>
+        [field, entry.querySelector(`[data-experience-field="${field}"]`).value.trim()])));
   }
 
   function updateProfileHeader(data = {}) {
@@ -1253,6 +1355,7 @@
       bank_name: $(fieldIds.bank_name).value.trim(),
       account_number: $(fieldIds.account_number).value.trim().replace(/\s+/g, ""),
       bio: $(fieldIds.bio).value.trim(),
+      experience: collectExperience(fieldIds === onboardingFieldIds ? "onboarding" : "profile"),
       updated_at: new Date().toISOString()
     };
   }
@@ -1273,7 +1376,7 @@
   }
 
   async function persistProfile(payload) {
-    const columns = "id, email, full_name, school, major, phone, kakao_id, bank_name, account_number, bio, profile_photo_path, role, profile_completed_at, updated_at";
+    const columns = "id, email, full_name, school, major, phone, kakao_id, bank_name, account_number, bio, experience, profile_photo_path, role, profile_completed_at, updated_at";
     let result = await supabase
       .from("profiles")
       .update(payload)
@@ -1305,6 +1408,7 @@
     const payload = collectProfilePayload(profileFieldIds);
     const selectedPhotoFile = pendingProfilePhotoFile;
     if (!validateProfilePayload(payload, profileFieldIds)) return;
+    if (!validateExperience("profile")) return;
 
     setLoading(button, true, "내 정보 저장");
     try {
@@ -1333,7 +1437,7 @@
         : "내 정보가 저장되었습니다.");
     } catch (error) {
       console.error("Profile update failed:", error);
-      const missingColumn = /bank_name|account_number|kakao_id|profile_completed_at|profile_photo_path/i.test(error?.message || "");
+      const missingColumn = /bank_name|account_number|kakao_id|profile_completed_at|profile_photo_path|experience/i.test(error?.message || "");
       showToast(
         missingColumn
           ? "프로필 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요."
@@ -1351,6 +1455,7 @@
     const button = event.submitter || form.querySelector('button[type="submit"]');
     const basePayload = collectProfilePayload(onboardingFieldIds);
     if (!validateProfilePayload(basePayload, onboardingFieldIds)) return;
+    if (!validateExperience("onboarding")) return;
 
     if (!pendingOnboardingPhotoFile && !profile?.profile_photo_path) {
       $("onboardingPhotoInput")?.focus();
@@ -1391,7 +1496,7 @@
       applySavedProfile(completedProfile);
     } catch (error) {
       console.error("Profile onboarding failed:", error);
-      const missingColumn = /profile_completed_at/i.test(error?.message || "");
+      const missingColumn = /profile_completed_at|experience/i.test(error?.message || "");
       showToast(
         missingColumn
           ? "최초 프로필 설정용 데이터베이스 업데이트가 필요합니다."
@@ -1904,6 +2009,7 @@ function loadGuideChecks() {
     $("logoutButton").addEventListener("click", logout);
     $("profileForm").addEventListener("submit", saveProfile);
     $("onboardingForm").addEventListener("submit", completeOnboarding);
+    document.querySelectorAll("[data-experience-scope]").forEach((section) => section.addEventListener("click", handleExperienceClick));
     $("onboardingLogoutButton").addEventListener("click", logout);
     $("agreementForm").addEventListener("submit", completeAgreement);
     $("agreementLogoutButton").addEventListener("click", logout);

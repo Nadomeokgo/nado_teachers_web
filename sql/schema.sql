@@ -17,6 +17,7 @@ create table if not exists public.profiles (
   bank_name text,
   account_number text,
   bio text,
+  experience jsonb not null default '{"teaching":[],"work":[],"internship":[],"activities":[]}'::jsonb,
   profile_photo_path text,
   profile_completed_at timestamptz,
   role text not null default 'teacher' check (role in ('teacher', 'admin')),
@@ -30,6 +31,8 @@ alter table public.profiles
   add column if not exists kakao_id text;
 alter table public.profiles
   add column if not exists profile_photo_path text;
+alter table public.profiles
+  add column if not exists experience jsonb not null default '{"teaching":[],"work":[],"internship":[],"activities":[]}'::jsonb;
 
 -- 프로필 완료 시 모든 필수 정보가 입력되어 있어야 함
 alter table public.profiles
@@ -1118,7 +1121,7 @@ with check (id = auth.uid() or public.is_admin());
 
 -- 일반 authenticated 사용자는 role 컬럼을 직접 수정하지 못함
 revoke update on public.profiles from authenticated;
-grant update (email, full_name, school, major, phone, kakao_id, bank_name, account_number, bio, profile_photo_path, profile_completed_at, updated_at) on public.profiles to authenticated;
+grant update (email, full_name, school, major, phone, kakao_id, bank_name, account_number, bio, experience, profile_photo_path, profile_completed_at, updated_at) on public.profiles to authenticated;
 grant select, insert on public.profiles to authenticated;
 
 -- availability: 선생님은 자신의 행만, 관리자는 전체
