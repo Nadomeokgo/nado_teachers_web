@@ -426,6 +426,10 @@ textarea { resize: vertical; }
 .admin-filter-panel input, .admin-filter-panel select { padding: 10px 12px; }
 .admin-teacher-list { display: grid; gap: 15px; }
 .teacher-admin-card { padding: 24px; }
+.teacher-admin-card-inactive { opacity: .72; border-color: #cbd5e1; }
+.teacher-active-control { display: inline-flex; align-items: center; gap: 9px; padding: 6px 10px; border-radius: 999px; background: #edf7f2; color: #146c43; font-size: .82rem; font-weight: 800; cursor: pointer; }
+.teacher-admin-card-inactive .teacher-active-control { background: #f1f5f9; color: #475569; }
+.teacher-active-control input { width: 20px; height: 20px; margin: 0; accent-color: #21845a; cursor: pointer; }
 .teacher-admin-head { display: flex; justify-content: space-between; gap: 20px; align-items: start; }
 .teacher-admin-head-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .teacher-photo-download { min-height: 34px; padding: 7px 10px; color: var(--accent-deep); background: #f4f9ff; border-color: #cfe1f2; white-space: nowrap; }
