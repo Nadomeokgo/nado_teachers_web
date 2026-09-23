@@ -577,11 +577,14 @@
           <div class="density-period-label"><strong>${row.label}</strong><span>${row.time}</span></div>
           ${row.cells.map((cell) => {
             const density = maxAverage ? cell.average / maxAverage : 0;
-            const alpha = cell.average ? (.12 + density * .78).toFixed(2) : .05;
+            const blue = { r: 59, g: 130, b: 246 };
+            const red = { r: 239, g: 68, b: 68 };
+            const mix = (start, end) => Math.round(start + (end - start) * density);
+            const heatColor = `rgb(${mix(blue.r, red.r)}, ${mix(blue.g, red.g)}, ${mix(blue.b, red.b)})`;
             const highDensity = density >= .58 ? " high-density" : "";
-            const averageLabel = cell.average ? cell.average.toFixed(1) : "–";
+            const averageLabel = cell.average ? cell.average.toFixed(1) : "0";
             const details = `${region.label} · ${shortDays[cell.day]}요일 ${row.label} ${row.time}시 · 평균 ${cell.average.toFixed(1)}명 · 최대 ${cell.maximum}명`;
-            return `<button class="density-cell${highDensity}" type="button" style="background:rgba(74,144,226,${alpha})" data-density-region="${region.key}" data-density-day="${cell.day}" data-density-start="${row.start}" data-density-end="${row.end}" title="${details}" aria-label="${details}"><strong>${averageLabel}</strong><small>명</small></button>`;
+            return `<button class="density-cell${highDensity}" type="button" style="background:${heatColor}" data-density-region="${region.key}" data-density-day="${cell.day}" data-density-start="${row.start}" data-density-end="${row.end}" title="${details}" aria-label="${details}"><strong>${averageLabel}</strong><small>명</small></button>`;
           }).join("")}
         `).join("")}
       </div>
