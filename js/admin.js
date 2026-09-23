@@ -26,6 +26,7 @@
     premium: { 1: 220000 }
   };
   let teachers = [];
+  const activeTeachers = () => teachers.filter((teacher) => teacher.is_active !== false);
   let assignments = [];
   let assignmentFilter = "current";
   let editingAssignmentId = null;
@@ -449,7 +450,7 @@
   async function loadData() {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, school, major, phone, kakao_id, bio, bank_name, account_number, profile_photo_path, availability(id, day_of_week, start_time, end_time, location, service_area, memo, updated_at)")
+      .select("id, full_name, email, school, major, phone, kakao_id, bio, bank_name, account_number, profile_photo_path, is_active, availability(id, day_of_week, start_time, end_time, location, service_area, memo, updated_at)")
       .neq("role", "admin")
       .order("full_name");
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
@@ -470,12 +471,14 @@
 
   function populateTeacherOptions() {
     const previousValue = $("assignmentTeacher").value;
-    $("assignmentTeacherOptions").innerHTML = teachers.map((teacher) =>
+    const available = activeTeachers();
+    $("assignmentTeacherOptions").innerHTML = available.map((teacher) =>
       `<option value="${escapeHtml(teacherSearchLabel(teacher))}"></option>`
     ).join("");
-    if (teachers.some((teacher) => teacher.id === previousValue)) setSelectedTeacher(previousValue);
-    $("assignmentTeacherSearch").disabled = teachers.length === 0;
-    $("assignmentSubmitButton").disabled = teachers.length === 0;
+    if (available.some((teacher) => teacher.id === previousValue)) setSelectedTeacher(previousValue);
+    else setSelectedTeacher("");
+    $("assignmentTeacherSearch").disabled = available.length === 0;
+    $("assignmentSubmitButton").disabled = available.length === 0;
   }
 
   function teacherSearchLabel(teacher) {
@@ -495,8 +498,8 @@
       $("assignmentTeacher").value = "";
       return null;
     }
-    const exactLabel = teachers.find((teacher) => teacherSearchLabel(teacher).toLocaleLowerCase("ko") === value);
-    const exactNames = teachers.filter((teacher) => String(teacher.full_name || "").trim().toLocaleLowerCase("ko") === value);
+    const exactLabel = activeTeachers().find((teacher) => teacherSearchLabel(teacher).toLocaleLowerCase("ko") === value);
+    const exactNames = activeTeachers().filter((teacher) => String(teacher.full_name || "").trim().toLocaleLowerCase("ko") === value);
     const teacher = exactLabel || (exactNames.length === 1 ? exactNames[0] : null);
     $("assignmentTeacher").value = teacher?.id || "";
     if (teacher) $("assignmentTeacherSearch").value = teacherSearchLabel(teacher);
@@ -504,15 +507,15 @@
   }
 
   function updateStats() {
-    const slots = teachers.flatMap((teacher) => teacher.availability || []);
+    const slots = activeTeachers().flatMap((teacher) => teacher.availability || []);
     const latest = slots.map((slot) => slot.updated_at).filter(Boolean).sort().at(-1);
-    $("teacherCount").textContent = `${teachers.length}명`;
+    $("teacherCount").textContent = `${activeTeachers().length}명 (비활성 ${teachers.length - activeTeachers().length}명)`;
     renderWeeklyAvailabilityDensity();
     $("latestUpdate").textContent = latest ? new Date(latest).toLocaleDateString("ko-KR") : "없음";
     const { current } = assignmentGroups();
     $("assignmentTotalCount").textContent = `${current.length}명`;
-    const acceptedCount = teachers.filter((teacher) => teacher.agreement?.agreement_version === CURRENT_AGREEMENT_VERSION).length;
-    $("agreementAcceptedCount").textContent = `${acceptedCount}/${teachers.length}명`;
+    const acceptedCount = activeTeachers().filter((teacher) => teacher.agreement?.agreement_version === CURRENT_AGREEMENT_VERSION).length;
+    $("agreementAcceptedCount").textContent = `${acceptedCount}/${activeTeachers().length}명`;
   }
 
   function rdBuHeatColor(value) {
@@ -557,9 +560,9 @@
       { key: "songdo", label: "송도", note: "IGC·트리플스트리트 포함" }
     ];
     const availableTeachers = new Map();
-    const teacherById = new Map(teachers.map((teacher) => [teacher.id, teacher]));
+    const teacherById = new Map(activeTeachers().map((teacher) => [teacher.id, teacher]));
 
-    teachers.forEach((teacher) => {
+    activeTeachers().forEach((teacher) => {
       (teacher.availability || []).forEach((slot) => {
         const day = Number(slot.day_of_week);
         const start = Number(slot.start_time?.slice(0, 2)) * 60 + Number(slot.start_time?.slice(3, 5));
@@ -641,7 +644,7 @@
     const region = serviceRegionForLocation(location);
     const serviceRegions = location === "songdo_all" ? ["Songdo", "IGC_TRIPLE"] : region ? [region] : [];
     const values = new Set();
-    teachers.forEach((teacher) => {
+    activeTeachers().forEach((teacher) => {
       (teacher.availability || []).forEach((slot) => {
         const slotLocation = normalizedLocation(slot.location);
         const matchesLocation = location === "all" || (location === "songdo_all" ? ["송도", "IGC & 트스"].includes(slotLocation) : slotLocation === location);
@@ -656,7 +659,7 @@
   }
 
   function teachersForAvailabilityCell(day, minutes, locationFilter, areaFilter) {
-    return teachers.filter((teacher) => (teacher.availability || []).some((slot) => {
+    return activeTeachers().filter((teacher) => (teacher.availability || []).some((slot) => {
       if (Number(slot.day_of_week) !== day) return false;
       const slotLocation = normalizedLocation(slot.location);
       if (locationFilter !== "all" && (locationFilter === "songdo_all" ? !["송도", "IGC & 트스"].includes(slotLocation) : slotLocation !== locationFilter)) return false;
@@ -711,13 +714,15 @@
   function filteredTeachers() {
     const keyword = $("teacherSearch").value.trim().toLowerCase();
     const day = $("dayFilter").value;
+    const status = $("teacherStatusFilter").value;
     return teachers.map((teacher) => ({
       ...teacher,
       availability: (teacher.availability || []).filter((slot) => day === "all" || String(slot.day_of_week) === day)
     })).filter((teacher) => {
       const matchesText = !keyword || `${teacher.full_name || ""} ${teacher.email || ""} ${teacher.school || ""} ${teacher.major || ""} ${teacher.phone || ""} ${teacher.kakao_id || ""}`.toLowerCase().includes(keyword);
       const matchesDay = day === "all" || teacher.availability.length > 0;
-      return matchesText && matchesDay;
+      const matchesStatus = status === "all" || (status === "active") === (teacher.is_active !== false);
+      return matchesText && matchesDay && matchesStatus;
     });
   }
 
@@ -731,7 +736,7 @@
       const slots = [...(teacher.availability || [])].sort((a,b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time));
       const latest = slots.map((s) => s.updated_at).filter(Boolean).sort().at(-1);
       const memo = slots.find((s) => s.memo)?.memo;
-      return `<article class="panel teacher-admin-card">
+      return `<article class="panel teacher-admin-card${teacher.is_active === false ? " teacher-admin-card-inactive" : ""}">
         <div class="teacher-admin-head">
           <div class="teacher-admin-profile">
             <span class="teacher-admin-avatar">${teacher.profile_photo_url
@@ -740,6 +745,10 @@
             <div><strong>${escapeHtml(teacher.full_name || "이름 미입력")}</strong><span>${escapeHtml(teacher.email || "")} · ${escapeHtml(teacher.school || "학교 미입력")} ${teacher.major ? `· ${escapeHtml(teacher.major)}` : ""}</span></div>
           </div>
           <div class="teacher-admin-head-actions">
+            <label class="teacher-active-control">
+              <span class="teacher-active-state">${teacher.is_active === false ? "비활성" : "활성"}</span>
+              <input type="checkbox" data-teacher-active="${escapeHtml(teacher.id)}" ${teacher.is_active === false ? "" : "checked"} aria-label="${escapeHtml(teacher.full_name || "선생님")} 활성화" />
+            </label>
             ${teacher.profile_photo_path ? `<button class="button ghost small teacher-photo-download" type="button" data-download-teacher-photo="${escapeHtml(teacher.id)}">사진 다운로드</button>` : ""}
             <span class="updated-at">${latest ? `업데이트 ${new Date(latest).toLocaleString(currentLocale())}` : "미제출"}</span>
           </div>
@@ -758,6 +767,30 @@
         ${memo ? `<div class="admin-memo"><strong>메모:</strong> ${escapeHtml(memo)}</div>` : ""}
       </article>`;
     }).join("");
+  }
+
+  async function changeTeacherActive(input) {
+    const teacher = teachers.find((item) => item.id === input.dataset.teacherActive);
+    if (!teacher) return;
+    const next = input.checked;
+    input.disabled = true;
+    const { data, error } = await supabase.rpc("set_teacher_active", {
+      p_teacher_id: teacher.id,
+      p_is_active: next
+    });
+    if (error || data !== next) {
+      input.checked = !next;
+      input.disabled = false;
+      toast("활성 상태를 저장하지 못했습니다: " + (error?.message || "변경 결과를 확인할 수 없습니다."), true);
+      return;
+    }
+    teacher.is_active = next;
+    populateTeacherOptions();
+    updateStats();
+    syncAvailabilityAreaFilter();
+    renderAvailabilityBoard();
+    render();
+    toast(next ? "선생님을 활성화했습니다." : "선생님을 비활성화했습니다.");
   }
 
   async function loadAssignments() {
@@ -1387,7 +1420,7 @@
 
   function exportCsv() {
     const rows = [["선생님", "이메일", "학교", "전공", "카카오톡 ID", "전체 가능 장소", "요일", "시작", "종료", "장소", "세부 지역", "메모", "업데이트"]];
-    teachers.forEach((teacher) => {
+    activeTeachers().forEach((teacher) => {
       const allAreas = Object.entries(teacher.service_areas || {}).map(([region, areas]) => `${region}: ${areas.join(" · ")}`).join(" / ");
       if (!(teacher.availability || []).length) rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, allAreas, "미제출", "", "", "", "", "", ""]);
       (teacher.availability || []).forEach((slot) => rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, allAreas, days[slot.day_of_week], slot.start_time.slice(0,5), slot.end_time.slice(0,5), normalizedLocation(slot.location), slot.service_area || "", slot.memo, slot.updated_at]));
@@ -1474,8 +1507,13 @@
     const button = event.target.closest("[data-download-teacher-photo]");
     if (button) downloadTeacherProfilePhoto(button.dataset.downloadTeacherPhoto, button);
   });
+  $("adminTeacherList").addEventListener("change", (event) => {
+    const input = event.target.closest("[data-teacher-active]");
+    if (input) changeTeacherActive(input);
+  });
   $("teacherSearch").addEventListener("input", render);
   $("dayFilter").addEventListener("change", render);
+  $("teacherStatusFilter").addEventListener("change", render);
   $("weeklyAvailabilityDensity").addEventListener("click", (event) => {
     const button = event.target.closest("[data-density-region]");
     if (button) focusDensityCell(button);
