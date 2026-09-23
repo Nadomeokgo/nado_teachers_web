@@ -415,11 +415,11 @@ textarea { resize: vertical; }
 .density-period-label { display: flex; flex-direction: column; justify-content: center; min-height: 43px; color: #586a7d; }
 .density-period-label strong { font-size: .68rem; letter-spacing: 0; }
 .density-period-label span { margin-top: 2px; color: #97a5b3; font-size: .55rem; }
-.density-cell { min-width: 0; min-height: 43px; display: flex; align-items: baseline; justify-content: center; gap: 1px; padding: 0 2px; border: 1px solid rgba(74,144,226,.08); border-radius: 8px; color: #315f8e; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease; }
-.density-cell:hover, .density-cell:focus-visible { z-index: 1; transform: translateY(-1px); box-shadow: 0 5px 12px rgba(38,91,139,.16); outline: none; }
-.density-cell strong { color: inherit; font-size: .76rem; letter-spacing: -.02em; }
-.density-cell small { color: inherit; font-size: .5rem; font-weight: 800; }
-.density-cell.high-density { color: white; border-color: rgba(255,255,255,.2); }
+.density-cell { min-width: 0; min-height: 72px; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 1px solid rgba(255,255,255,.28); border-radius: 12px; color: #fff; cursor: pointer; text-align: center; transition: transform .16s ease, box-shadow .16s ease, filter .16s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,.12); }
+.density-cell:hover, .density-cell:focus-visible { z-index: 1; transform: translateY(-1px) scale(1.02); box-shadow: 0 8px 18px rgba(15,23,42,.2); filter: brightness(1.05); outline: none; }
+.density-cell strong { display: inline-flex; align-items: baseline; justify-content: center; gap: 4px; color: #fff; font-size: 1.55rem; font-weight: 900; line-height: 1; letter-spacing: -.045em; text-shadow: 0 1px 3px rgba(0,0,0,.42); }
+.density-cell strong span { color: #fff; font-size: .82rem; font-weight: 800; letter-spacing: -.02em; }
+.density-cell small { display: none; }
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
 .admin-filter-panel { display: grid; grid-template-columns: 1fr 220px; gap: 15px; padding: 18px; margin-bottom: 18px; }
 .admin-filter-panel label { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; }
