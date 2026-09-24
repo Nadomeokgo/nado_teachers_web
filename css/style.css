@@ -1407,3 +1407,77 @@ body.agreement-open { overflow: hidden; }
   .profile-usage-examples img { height: 220px; }
   .profile-usage-actions .button { width: 100%; }
 }
+
+
+/* Admin: 2-week student follow-up alert */
+.assignment-followup-alert {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(220, 145, 40, 0.35);
+  border-radius: 16px;
+  background: rgba(255, 247, 232, 0.96);
+  box-shadow: 0 8px 24px rgba(89, 57, 16, 0.06);
+}
+.assignment-followup-alert-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.assignment-followup-alert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 999px;
+  background: #c97a12;
+  color: #fff;
+  font-weight: 800;
+  line-height: 1;
+}
+.assignment-followup-alert-head strong {
+  display: block;
+  color: #6f4309;
+  font-size: 15px;
+}
+.assignment-followup-alert-head p {
+  margin: 4px 0 0;
+  color: #8a642f;
+  font-size: 13px;
+}
+.assignment-followup-alert-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0 40px;
+  padding: 0;
+  list-style: none;
+}
+.assignment-followup-alert-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.72);
+}
+.assignment-followup-alert-list li strong {
+  color: #493111;
+  font-size: 13px;
+}
+.assignment-followup-alert-list li span {
+  color: #8a642f;
+  font-size: 12px;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .assignment-followup-alert-list {
+    margin-left: 0;
+  }
+  .assignment-followup-alert-list li {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
