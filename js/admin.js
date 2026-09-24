@@ -151,6 +151,50 @@
     return `${year}-${month}-${day}`;
   }
 
+  function daysSinceDateKey(value, todayKey = localDateKey()) {
+    const parse = (dateKey) => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey || ""));
+      if (!match) return null;
+      return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    };
+    const start = parse(value);
+    const today = parse(todayKey);
+    if (start === null || today === null) return null;
+    return Math.floor((today - start) / 86400000);
+  }
+
+  function twoWeekFollowUpAssignments() {
+    return assignments
+      .filter((assignment) => !isAssignmentHistory(assignment))
+      .map((assignment) => ({ assignment, elapsedDays: daysSinceDateKey(assignment.first_lesson_date) }))
+      .filter(({ elapsedDays }) => Number.isFinite(elapsedDays) && elapsedDays >= 14)
+      .sort((a, b) => b.elapsedDays - a.elapsedDays || a.assignment.student_name.localeCompare(b.assignment.student_name, "ko"));
+  }
+
+  function renderTwoWeekFollowUpAlert() {
+    const due = twoWeekFollowUpAssignments();
+    if (!due.length) return "";
+    const title = currentLanguage() === "en"
+      ? `${due.length} student${due.length === 1 ? "" : "s"} reached the 2-week follow-up point`
+      : `첫 수업 후 2주가 지난 학생이 ${due.length}명 있습니다`;
+    const description = currentLanguage() === "en"
+      ? "Please check in on lesson progress and whether the student plans to continue."
+      : "수업 진행 상황과 계속 수업 여부를 확인해주세요.";
+    const items = due.map(({ assignment, elapsedDays }) => {
+      const elapsed = currentLanguage() === "en"
+        ? `${elapsedDays} days since first lesson`
+        : `첫 수업 후 ${elapsedDays}일 경과`;
+      return `<li><strong>${escapeHtml(assignment.student_name)}</strong><span>${escapeHtml(elapsed)}</span></li>`;
+    }).join("");
+    return `<div class="assignment-followup-alert" role="status" aria-live="polite">
+      <div class="assignment-followup-alert-head">
+        <span class="assignment-followup-alert-icon" aria-hidden="true">!</span>
+        <div><strong>${escapeHtml(title)}</strong><p>${escapeHtml(description)}</p></div>
+      </div>
+      <ul class="assignment-followup-alert-list">${items}</ul>
+    </div>`;
+  }
+
   function planLabel(plan) {
     return planLabels[plan] || "플랜 미지정";
   }
@@ -929,6 +973,7 @@
   function renderAssignmentList() {
     const target = $("adminAssignmentList");
     const { current, history } = assignmentGroups();
+    const followUpAlert = renderTwoWeekFollowUpAlert();
     $("adminCurrentAssignmentCount").textContent = current.length;
     $("adminHistoryAssignmentCount").textContent = history.length;
     $("adminAllAssignmentCount").textContent = assignments.length;
@@ -946,11 +991,11 @@
 
     if (!visible.length) {
       const message = assignmentFilter === "current" ? "현재 관리 중인 학생이 없습니다." : assignmentFilter === "history" ? "아직 학생 기록이 없습니다." : "아직 등록된 학생 배정이 없습니다.";
-      target.innerHTML = `<div class="empty-state">${message}</div>`;
+      target.innerHTML = followUpAlert + `<div class="empty-state">${message}</div>`;
       return;
     }
 
-    target.innerHTML = visible.map((assignment) => {
+    target.innerHTML = followUpAlert + visible.map((assignment) => {
       const teacher = teacherById(assignment.teacher_id);
       const isHistory = isAssignmentHistory(assignment);
       const isTrial = isTrialAssignment(assignment);
