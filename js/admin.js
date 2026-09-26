@@ -35,6 +35,9 @@
   let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const contentCache = { announcement: [], resource: [], video: [] };
   const editingContentId = { announcement: null, resource: null, video: null };
+  let failedSubmissions = [];
+  let failedSubmissionFilter = "open";
+  let activeFailedSubmissionId = null;
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -528,7 +531,204 @@
     render();
     syncAvailabilityAreaFilter();
     renderAvailabilityBoard();
-    await Promise.all([loadAssignments(), loadContent()]);
+    await Promise.all([loadAssignments(), loadContent(), loadFailedSubmissions()]);
+  }
+
+  function formatSubmissionDateTime(value) {
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString(currentLocale());
+  }
+
+  function normalizeSubmissionPlan(value = "") {
+    const raw = String(value || "").trim();
+    const lower = raw.toLowerCase();
+    if (lower.includes("economy") || raw.includes("이코노미")) return "이코노미";
+    if (lower.includes("standard") || raw.includes("스탠다드")) return "스탠다드";
+    if (lower.includes("premium") || raw.includes("프리미엄")) return "프리미엄";
+    return raw || "미지정";
+  }
+
+  function failedSubmissionVisibleRows() {
+    if (failedSubmissionFilter === "resolved") return failedSubmissions.filter((item) => item.resolved_at);
+    if (failedSubmissionFilter === "all") return failedSubmissions;
+    return failedSubmissions.filter((item) => !item.resolved_at);
+  }
+
+  function renderFailedSubmissions() {
+    const target = $("failedSubmissionList");
+    if (!target) return;
+    const visible = failedSubmissionVisibleRows();
+    $("failedSubmissionCount").textContent = `${visible.length}건`;
+    if (!visible.length) {
+      target.innerHTML = `<div class="empty-state">${failedSubmissionFilter === "resolved" ? "처리 완료된 신청 오류가 없습니다." : failedSubmissionFilter === "all" ? "신청 오류 기록이 없습니다." : "현재 미처리 신청 오류가 없습니다."}</div>`;
+      return;
+    }
+
+    target.innerHTML = visible.map((item) => {
+      const resolved = Boolean(item.resolved_at);
+      const statusCode = item.status_code || "-";
+      const errorType = item.error_type || "unknown_error";
+      const name = item.full_name || "이름 미입력";
+      const phone = item.phone || "연락처 미입력";
+      const region = item.region || "지역 미지정";
+      const plan = normalizeSubmissionPlan(item.plan);
+      return `<article class="failed-submission-item${resolved ? " is-resolved" : ""}">
+        <div class="failed-submission-main">
+          <div class="failed-submission-badges">
+            <span class="failed-status-code">HTTP ${escapeHtml(statusCode)}</span>
+            <span class="failed-error-type">${escapeHtml(errorType)}</span>
+            <span class="failed-resolution-badge ${resolved ? "resolved" : "open"}">${resolved ? "처리 완료" : "미처리"}</span>
+          </div>
+          <strong>${escapeHtml(name)}</strong>
+          <span>${escapeHtml(phone)} · ${escapeHtml(region)} · ${escapeHtml(plan)}</span>
+          <small>${escapeHtml(formatSubmissionDateTime(item.created_at))}${item.teacher_name ? ` · 선생님: ${escapeHtml(item.teacher_name)}` : ""}</small>
+          ${item.error_message ? `<p class="failed-submission-message">${escapeHtml(item.error_message)}</p>` : ""}
+          ${resolved && item.resolution_note ? `<p class="failed-resolution-note">처리 메모 · ${escapeHtml(item.resolution_note)}</p>` : ""}
+        </div>
+        <div class="failed-submission-actions">
+          <button class="button secondary small" type="button" data-view-failed-submission="${escapeHtml(item.id)}">상세 보기</button>
+          ${resolved
+            ? `<button class="button ghost small" type="button" data-reopen-failed-submission="${escapeHtml(item.id)}">미처리로 변경</button>`
+            : `<button class="button primary small" type="button" data-resolve-failed-submission="${escapeHtml(item.id)}">처리 완료</button>`}
+        </div>
+      </article>`;
+    }).join("");
+  }
+
+  async function loadFailedSubmissions() {
+    const includeResolved = failedSubmissionFilter !== "open";
+    const { data, error } = await supabase.rpc("admin_list_failed_application_submissions", {
+      p_include_resolved: includeResolved,
+      p_limit: 200
+    });
+    if (error) {
+      console.error("Failed submission list load failed:", error);
+      const target = $("failedSubmissionList");
+      if (target) target.innerHTML = '<div class="empty-state">신청 오류 목록을 불러오지 못했습니다.</div>';
+      return;
+    }
+    failedSubmissions = data || [];
+    renderFailedSubmissions();
+  }
+
+  function detailValue(value) {
+    if (value === null || value === undefined || value === "") return "미입력";
+    if (Array.isArray(value)) return value.length ? value.join(" · ") : "미입력";
+    if (typeof value === "object") return JSON.stringify(value, null, 2);
+    return String(value);
+  }
+
+  function detailRow(label, value, wide = false) {
+    return `<div class="failed-detail-row${wide ? " wide" : ""}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(detailValue(value))}</strong></div>`;
+  }
+
+  async function openFailedSubmissionDetail(id) {
+    activeFailedSubmissionId = id;
+    const modal = $("failedSubmissionModal");
+    const detail = $("failedSubmissionDetail");
+    modal.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    detail.innerHTML = '<div class="skeleton assignment-skeleton"></div>';
+
+    const { data, error } = await supabase.rpc("admin_get_application_submission", { p_submission_id: id });
+    if (error || !data?.submission) {
+      console.error("Failed submission detail load failed:", error);
+      detail.innerHTML = '<div class="empty-state">신청 상세를 불러오지 못했습니다.</div>';
+      return;
+    }
+
+    const s = data.submission;
+    const errors = Array.isArray(data.errors) ? data.errors : [];
+    const raw = s.raw_payload && typeof s.raw_payload === "object" ? s.raw_payload : {};
+    $("failedSubmissionModalTitle").textContent = `${s.full_name || "이름 미입력"} 신청 상세`;
+    detail.innerHTML = `
+      <section class="failed-detail-section">
+        <div class="failed-detail-section-head"><h3>신청자 정보</h3><span>${escapeHtml(formatSubmissionDateTime(s.created_at))}</span></div>
+        <div class="failed-detail-grid">
+          ${detailRow("이름", s.full_name)}
+          ${detailRow("연락처", s.phone)}
+          ${detailRow("나이대", s.age_group)}
+          ${detailRow("영어 수준", s.english_level)}
+          ${detailRow("성별", s.gender)}
+          ${detailRow("신청 유형", s.application_type)}
+        </div>
+      </section>
+
+      <section class="failed-detail-section">
+        <div class="failed-detail-section-head"><h3>수업 신청 내용</h3></div>
+        <div class="failed-detail-grid">
+          ${detailRow("플랜", s.plan_raw)}
+          ${detailRow("수업 빈도", s.frequency)}
+          ${detailRow("수업 시간", s.duration)}
+          ${detailRow("희망 시작일", s.preferred_start_date)}
+          ${detailRow("장소", s.place_label)}
+          ${detailRow("세부 장소", s.place_detail)}
+          ${detailRow("매칭 방식", s.matching_type)}
+          ${detailRow("선택 선생님", s.teacher_name)}
+          ${detailRow("선생님 ID", s.teacher_id)}
+          ${detailRow("학습 목표", s.goals, true)}
+          ${detailRow("기타 목표", s.goals_other, true)}
+          ${detailRow("가능 일정", s.schedule_raw, true)}
+          ${detailRow("장소 선택값", s.place_choices, true)}
+          ${detailRow("추가 요청사항", s.notes_raw, true)}
+          ${detailRow("유입 경로", s.referrals, true)}
+          ${detailRow("유입 경로 기타", s.referral_other, true)}
+          ${detailRow("결제 확인", s.payment_confirmation, true)}
+        </div>
+      </section>
+
+      <section class="failed-detail-section error">
+        <div class="failed-detail-section-head"><h3>오류 정보</h3><span>Request ID · ${escapeHtml(s.request_id || "-")}</span></div>
+        <div class="failed-detail-grid">
+          ${detailRow("HTTP 상태", s.status_code)}
+          ${detailRow("오류 유형", s.error_type)}
+          ${detailRow("오류 메시지", s.error_message, true)}
+          ${detailRow("실패 시각", formatSubmissionDateTime(s.failed_at))}
+          ${detailRow("처리 상태", s.resolved_at ? "처리 완료" : "미처리")}
+          ${detailRow("처리 완료 시각", formatSubmissionDateTime(s.resolved_at))}
+          ${detailRow("처리 메모", s.resolution_note, true)}
+        </div>
+        ${errors.length ? `<div class="failed-error-history"><h4>기술 로그</h4>${errors.map((entry) => `<div><strong>${escapeHtml(entry.status_code || "-")} · ${escapeHtml(entry.error_type || "unknown")}</strong><span>${escapeHtml(formatSubmissionDateTime(entry.created_at))}</span><p>${escapeHtml(entry.error_message || "")}</p></div>`).join("")}</div>` : ""}
+      </section>
+
+      <details class="failed-raw-payload">
+        <summary>원본 제출값 전체 보기</summary>
+        <pre>${escapeHtml(JSON.stringify(raw, null, 2))}</pre>
+      </details>
+
+      <div class="failed-detail-actions">
+        ${s.resolved_at
+          ? `<button class="button ghost" type="button" data-detail-reopen="${escapeHtml(s.id)}">미처리로 변경</button>`
+          : `<button class="button primary" type="button" data-detail-resolve="${escapeHtml(s.id)}">처리 완료로 표시</button>`}
+      </div>
+    `;
+  }
+
+  function closeFailedSubmissionModal() {
+    activeFailedSubmissionId = null;
+    $("failedSubmissionModal")?.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+
+  async function setFailedSubmissionResolution(id, resolved) {
+    let note = null;
+    if (resolved) {
+      note = prompt("처리 메모를 입력해주세요. (선택)\n예: 고객에게 연락 완료 / 수동 접수 완료");
+      if (note === null) return;
+    } else if (!confirm("이 신청을 다시 미처리 상태로 변경할까요?")) {
+      return;
+    }
+
+    const { error } = await supabase.rpc("admin_set_application_submission_resolution", {
+      p_submission_id: id,
+      p_resolved: resolved,
+      p_note: note || null
+    });
+    if (error) return toast("처리 상태 변경 실패: " + error.message, true);
+    toast(resolved ? "처리 완료로 표시했습니다." : "미처리 상태로 변경했습니다.");
+    closeFailedSubmissionModal();
+    await loadFailedSubmissions();
   }
 
   function populateTeacherOptions() {
@@ -1498,6 +1698,33 @@
     URL.revokeObjectURL(link.href);
   }
 
+  $("failedSubmissionFilter").addEventListener("change", async () => {
+    failedSubmissionFilter = $("failedSubmissionFilter").value;
+    await loadFailedSubmissions();
+  });
+  $("failedSubmissionRefresh").addEventListener("click", loadFailedSubmissions);
+  $("failedSubmissionList").addEventListener("click", (event) => {
+    const viewButton = event.target.closest("[data-view-failed-submission]");
+    if (viewButton) return openFailedSubmissionDetail(viewButton.dataset.viewFailedSubmission);
+    const resolveButton = event.target.closest("[data-resolve-failed-submission]");
+    if (resolveButton) return setFailedSubmissionResolution(resolveButton.dataset.resolveFailedSubmission, true);
+    const reopenButton = event.target.closest("[data-reopen-failed-submission]");
+    if (reopenButton) return setFailedSubmissionResolution(reopenButton.dataset.reopenFailedSubmission, false);
+  });
+  $("failedSubmissionModalClose").addEventListener("click", closeFailedSubmissionModal);
+  $("failedSubmissionModal").addEventListener("click", (event) => {
+    if (event.target === $("failedSubmissionModal")) closeFailedSubmissionModal();
+  });
+  $("failedSubmissionDetail").addEventListener("click", (event) => {
+    const resolveButton = event.target.closest("[data-detail-resolve]");
+    if (resolveButton) return setFailedSubmissionResolution(resolveButton.dataset.detailResolve, true);
+    const reopenButton = event.target.closest("[data-detail-reopen]");
+    if (reopenButton) return setFailedSubmissionResolution(reopenButton.dataset.detailReopen, false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !$("failedSubmissionModal").classList.contains("hidden")) closeFailedSubmissionModal();
+  });
+
   $("assignmentForm").addEventListener("submit", saveAssignment);
   $("assignmentCancelButton").addEventListener("click", resetAssignmentForm);
   $("assignmentTeacherSearch").addEventListener("input", resolveTeacherSearchValue);
@@ -1566,6 +1793,7 @@
     renderManagerList("adminAnnouncementList", contentCache.announcement, "announcement");
     renderManagerList("adminResourceList", contentCache.resource, "resource");
     renderManagerList("adminVideoList", contentCache.video, "video");
+    renderFailedSubmissions();
   });
   $("adminTeacherList").addEventListener("click", (event) => {
     const button = event.target.closest("[data-download-teacher-photo]");
