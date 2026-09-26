@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="NADO Teachers" />
   <title>나도 Teachers 관리자</title>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260924-followup-v1" />
+  <link rel="stylesheet" href="css/style.css?v=20260926-failed-submissions-v1" />
 </head>
 <body class="admin-body">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -48,6 +48,52 @@
       <article class="stat-panel"><span>현재 학생</span><strong id="assignmentTotalCount">-</strong></article>
       <article class="stat-panel"><span>v1.4 계약 동의</span><strong id="agreementAcceptedCount">-</strong></article>
     </section>
+
+    <section class="admin-failed-section">
+      <div class="page-intro admin-failed-title">
+        <div>
+          <p class="section-kicker">FAILED SUBMISSIONS</p>
+          <h2>신청 오류 관리</h2>
+          <p>제출 과정에서 실패한 신청을 확인하고 고객 후속 처리를 기록할 수 있습니다.</p>
+        </div>
+        <div class="failed-submission-toolbar">
+          <label>표시
+            <select id="failedSubmissionFilter">
+              <option value="open">미처리만</option>
+              <option value="resolved">처리 완료</option>
+              <option value="all">전체</option>
+            </select>
+          </label>
+          <button id="failedSubmissionRefresh" class="button secondary small" type="button">새로고침</button>
+        </div>
+      </div>
+
+      <article class="panel failed-submission-panel">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">APPLICATION RECOVERY</p>
+            <h3>실패한 신청</h3>
+          </div>
+          <span id="failedSubmissionCount" class="count-badge">0건</span>
+        </div>
+        <div id="failedSubmissionList" class="failed-submission-list">
+          <div class="skeleton assignment-skeleton"></div>
+        </div>
+      </article>
+    </section>
+
+    <div id="failedSubmissionModal" class="failed-submission-modal hidden" role="dialog" aria-modal="true" aria-labelledby="failedSubmissionModalTitle">
+      <div class="failed-submission-modal-card">
+        <div class="failed-submission-modal-head">
+          <div>
+            <p class="section-kicker">SUBMISSION DETAIL</p>
+            <h2 id="failedSubmissionModalTitle">신청 상세</h2>
+          </div>
+          <button id="failedSubmissionModalClose" class="icon-button" type="button" aria-label="닫기">×</button>
+        </div>
+        <div id="failedSubmissionDetail" class="failed-submission-detail"></div>
+      </div>
+    </div>
 
     <section class="admin-assignment-section">
       <div class="page-intro admin-assignment-title">
@@ -321,6 +367,6 @@
   <script src="js/config.js?v=20260731-integrated1"></script>
   <script src="js/pricing.js?v=20260919-group-pricing-v1"></script>
   <script src="js/i18n.js?v=20260923-experience-v1"></script>
-  <script src="js/admin.js?v=20260924-followup-v1"></script>
+  <script src="js/admin.js?v=20260926-failed-submissions-v1"></script>
 </body>
 </html>
