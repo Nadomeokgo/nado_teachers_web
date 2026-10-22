@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="NADO Teachers" />
   <title>나도 Teachers 관리자</title>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260926-failed-submissions-v1" />
+  <link rel="stylesheet" href="css/style.css?v=20261022-density-readability-v1" />
 </head>
 <body class="admin-body">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -40,9 +40,15 @@
       <article class="stat-panel availability-density-panel">
         <div class="availability-density-title">
           <span>지역·시간대별 가능 선생님</span>
-          <small>색이 진할수록 동시에 가능한 선생님이 많아요</small>
+          <small>시간대별 평균 인원 · 단위: 명</small>
         </div>
         <div id="weeklyAvailabilityDensity" class="weekly-availability-density" aria-label="서울과 송도의 요일 및 시간대별 가능 선생님 밀도"></div>
+        <div class="availability-density-footer">
+          <p>30분 단위 평균 · 칸을 누르면 상세 스케줄로 이동합니다.</p>
+          <div class="density-legend" aria-label="서울·송도 공통 색상 기준: 파란색은 적음, 빨간색은 많음">
+            <span>적음</span><i class="density-legend-ramp" aria-hidden="true"></i><span>많음</span>
+          </div>
+        </div>
       </article>
       <article class="stat-panel"><span>최근 업데이트</span><strong id="latestUpdate">-</strong></article>
       <article class="stat-panel"><span>현재 학생</span><strong id="assignmentTotalCount">-</strong></article>
@@ -367,6 +373,6 @@
   <script src="js/config.js?v=20260731-integrated1"></script>
   <script src="js/pricing.js?v=20260919-group-pricing-v1"></script>
   <script src="js/i18n.js?v=20260923-experience-v1"></script>
-  <script src="js/admin.js?v=20260926-failed-submissions-v1"></script>
+  <script src="js/admin.js?v=20261022-density-readability-v1"></script>
 </body>
 </html>

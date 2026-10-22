@@ -806,6 +806,20 @@
     return `rgb(${rgb.join(",")})`;
   }
 
+  function densityTextColor(background) {
+    // Pick the higher-contrast text color for both pale and dark heatmap cells.
+    const channels = background.match(/\d+/g).map((channel) => {
+      const value = Number(channel) / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    const luminance = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    const darkLuminance = 0.00918922; // #111827
+    const darkContrast = (luminance + 0.05) / (darkLuminance + 0.05);
+    const lightContrast = 1.05 / (luminance + 0.05);
+    if (Math.max(darkContrast, lightContrast) < 4.5) return "#000000";
+    return darkContrast >= lightContrast ? "#111827" : "#ffffff";
+  }
+
   function renderWeeklyAvailabilityDensity() {
     const target = $("weeklyAvailabilityDensity");
     if (!target) return;
@@ -870,7 +884,7 @@
 
     target.innerHTML = regionData.map((region) => `<section class="regional-density-card" aria-label="${region.label} 가능 선생님 밀도">
       <div class="regional-density-head"><strong>${region.label}</strong><span>${region.note}</span></div>
-      <div class="density-matrix">
+      <div class="density-matrix-scroll"><div class="density-matrix">
         <span class="density-corner">시간</span>
         ${dayOrder.map((day) => `<strong class="density-day-head">${shortDays[day]}</strong>`).join("")}
         ${region.rows.map((row) => `
@@ -881,10 +895,10 @@
             const averageLabel = cell.average ? cell.average.toFixed(1) : "0";
             const teacherList = cell.teacherNames.length ? cell.teacherNames.join(", ") : "없음";
             const details = `${region.label} · ${shortDays[cell.day]}요일 ${row.label} ${row.time}시\n가능 선생님: ${teacherList}\n평균 ${cell.average.toFixed(1)}명 · 최대 ${cell.maximum}명`;
-            return `<button class="density-cell" type="button" style="background:${heatColor}" data-density-region="${region.key}" data-density-day="${cell.day}" data-density-start="${row.start}" data-density-end="${row.end}" title="${escapeHtml(details)}" aria-label="${escapeHtml(details)}"><strong>${averageLabel}<span>명</span></strong></button>`;
+            return `<button class="density-cell" type="button" style="background:${heatColor};--density-ink:${densityTextColor(heatColor)}" data-density-region="${region.key}" data-density-day="${cell.day}" data-density-start="${row.start}" data-density-end="${row.end}" title="${escapeHtml(details)}" aria-label="${escapeHtml(details)}"><strong>${averageLabel}</strong></button>`;
           }).join("")}
         `).join("")}
-      </div>
+      </div></div>
     </section>`).join("");
   }
 
