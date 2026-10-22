@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20261022-teacher-updates-v1" />
+  <link rel="stylesheet" href="css/style.css?v=20261022-teacher-workflow-v2" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -228,7 +228,8 @@
           </label>
           <label class="full-field">
             <span class="field-label">한 줄 소개 <b class="required-mark">*</b></span>
-            <textarea id="onboardingBio" rows="4" maxlength="500" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
+            <textarea id="onboardingBio" rows="4" maxlength="500" aria-describedby="onboardingBioCount" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
+            <small id="onboardingBioCount" class="profile-bio-count" aria-live="polite">0 / 500자 · 공백 포함</small>
           </label>
           <section class="experience-section full-field" data-experience-scope="onboarding" aria-label="경험 및 활동">
             <div class="experience-heading">
@@ -857,7 +858,8 @@
               </label>
               <label class="full-field">
                 <span class="field-label">한 줄 소개 <b class="required-mark">*</b></span>
-                <textarea id="profileBio" rows="4" maxlength="500" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
+                <textarea id="profileBio" rows="4" maxlength="500" aria-describedby="profileBioCount" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
+                <small id="profileBioCount" class="profile-bio-count" aria-live="polite">0 / 500자 · 공백 포함</small>
               </label>
               <section class="experience-section full-field" data-experience-scope="profile" aria-label="경험 및 활동">
                 <div class="experience-heading">
@@ -892,10 +894,10 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=20260921-when2meet-v5"></script>
+  <script src="js/config.js?v=20261022-teacher-workflow-v2"></script>
   <script src="js/pricing.js?v=20260919-group-pricing-v1"></script>
-  <script src="js/i18n.js?v=20261022-teacher-updates-v1"></script>
-  <script src="js/app.js?v=20261022-teacher-updates-v1"></script>
-  <script src="js/schedule-v6.js?v=20261022-teacher-updates-v1"></script>
+  <script src="js/i18n.js?v=20261022-teacher-workflow-v2"></script>
+  <script src="js/app.js?v=20261022-teacher-workflow-v2"></script>
+  <script src="js/schedule-v6.js?v=20261022-teacher-workflow-v2"></script>
 </body>
 </html>

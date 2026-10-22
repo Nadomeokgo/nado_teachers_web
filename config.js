@@ -26,20 +26,5 @@ window.NADO_CONFIG = {
   };
 })();
 
-// Load the current schedule editor.
-(() => {
-  const scheduleScript = document.createElement('script');
-  scheduleScript.src = 'js/schedule-v6.js?v=20260921-when2meet-v5';
-  scheduleScript.defer = true;
-  document.head.appendChild(scheduleScript);
-
-  const layoutScript = document.createElement('script');
-  layoutScript.src = 'js/schedule-layout-v2.js?v=20260921-when2meet-v5';
-  layoutScript.defer = true;
-  document.head.appendChild(layoutScript);
-
-  const layoutFixScript = document.createElement('script');
-  layoutFixScript.src = 'js/schedule-layout-fix-v3.js?v=20260921-when2meet-v5';
-  layoutFixScript.defer = true;
-  document.head.appendChild(layoutFixScript);
-})();
+// The entry page loads its schedule editor once, after app.js.
+// Do not inject legacy layout helpers here: they override the weekly grid.

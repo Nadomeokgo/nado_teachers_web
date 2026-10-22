@@ -515,9 +515,10 @@
   async function loadData() {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, school, major, phone, kakao_id, bio, experience, bank_name, account_number, profile_photo_path, is_active, availability(id, day_of_week, start_time, end_time, location, service_area, memo, updated_at)")
+      .select("id, full_name, email, school, major, phone, kakao_id, bio, experience, bank_name, account_number, profile_photo_path, is_active, created_at, availability(id, day_of_week, start_time, end_time, location, service_area, memo, updated_at)")
       .neq("role", "admin")
-      .order("full_name");
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: false });
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
     teachers = data || [];
     try {

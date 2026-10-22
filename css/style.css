@@ -1655,3 +1655,6 @@ body.modal-open { overflow: hidden; }
   .failed-detail-grid { grid-template-columns: 1fr; }
   .failed-detail-row.wide { grid-column: auto; }
 }
+.profile-bio-count { color: var(--gray); font-size: .72rem; font-weight: 500; line-height: 1.5; text-align: right; }
+.profile-bio-count.at-limit { color: #a65d00; }
+.profile-bio-count.over-limit { color: var(--danger); }

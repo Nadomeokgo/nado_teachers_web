@@ -6,6 +6,8 @@
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const PROFILE_PHOTO_BUCKET = "profile-photos";
   const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+  const PROFILE_BIO_MAX_LENGTH = 500;
+  const profileBioStates = new WeakMap();
   const PROFILE_PHOTO_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
   const EXPERIENCE_CATEGORIES = [
@@ -990,8 +992,90 @@
       if (profileField) profileField.value = value;
       if (onboardingField) onboardingField.value = value;
     });
+    refreshProfileBioCounters();
     renderExperienceEditor("profile", data.experience);
     renderExperienceEditor("onboarding", data.experience);
+  }
+
+  function profileBioLimitMessage() {
+    return currentLanguage() === "en"
+      ? "Please shorten your introduction to 500 characters or fewer, including spaces."
+      : "한 줄 소개를 공백 포함 500자 이하로 줄여주세요.";
+  }
+
+  function updateProfileBioCounter(field) {
+    const count = field.value.length;
+    const counter = $(`${field.id}Count`);
+    const overLimit = count > PROFILE_BIO_MAX_LENGTH;
+    field.setCustomValidity(overLimit ? profileBioLimitMessage() : "");
+    if (!counter) return;
+    counter.textContent = currentLanguage() === "en"
+      ? `${count} / ${PROFILE_BIO_MAX_LENGTH} characters · including spaces${overLimit ? " · Please shorten before saving." : ""}`
+      : `${count} / ${PROFILE_BIO_MAX_LENGTH}자 · 공백 포함${overLimit ? " · 저장 전 글자 수를 줄여주세요." : ""}`;
+    counter.classList.toggle("at-limit", count >= PROFILE_BIO_MAX_LENGTH);
+    counter.classList.toggle("over-limit", overLimit);
+  }
+
+  function refreshProfileBioCounters() {
+    ["profileBio", "onboardingBio"].forEach((id) => {
+      const field = $(id);
+      if (!field) return;
+      const state = profileBioStates.get(field);
+      if (state && !state.composing) state.before = field.value;
+      updateProfileBioCounter(field);
+    });
+  }
+
+  function fitProfileBioEdit(previous, next) {
+    if (next.length <= PROFILE_BIO_MAX_LENGTH) return next;
+    // Preserve already-saved long introductions; allow the teacher to shorten them.
+    if (previous.length > PROFILE_BIO_MAX_LENGTH) return next.length < previous.length ? next : previous;
+    let prefix = 0;
+    while (prefix < previous.length && prefix < next.length && previous[prefix] === next[prefix]) prefix++;
+    let suffix = 0;
+    while (suffix < previous.length - prefix && suffix < next.length - prefix && previous[previous.length - 1 - suffix] === next[next.length - 1 - suffix]) suffix++;
+    const available = Math.max(0, PROFILE_BIO_MAX_LENGTH - prefix - suffix);
+    let inserted = next.slice(prefix, next.length - suffix).slice(0, available);
+    // Do not leave half an emoji when the native UTF-16 maxlength boundary is reached.
+    if (/[\uD800-\uDBFF]$/.test(inserted)) inserted = inserted.slice(0, -1);
+    return next.slice(0, prefix) + inserted + (suffix ? previous.slice(-suffix) : "");
+  }
+
+  function enforceProfileBioEdit(field, state) {
+    const next = fitProfileBioEdit(state.before, field.value);
+    if (next !== field.value) {
+      const cursor = Math.min(field.selectionStart ?? next.length, next.length);
+      field.value = next;
+      field.setSelectionRange(cursor, cursor);
+    }
+    state.before = field.value;
+    updateProfileBioCounter(field);
+  }
+
+  function initializeProfileBioLimits() {
+    ["profileBio", "onboardingBio"].forEach((id) => {
+      const field = $(id);
+      if (!field) return;
+      field.maxLength = PROFILE_BIO_MAX_LENGTH;
+      const state = { before: field.value, composing: false };
+      profileBioStates.set(field, state);
+      field.addEventListener("beforeinput", (event) => {
+        if (state.composing || event.isComposing) return;
+        state.before = field.value;
+        // Block ordinary typing at the limit; replacements and deletions still work.
+        if (event.cancelable && event.inputType === "insertText" && event.data) {
+          const candidateLength = field.value.length - (field.selectionEnd - field.selectionStart) + event.data.length;
+          if (candidateLength > PROFILE_BIO_MAX_LENGTH && candidateLength >= field.value.length) event.preventDefault();
+        }
+      });
+      field.addEventListener("compositionstart", () => { state.before = field.value; state.composing = true; });
+      field.addEventListener("compositionend", () => { state.composing = false; enforceProfileBioEdit(field, state); });
+      field.addEventListener("input", (event) => {
+        if (state.composing || event.isComposing) return;
+        enforceProfileBioEdit(field, state);
+      });
+      updateProfileBioCounter(field);
+    });
   }
 
   function normalizeExperience(value) {
@@ -1382,6 +1466,12 @@
   }
 
   function validateProfilePayload(payload, fieldIds = profileFieldIds) {
+    if ($(fieldIds.bio).value.length > PROFILE_BIO_MAX_LENGTH) {
+      updateProfileBioCounter($(fieldIds.bio));
+      $(fieldIds.bio).focus();
+      showToast(profileBioLimitMessage(), "error");
+      return false;
+    }
     const missingKey = Object.keys(profileFieldLabels).find((key) => !payload[key]);
     if (missingKey) {
       $(fieldIds[missingKey]).focus();
@@ -2011,7 +2101,9 @@ function loadGuideChecks() {
     $("loginForm").addEventListener("submit", login);
     $("resetPasswordButton").addEventListener("click", resetPassword);
     initializePayGuide();
+    initializeProfileBioLimits();
   document.addEventListener("nado:languagechange", () => {
+    refreshProfileBioCounters();
     buildAvailabilityGrid();
     renderAssignments();
     syncPayGuideDurationOptions(Number($("payGuideDuration")?.value) || 60);
