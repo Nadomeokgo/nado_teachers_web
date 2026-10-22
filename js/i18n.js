@@ -11,6 +11,9 @@
   "스케줄 탭에서 확인하기 →": "Check in the Availability tab →",
 
   // STEP2
+  "새 학생 매칭 안내 확인하기": "Check for new student matching updates",
+  "학생이 선생님을 직접 선택한 경우": "When a student chooses you directly",
+  "학생이 선생님을 선택해 신청하면 나도 운영팀이 개별적으로 연락드립니다. 이 경우 운영팀의 연락을 기다려주시고, 안내를 받으시면 수업 가능 여부와 일정을 확인해주세요.": "If a student selects you when applying, the NADO team will contact you directly. Please wait for our message, then confirm your availability and the lesson schedule with us.",
   "Nado teachers 단톡방에서 새 학생 매칭 소식 확인하기": "Check the NADO Teachers group chat for new student matches",
   "Nado teachers 단톡방에 새로운 학생 매칭 안내가 올라오는지 확인해주세요. 수업 신청은 선착순으로 이루어집니다.": "Check the NADO Teachers group chat for new student matching announcements. Teachers can apply for a student on a first-come, first-served basis.",
   "선생님께 전달되는 학생 정보 예시": "Example student information shared with the teacher",

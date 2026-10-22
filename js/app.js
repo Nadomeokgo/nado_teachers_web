@@ -125,6 +125,12 @@
     };
   }
 
+  function payGuideMonthTwoTotal(plan, durationMinutes, weeklyFrequency, groupSize = 1) {
+    const base = payGuideBasePricing(plan, durationMinutes, groupSize);
+    if (!base) return null;
+    return Math.round(base.tuition * payGuidePackageSessions(weeklyFrequency) / PACKAGE_SESSIONS);
+  }
+
   function syncPayGuideDurationOptions(preferredValue = 60) {
     const select = $("payGuideDuration");
     if (!select) return;
@@ -165,7 +171,8 @@
 
     const rates = payGuideHourlyRates(plan, duration, groupSize);
     const payout = payGuidePayout(plan, duration, sessions, groupSize);
-    if (!rates || payout === null) return;
+    const monthTwoTotal = payGuideMonthTwoTotal(plan, duration, weekly, groupSize);
+    if (!rates || payout === null || monthTwoTotal === null) return;
 
     const frequencyText = currentLanguage() === "en" ? (weekly === 2 ? "Twice a week" : "Once a week") : `주 ${weekly}회`;
     const sessionsText = currentLanguage() === "en" ? `${sessions} session${sessions === 1 ? "" : "s"} payout` : `${sessions}회 정산`;
@@ -173,9 +180,22 @@
     $("payGuideFirstPayout").textContent = formatWon(payout);
     $("payGuidePayoutNote").textContent = currentLanguage() === "en" ? `Based on ${sessions} payout session${sessions === 1 ? "" : "s"}` : `선택한 ${sessions}회 정산 기준`;
     $("payGuideFirstHourly").textContent = formatHourlyWon(rates.firstMonth);
+    $("payGuideMonthTwoTitle").textContent = currentLanguage() === "en" ? "Your pay from month 2" : "2개월 차부터 받는 금액";
+    $("payGuideMonthTwoHourlyLabel").textContent = currentLanguage() === "en" ? "Hourly rate" : "시급";
+    $("payGuideMonthTwoTotalLabel").textContent = currentLanguage() === "en" ? "Package total" : "총 수령액";
     $("payGuideMonthTwoHourly").textContent = formatHourlyWon(rates.monthTwo);
+    $("payGuideMonthTwoTotal").textContent = formatWon(monthTwoTotal);
+    $("payGuideMonthTwoNote").textContent = currentLanguage() === "en"
+      ? `${frequencyText} · full ${maxSessions}-session package, continuing with the same student`
+      : `${frequencyText} · 총 ${maxSessions}회 패키지 기준 · 동일 학생과 수업 지속 시`;
+    $("payGuideSessionBasisNote").textContent = currentLanguage() === "en"
+      ? "Payout sessions apply to the first month. Month 2 totals use the full 4- or 8-session package."
+      : "정산 수업 횟수는 첫 달에만 적용되며, 2개월 차부터의 총액은 주당 횟수에 따른 전체 4회 또는 8회 패키지 기준입니다.";
     $("payGuideFlowFirst").textContent = formatHourlyWon(rates.firstMonth);
-    $("payGuideFlowSecond").textContent = formatHourlyWon(rates.monthTwo);
+    $("payGuideFlowSecond").textContent = currentLanguage() === "en"
+      ? `${formatHourlyWon(rates.monthTwo)} · ${formatWon(monthTwoTotal)} / ${maxSessions} sessions`
+      : `${formatHourlyWon(rates.monthTwo)} · 총 ${formatWon(monthTwoTotal)} / ${maxSessions}회`;
+    $("payGuideMonthTwoTableHeading").textContent = currentLanguage() === "en" ? "From month 2: hourly / total" : "2개월 차부터 시급 / 총액";
 
     const planSelect = $("payGuidePlan");
     [...planSelect.options].forEach((option) => { option.textContent = payGuidePlanLabel(option.value); });
@@ -201,11 +221,12 @@
     $("payGuideDurationRows").innerHTML = durations.map((minutes) => {
       const rowRates = payGuideHourlyRates(plan, minutes, groupSize);
       const fullPayout = payGuidePayout(plan, minutes, maxSessions, groupSize);
+      const recurringTotal = payGuideMonthTwoTotal(plan, minutes, weekly, groupSize);
       return `<tr class="${minutes === duration ? "selected" : ""}" data-pay-duration="${minutes}">
         <td><strong>${escapeHtml(lessonDurationLabel(minutes))}</strong></td>
         <td>${escapeHtml(formatWon(fullPayout))}</td>
         <td>${escapeHtml(formatHourlyWon(rowRates?.firstMonth))}</td>
-        <td>${escapeHtml(formatHourlyWon(rowRates?.monthTwo))}</td>
+        <td>${escapeHtml(formatHourlyWon(rowRates?.monthTwo))}<small class="payguide-table-total">${escapeHtml(currentLanguage() === "en" ? `${formatWon(recurringTotal)} / ${maxSessions} sessions` : `총 ${formatWon(recurringTotal)} / ${maxSessions}회`)}</small></td>
       </tr>`;
     }).join("");
 

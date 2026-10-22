@@ -273,6 +273,9 @@ textarea { resize: vertical; }
 .guide-card b { color: var(--accent); font-size: .72rem; letter-spacing: .08em; }
 .guide-card h3 { margin: 4px 0 7px; font-size: 1rem; }
 .guide-card p { margin: 0; color: var(--gray); font-weight: 400; font-size: .85rem; line-height: 1.55; }
+.guide-direct-match { margin-top: 14px; padding: 14px 16px; border: 1px solid #d9e9fa; border-radius: 12px; background: #f3f8ff; }
+.guide-direct-match > strong { display: block; margin-bottom: 6px; color: var(--accent-deep); font-size: .85rem; font-weight: 700; }
+.guide-direct-match > p { color: #46586b; line-height: 1.65; }
 .guide-card:has(> input:checked) { border-color: rgba(74,144,226,.28); background: #fbfdff; }
 
 /* Guide message examples (always visible) */
@@ -1230,7 +1233,8 @@ body.agreement-open { overflow: hidden; }
 .payguide-controls label > span { color: #607086; font-size: .72rem; font-weight: 850; }
 .payguide-controls select { min-height: 46px; background: white; font-weight: 800; }
 .payguide-selection { margin-top: 14px; color: var(--accent-deep); font-size: .78rem; font-weight: 900; text-align: right; }
-.payguide-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.payguide-basis-note { margin: 10px 0 0; color: #607086; font-size: .72rem; line-height: 1.6; }
+.payguide-summary-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr); gap: 14px; margin-top: 18px; }
 .payguide-summary-card { position: relative; min-width: 0; min-height: 148px; padding: 22px; border: 1px solid rgba(22,50,79,.07); border-radius: 18px; background: #f8fafc; overflow: hidden; }
 .payguide-summary-card::after { content: ""; position: absolute; width: 96px; height: 96px; right: -36px; top: -38px; border-radius: 50%; background: rgba(74,144,226,.08); }
 .payguide-summary-card.primary { color: white; border-color: transparent; background: linear-gradient(135deg, var(--accent-deep), var(--accent)); box-shadow: 0 16px 34px rgba(74,144,226,.18); }
@@ -1242,6 +1246,10 @@ body.agreement-open { overflow: hidden; }
 .payguide-summary-card.primary strong { color: white; }
 .payguide-summary-card.month-two strong { color: var(--success); }
 .payguide-summary-card small { display: block; position: relative; z-index: 1; margin-top: 9px; color: var(--gray); font-size: .68rem; line-height: 1.45; }
+.payguide-month-two-values { display: flex; flex-wrap: wrap; gap: 14px 18px; margin-top: 14px; }
+.payguide-month-two-values > div { flex: 1 1 135px; min-width: 0; }
+.payguide-month-two-values span { position: relative; z-index: 1; color: #4e7565; font-size: .7rem; font-weight: 700; }
+.payguide-month-two-values strong { margin-top: 6px; font-size: clamp(1.1rem, 1.8vw, 1.4rem); line-height: 1.3; letter-spacing: -.03em; white-space: nowrap; }
 .payguide-rate-flow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 15px; padding: 15px 18px; border-radius: 16px; color: #5e6e82; background: #f5f8fc; }
 .payguide-rate-flow span { font-size: .7rem; font-weight: 850; white-space: nowrap; }
 .payguide-rate-flow strong { color: var(--navy); font-size: .95rem; text-align: center; }
@@ -1259,6 +1267,7 @@ body.agreement-open { overflow: hidden; }
 .payguide-table th:first-child, .payguide-table td:first-child { text-align: left; }
 .payguide-table th { color: #647386; background: #f7f9fc; font-size: .68rem; font-weight: 900; }
 .payguide-table td { color: var(--dark-gray); font-weight: 750; }
+.payguide-table-total { display: block; margin-top: 5px; color: #527763; font-size: .72rem; font-weight: 700; }
 .payguide-table tbody tr { cursor: pointer; transition: background .15s ease; }
 .payguide-table tbody tr:hover { background: #f8fbff; }
 .payguide-table tbody tr.selected { background: #eaf4ff; }

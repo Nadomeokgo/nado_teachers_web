@@ -19,8 +19,9 @@
   };
   const DKO=['일','월','화','수','목','금','토'],DEN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],ORDER=[1,2,3,4,5,6,0];
   const START=480,END=1440,STEP=30;
-  let user=null,activeLocation='송도',activeArea='',catalog=[],selectedAreas=new Set(),activeDay=1,dirty=false,slots=Array.from({length:7},()=>new Set());
+  let user=null,activeLocation='송도',activeArea='',catalog=[],selectedAreas=new Set(),dirty=false,slots=Array.from({length:7},()=>new Set());
   let dragState=null,dragPointer={x:0,y:0},dragScrollFrame=0,suppressTimeClick=false;
+  let busy=false,scheduleReady=false,focusedCell={day:1,time:START};
   const en=()=>window.NADO_I18N?.getLanguage?.()==='en';
   const tr=(ko,enText)=>en()?enText:ko;
   const esc=(v='')=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -36,28 +37,253 @@
   function renderLocations(){const w=$('nadoLocationButtons');if(!w)return;w.innerHTML=LOCS.map(([v,ko,e])=>`<button type="button" class="nado-v6-location-button${v===activeLocation?' active':''}" data-v6-location="${esc(v)}">${esc(tr(ko,e))}</button>`).join('')}
   function renderAreas(){const panel=$('nadoAreaPanel');if(panel)panel.hidden=!needsArea();const grid=$('nadoAreaGrid');if(grid)grid.innerHTML=catalog.map(a=>`<label class="nado-v6-area-chip"><input type="checkbox" data-v6-area value="${esc(a.code)}" ${selectedAreas.has(a.code)?'checked':''}><span>${esc(areaLabel(a))}</span></label>`).join('');const sel=$('nadoAreaSelect'),empty=$('nadoAreaEmpty');if(!sel||!empty)return;const arr=catalog.filter(a=>selectedAreas.has(a.code));sel.hidden=!arr.length;empty.hidden=!!arr.length;if(!arr.length){activeArea='';sel.innerHTML='';return}if(!arr.some(a=>a.code===activeArea))activeArea=arr[0].code;sel.innerHTML=arr.map(a=>`<option value="${esc(a.code)}">${esc(areaLabel(a))}</option>`).join('');sel.value=activeArea}
   async function loadAreas(){if(!user){catalog=[];selectedAreas=new Set();renderAreas();return}const r=region();const {data:mine,error}=await client.from('teacher_service_areas').select('area,active').eq('teacher_id',user.id).eq('region',r);if(error)throw error;selectedAreas=new Set((mine||[]).filter(x=>x.active).map(x=>x.area));const defaults=AREA_CATALOGS[r]||[];const custom=(mine||[]).map(x=>x.area).filter(x=>!defaults.includes(x));catalog=[...new Set([...defaults,...custom])].map(value=>({code:value,label:value}));renderAreas()}
-  function renderDays(){const w=$('nadoDayTabs');if(!w)return;w.innerHTML=ORDER.map(d=>`<button type="button" class="nado-v6-day${d===activeDay?' active':''}" data-v6-day="${d}"><span>${en()?DEN[d]:DKO[d]}</span>${slots[d].size?`<b>${slots[d].size}</b>`:''}</button>`).join('')}
-  function renderTimes(){const w=$('nadoTimeGrid');if(!w)return;let html='';for(let m=START;m<END;m+=STEP){const selected=slots[activeDay].has(m);html+=`<button type="button" class="nado-v6-time${selected?' selected':''}" data-v6-time="${m}" aria-pressed="${selected?'true':'false'}"><span>${showTime(m)}</span><small>${showTime(Math.min(END,m+STEP))}</small></button>`}w.innerHTML=html}
-  function renderStatus(){const el=$('nadoRangeStatus');if(!el)return;el.className='nado-v6-status'+(dragState?' active':'');el.textContent=dragState?tr(`${showTime(Math.min(dragState.anchor,dragState.current))}–${showTime(Math.min(END,Math.max(dragState.anchor,dragState.current)+STEP))} 구간을 ${dragState.adding?'선택':'해제'} 중입니다.`,`Dragging to ${dragState.adding?'select':'remove'} ${showTime(Math.min(dragState.anchor,dragState.current))}–${showTime(Math.min(END,Math.max(dragState.anchor,dragState.current)+STEP))}.`):tr('시간 칸을 누른 채 위아래로 드래그하면 연속된 시간대가 한 번에 선택됩니다. 한 칸만 누르면 개별 선택/해제가 됩니다.','Press and drag up or down to select a continuous time range. Click once to toggle one slot.')}
-  function syncTimeButtons(){document.querySelectorAll('#nadoTimeGrid [data-v6-time]').forEach(button=>{const selected=slots[activeDay].has(Number(button.dataset.v6Time));button.classList.toggle('selected',selected);button.setAttribute('aria-pressed',String(selected))})}
-  function applyDragRange(current){if(!dragState)return;dragState.current=current;dragState.moved=dragState.moved||current!==dragState.anchor;slots[activeDay]=new Set(dragState.before);const start=Math.min(dragState.anchor,current),end=Math.max(dragState.anchor,current);for(let m=start;m<=end;m+=STEP){if(dragState.adding)slots[activeDay].add(m);else slots[activeDay].delete(m)}syncTimeButtons();renderStatus();setDirty(true)}
+  function slotLabel(day,time){return tr(`${DKO[day]}요일 ${showTime(time)}–${showTime(time+STEP)}`,`${DEN[day]} ${showTime(time)}–${showTime(time+STEP)}`)}
+  function renderTimes(){
+    const w=$('nadoTimeGrid');if(!w)return;
+    let html=`<div class="nado-v6-corner">${tr('시간','Time')}</div>`+ORDER.map(d=>`<div class="nado-v6-day-head">${en()?DEN[d]:DKO[d]}</div>`).join('');
+    for(let m=START;m<END;m+=STEP){
+      html+=`<div class="nado-v6-time-label${m%60===0?' hour':''}">${showTime(m)}</div>`;
+      html+=ORDER.map(d=>`<button type="button" class="nado-v6-time${m%60===0?' hour':''}${slots[d].has(m)?' selected':''}" data-v6-day="${d}" data-v6-time="${m}" aria-label="${esc(slotLabel(d,m))}" aria-pressed="${slots[d].has(m)}" tabindex="${focusedCell.day===d&&focusedCell.time===m?'0':'-1'}" ${busy||!scheduleReady?'disabled':''}></button>`).join('');
+    }
+    w.innerHTML=html;
+  }
+  function renderStatus(){
+    const el=$('nadoRangeStatus');if(!el)return;
+    el.className='nado-v6-status'+(dragState?' active':'');
+    if(dragState){
+      const first=ORDER[Math.min(ORDER.indexOf(dragState.anchorDay),ORDER.indexOf(dragState.currentDay))];
+      const last=ORDER[Math.max(ORDER.indexOf(dragState.anchorDay),ORDER.indexOf(dragState.currentDay))];
+      const range=`${showTime(Math.min(dragState.anchor,dragState.current))}–${showTime(Math.max(dragState.anchor,dragState.current)+STEP)}`;
+      el.textContent=tr(`${DKO[first]}–${DKO[last]} ${range} ${dragState.adding?'선택':'해제'} 중 · Esc로 취소`,`${DEN[first]}–${DEN[last]} ${range}: ${dragState.adding?'selecting':'removing'} · Esc to cancel`);
+    }else{
+      const count=slots.reduce((sum,day)=>sum+day.size,0);
+      el.textContent=tr(`선택한 시간대 ${count}칸 · 1칸 = 30분. 선택한 칸에서 드래그하면 해제됩니다.`,`Selected: ${count} slots · 30 minutes each. Drag from a selected cell to remove slots.`);
+    }
+  }
+  function syncTimeButtons(){
+    document.querySelectorAll('#nadoTimeGrid [data-v6-time]').forEach(button=>{
+      const d=Number(button.dataset.v6Day),m=Number(button.dataset.v6Time),selected=slots[d].has(m);
+      button.classList.toggle('selected',selected);button.setAttribute('aria-pressed',String(selected));
+      button.tabIndex=focusedCell.day===d&&focusedCell.time===m?0:-1;
+      button.disabled=busy||!scheduleReady;
+    });
+  }
+  function setBusy(value){
+    busy=value;
+    document.querySelectorAll('#nadoScheduleV6 button, #nadoScheduleV6 input, #nadoScheduleV6 select, #clearScheduleButton, #saveScheduleButton').forEach(el=>el.disabled=value);
+    syncTimeButtons();
+    if($('saveScheduleButton'))$('saveScheduleButton').disabled=value||!scheduleReady;
+    if($('clearScheduleButton'))$('clearScheduleButton').disabled=value||!scheduleReady;
+  }
+  function cloneSlots(source=slots){return source.map(day=>new Set(day))}
+  function applyDragRange(day,current){
+    if(!dragState)return;
+    dragState.currentDay=day;dragState.current=current;
+    slots=cloneSlots(dragState.before);
+    const first=Math.min(ORDER.indexOf(dragState.anchorDay),ORDER.indexOf(day));
+    const last=Math.max(ORDER.indexOf(dragState.anchorDay),ORDER.indexOf(day));
+    const start=Math.min(dragState.anchor,current),end=Math.max(dragState.anchor,current);
+    for(let col=first;col<=last;col++)for(let m=start;m<=end;m+=STEP){
+      if(dragState.adding)slots[ORDER[col]].add(m);else slots[ORDER[col]].delete(m);
+    }
+    syncTimeButtons();renderStatus();setDirty(true);
+  }
   function timeButtonAt(x,y){const hit=document.elementFromPoint(x,y)?.closest?.('[data-v6-time]');return hit&&$('nadoTimeGrid')?.contains(hit)?hit:null}
   function stopDragScroll(){if(dragScrollFrame)cancelAnimationFrame(dragScrollFrame);dragScrollFrame=0}
-  function runDragScroll(){stopDragScroll();const tick=()=>{if(!dragState)return;const scroller=$('nadoTimeScroll');if(!scroller)return;const rect=scroller.getBoundingClientRect(),edge=Math.min(72,rect.height*.2);let speed=0;if(dragPointer.y<rect.top+edge)speed=-Math.ceil((rect.top+edge-dragPointer.y)/7);else if(dragPointer.y>rect.bottom-edge)speed=Math.ceil((dragPointer.y-(rect.bottom-edge))/7);if(speed){const before=scroller.scrollTop;scroller.scrollTop+=Math.max(-18,Math.min(18,speed));if(scroller.scrollTop!==before){const y=Math.max(rect.top+4,Math.min(rect.bottom-4,dragPointer.y));const hit=timeButtonAt(dragPointer.x,y);if(hit)applyDragRange(Number(hit.dataset.v6Time))}}dragScrollFrame=requestAnimationFrame(tick)};dragScrollFrame=requestAnimationFrame(tick)}
-  function beginTimeDrag(button,event){if(event.pointerType==='mouse'&&event.button!==0)return;event.preventDefault();event.stopImmediatePropagation();const m=Number(button.dataset.v6Time),set=slots[activeDay];dragPointer={x:event.clientX,y:event.clientY};dragState={pointerId:event.pointerId,anchor:m,current:m,before:new Set(set),adding:!set.has(m),moved:false};$('nadoTimeScroll')?.classList.add('dragging');applyDragRange(m);runDragScroll()}
-  function moveTimeDrag(event){if(!dragState||event.pointerId!==dragState.pointerId)return;event.preventDefault();dragPointer={x:event.clientX,y:event.clientY};const hit=timeButtonAt(event.clientX,event.clientY);if(hit)applyDragRange(Number(hit.dataset.v6Time))}
-  function endTimeDrag(event){if(!dragState||event.pointerId!==dragState.pointerId)return;event.preventDefault();stopDragScroll();$('nadoTimeScroll')?.classList.remove('dragging');dragState=null;suppressTimeClick=true;window.setTimeout(()=>{suppressTimeClick=false},0);renderPicker()}
-  function renderPicker(){renderDays();renderTimes();renderStatus()}
-  async function loadSchedule(){dragState=null;stopDragScroll();reset();if(needsArea()&&!activeArea){renderPicker();setDirty(false);return}let q=client.from('availability').select('day_of_week,start_time,end_time').eq('teacher_id',user.id).eq('location',activeLocation);q=needsArea()?q.eq('service_area',activeArea):q.is('service_area',null);const {data,error}=await q.order('day_of_week').order('start_time');if(error)return toast('스케줄을 불러오지 못했습니다.','Could not load schedule.','error');(data||[]).forEach(r=>{const d=Number(r.day_of_week),s=Math.max(START,t2m(r.start_time)),e=Math.min(END,t2m(r.end_time));if(d<0||d>6||!Number.isFinite(s)||!Number.isFinite(e)||e<=s)return;for(let m=s;m<e;m+=STEP)slots[d].add(m)});renderPicker();setDirty(false)}
+  function dragHit(){
+    const scroller=$('nadoTimeScroll');if(!scroller)return null;
+    const rect=scroller.getBoundingClientRect();
+    const timeLabel=scroller.querySelector('.nado-v6-time-label');
+    const dayHead=scroller.querySelector('.nado-v6-day-head');
+    const left=rect.left+(timeLabel?.getBoundingClientRect().width||48)+3;
+    const top=rect.top+(dayHead?.getBoundingClientRect().height||42)+3;
+    return timeButtonAt(Math.max(left,Math.min(rect.right-8,dragPointer.x)),Math.max(top,Math.min(rect.bottom-8,dragPointer.y)));
+  }
+  function runDragScroll(){
+    stopDragScroll();
+    const tick=()=>{
+      if(!dragState)return;
+      const scroller=$('nadoTimeScroll');if(!scroller)return;
+      const rect=scroller.getBoundingClientRect(),edge=48;
+      const speed=(point,low,high)=>point<low+edge?-Math.min(16,Math.ceil((low+edge-point)/7)):point>high-edge?Math.min(16,Math.ceil((point-high+edge)/7)):0;
+      const beforeTop=scroller.scrollTop,beforeLeft=scroller.scrollLeft;
+      scroller.scrollTop+=speed(dragPointer.y,rect.top+42,rect.bottom);
+      scroller.scrollLeft+=speed(dragPointer.x,rect.left+48,rect.right);
+      if(scroller.scrollTop!==beforeTop||scroller.scrollLeft!==beforeLeft){const hit=dragHit();if(hit)applyDragRange(Number(hit.dataset.v6Day),Number(hit.dataset.v6Time))}
+      dragScrollFrame=requestAnimationFrame(tick);
+    };
+    dragScrollFrame=requestAnimationFrame(tick);
+  }
+  function beginTimeDrag(button,event){
+    if(busy||!scheduleReady||dragState||(event.pointerType==='mouse'&&event.button!==0))return;
+    event.preventDefault();event.stopImmediatePropagation();
+    const day=Number(button.dataset.v6Day),time=Number(button.dataset.v6Time);
+    suppressTimeClick=false;
+    focusedCell={day,time};button.focus({preventScroll:true});
+    dragPointer={x:event.clientX,y:event.clientY};
+    dragState={pointerId:event.pointerId,anchorDay:day,currentDay:day,anchor:time,current:time,before:cloneSlots(),wasDirty:dirty,adding:!slots[day].has(time)};
+    const scroller=$('nadoTimeScroll');scroller?.classList.add('dragging');
+    try{scroller?.setPointerCapture(event.pointerId)}catch(_error){}
+    applyDragRange(day,time);runDragScroll();
+  }
+  function moveTimeDrag(event){
+    if(!dragState||event.pointerId!==dragState.pointerId)return;
+    event.preventDefault();dragPointer={x:event.clientX,y:event.clientY};
+    const hit=dragHit();if(hit)applyDragRange(Number(hit.dataset.v6Day),Number(hit.dataset.v6Time));
+  }
+  function finishTimeDrag(cancel=false){
+    if(!dragState)return;
+    const state=dragState;dragState=null;stopDragScroll();
+    if(cancel){slots=cloneSlots(state.before);setDirty(state.wasDirty)}
+    const scroller=$('nadoTimeScroll');scroller?.classList.remove('dragging');
+    try{if(scroller?.hasPointerCapture(state.pointerId))scroller.releasePointerCapture(state.pointerId)}catch(_error){}
+    // A cancelled gesture can still dispatch a click after its eventual pointerup.
+    suppressTimeClick=true;if(!cancel)window.setTimeout(()=>{suppressTimeClick=false},0);
+    syncTimeButtons();renderStatus();
+  }
+  function endTimeDrag(event){if(!dragState||event.pointerId!==dragState.pointerId)return;event.preventDefault();finishTimeDrag(event.type==='pointercancel')}
+  function renderPicker(){renderTimes();renderStatus()}
+  async function loadSchedule(){
+    finishTimeDrag(true);scheduleReady=false;
+    if(!user||(needsArea()&&!activeArea)){reset();renderPicker();setDirty(false);return}
+    let q=client.from('availability').select('day_of_week,start_time,end_time').eq('teacher_id',user.id).eq('location',activeLocation);
+    q=needsArea()?q.eq('service_area',activeArea):q.is('service_area',null);
+    const {data,error}=await q.order('day_of_week').order('start_time');
+    if(error){reset();renderPicker();return toast('스케줄을 불러오지 못했습니다. 페이지를 새로고침해주세요.','Could not load schedule. Please refresh the page.','error')}
+    reset();
+    (data||[]).forEach(r=>{const d=Number(r.day_of_week),s=Math.max(START,t2m(r.start_time)),e=Math.min(END,t2m(r.end_time));if(!Number.isInteger(d)||d<0||d>6||!Number.isFinite(s)||!Number.isFinite(e)||e<=s)return;for(let m=s;m<e;m+=STEP)slots[d].add(m)});
+    scheduleReady=true;renderPicker();setDirty(false);
+  }
   function rangesForDay(d){const arr=[...slots[d]].sort((a,b)=>a-b);if(!arr.length)return[];const out=[];let s=arr[0],p=arr[0];for(let i=1;i<arr.length;i++){const c=arr[i];if(c!==p+STEP){out.push({start:s,end:p+STEP});s=c}p=c}out.push({start:s,end:Math.min(END,p+STEP)});return out}
   function payload(){const out=[];for(let d=0;d<7;d++)rangesForDay(d).forEach(r=>out.push({teacher_id:user.id,day_of_week:d,start_time:m2t(r.start),end_time:m2t(r.end),location:activeLocation,service_area:needsArea()?activeArea:null,memo:''}));return out}
-  async function save(){if(needsArea()&&!activeArea)return toast(tr('먼저 세부 가능 지역을 선택해주세요.','Select a detailed area first.'),tr('먼저 세부 가능 지역을 선택해주세요.','Select a detailed area first.'),'error');const btn=$('saveScheduleButton');if(btn){btn.disabled=true;btn.textContent=tr('저장 중...','Saving...')}try{let del=client.from('availability').delete().eq('teacher_id',user.id).eq('location',activeLocation);del=needsArea()?del.eq('service_area',activeArea):del.is('service_area',null);const {error:e1}=await del;if(e1)throw e1;const rows=payload();if(rows.length){const {error:e2}=await client.from('availability').insert(rows);if(e2)throw e2}setDirty(false);toast('가능 시간이 저장되었습니다.','Availability saved.')}catch(e){console.error(e);toast('저장에 실패했습니다.','Failed to save.','error')}finally{if(btn){btn.disabled=false;btn.textContent=tr('저장','Save')}}}
-  async function toggleArea(input){const r=region(),area=input.value;input.disabled=true;try{if(input.checked){const {data:ex,error:e1}=await client.from('teacher_service_areas').select('id').eq('teacher_id',user.id).eq('region',r).eq('area',area).limit(1);if(e1)throw e1;if(ex?.length){const {error}=await client.from('teacher_service_areas').update({active:true}).eq('id',ex[0].id);if(error)throw error}else{const {error}=await client.from('teacher_service_areas').insert({teacher_id:user.id,region:r,area,active:true});if(error)throw error}activeArea=area}else{const {error}=await client.from('teacher_service_areas').delete().eq('teacher_id',user.id).eq('region',r).eq('area',area);if(error)throw error;const {error:e2}=await client.from('availability').delete().eq('teacher_id',user.id).eq('location',activeLocation).eq('service_area',area);if(e2)throw e2;if(activeArea===area)activeArea=''}await loadAreas();await loadSchedule()}catch(e){input.checked=!input.checked;toast('가능 지역 변경에 실패했습니다.','Could not update area.','error')}finally{input.disabled=false}}
-  async function addArea(){if(!needsArea())return;const input=$('nadoCustomAreaInput'),label=String(input?.value||'').trim().replace(/\s+/g,' ');if(!label)return;if(label.length>30)return toast('장소명은 30자 이내로 입력해주세요.','Location must be 30 characters or fewer.','error');const {data:existing,error:e1}=await client.from('teacher_service_areas').select('id').eq('teacher_id',user.id).eq('region',region()).eq('area',label).limit(1);if(e1)return toast('장소 추가에 실패했습니다.','Could not add location.','error');const result=existing?.length?await client.from('teacher_service_areas').update({active:true}).eq('id',existing[0].id):await client.from('teacher_service_areas').insert({teacher_id:user.id,region:region(),area:label,active:true});if(result.error)return toast('장소 추가에 실패했습니다.','Could not add location.','error');activeArea=label;if(input)input.value='';await loadAreas();await loadSchedule();toast('새 가능 장소가 추가되었습니다.','New location added.')}
-  function applyLanguage(){const intro=document.querySelector('#page-schedule .page-intro > div');if(intro){const h=intro.querySelector('h2'),p=intro.querySelector('p:not(.section-kicker)');if(h)h.textContent=tr('수업 가능 스케줄','Teaching Availability');if(p)p.textContent=tr('가능 장소와 수업 가능한 시간대를 등록해주세요.','Choose where and when you are available to teach.')}const lbl=document.querySelector('label[for="scheduleLocation"]');if(lbl)lbl.textContent=tr('가능 장소','Available Location');const sel=$('scheduleLocation');if(sel){const cur=sel.value||activeLocation;sel.innerHTML=LOCS.map(([v,ko,e])=>`<option value="${esc(v)}">${esc(tr(ko,e))}</option>`).join('');sel.value=cur}if($('nadoAreaTitle'))$('nadoAreaTitle').textContent=region()==='Seoul'?tr('서울 가능 지역','Available Seoul Areas'):region()==='Songdo'?tr('송도 가능 지역','Available Songdo Areas'):tr('IGC & 트스 가능 지역','Available IGC & Triple Street Areas');if($('nadoAreaCopy'))$('nadoAreaCopy').textContent=tr('수업할 수 있는 지역을 모두 선택해주세요. 직접 장소를 추가할 수도 있습니다.','Select every area where you can teach. You can also add a specific place.');if($('nadoAreaLabel'))$('nadoAreaLabel').textContent=tr('시간 설정 지역','Area for Time Setting');if($('nadoAreaEmpty'))$('nadoAreaEmpty').textContent=tr('가능한 세부 지역을 먼저 선택해주세요.','Select a detailed area first.');if($('nadoCustomAreaInput'))$('nadoCustomAreaInput').placeholder=tr('구체적인 장소 추가','Add a specific place');if($('nadoCustomAreaAdd'))$('nadoCustomAreaAdd').textContent=tr('추가','Add');if($('nadoTimeTitle'))$('nadoTimeTitle').textContent=tr('가능한 시간대를 선택해주세요','Select your available times');if($('nadoTimeCopy'))$('nadoTimeCopy').textContent=tr('시간 칸을 누른 채 위아래로 드래그하세요. 화면 끝까지 끌면 자동으로 스크롤됩니다.','Press and drag up or down. The list auto-scrolls when you reach an edge.');if($('clearScheduleButton'))$('clearScheduleButton').textContent=tr('시간 초기화','Clear Times');if($('saveScheduleButton')&&!$('saveScheduleButton').disabled)$('saveScheduleButton').textContent=tr('저장','Save');renderLocations();renderAreas();renderPicker()}
-  function installUI(){const sel=$('scheduleLocation');if(!sel||$('nadoScheduleV6'))return false;const field=sel.closest('.schedule-preference-field'),panel=field?.closest('.schedule-form-panel'),head=panel?.querySelector('.form-section-head');if(!field||!panel||!head)return false;panel.insertBefore(field,head);document.querySelector('#page-schedule .availability-picker')?.setAttribute('hidden','');document.querySelector('#page-schedule .current-slots-panel')?.setAttribute('hidden','');const memo=$('scheduleMemo')?.closest('.field-group');if(memo)memo.hidden=true;const notice=document.querySelector('#page-schedule .location-assignment-notice');if(notice)notice.hidden=true;const ui=document.createElement('div');ui.id='nadoScheduleV6';ui.innerHTML=`<div id="nadoLocationButtons" class="nado-v6-location-buttons"></div><div id="nadoAreaPanel" class="nado-v6-area-panel" hidden><strong id="nadoAreaTitle"></strong><p id="nadoAreaCopy"></p><div id="nadoAreaGrid" class="nado-v6-area-grid"></div><div class="nado-v6-custom"><input id="nadoCustomAreaInput" maxlength="30"><button id="nadoCustomAreaAdd" type="button"></button></div><div class="nado-v6-area-editor"><label id="nadoAreaLabel" for="nadoAreaSelect"></label><select id="nadoAreaSelect"></select><p id="nadoAreaEmpty" hidden></p></div></div>`;field.appendChild(ui);head.innerHTML=`<div><h3 id="nadoTimeTitle"></h3><p id="nadoTimeCopy"></p></div>`;const picker=document.createElement('div');picker.className='nado-v6-picker';picker.innerHTML=`<div id="nadoDayTabs" class="nado-v6-days"></div><div id="nadoTimeScroll" class="nado-v6-time-scroll"><div id="nadoTimeGrid" class="nado-v6-time-grid"></div></div><div id="nadoRangeStatus" class="nado-v6-status"></div>`;head.insertAdjacentElement('afterend',picker);const style=document.createElement('style');style.textContent=`#page-schedule .availability-picker[hidden],#page-schedule .current-slots-panel[hidden]{display:none!important}#page-schedule .schedule-layout{display:block!important}#page-schedule #scheduleLocation{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.nado-v6-location-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.nado-v6-location-button{min-height:64px;border:1px solid #d3deeb;border-radius:16px;background:#fff;font-weight:800}.nado-v6-location-button.active{background:#2f6feb;color:#fff;border-color:#2f6feb}.nado-v6-area-panel{margin-top:24px}.nado-v6-area-panel>strong{font-size:1.15rem}.nado-v6-area-panel>p{color:#667085}.nado-v6-area-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.nado-v6-area-chip input{position:absolute;opacity:0}.nado-v6-area-chip span{display:grid;place-items:center;min-height:48px;border:1px solid #d4dfed;border-radius:12px;background:#fff;font-weight:750;text-align:center;padding:8px}.nado-v6-area-chip input:checked+span{background:#4a90e2;color:#fff;border-color:#4a90e2}.nado-v6-custom{display:flex;gap:8px;margin-top:12px}.nado-v6-custom input{flex:1;min-width:0;min-height:46px;border:1px solid #d4dfed;border-radius:10px;padding:0 12px;font-size:16px}.nado-v6-custom button{border:0;border-radius:10px;background:#4a90e2;color:#fff;font-weight:800;padding:0 18px}.nado-v6-area-editor{margin-top:16px}.nado-v6-area-editor label{display:block;font-weight:800;margin-bottom:7px}.nado-v6-area-editor select{width:100%;min-height:48px;border:1px solid #d4dfed;border-radius:10px;padding:0 12px;font-size:16px}.nado-v6-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:20px}.nado-v6-day{position:relative;min-height:52px;border:1px solid #dfe6ef;border-radius:12px;background:#fff;font-weight:800}.nado-v6-day.active{border:2px solid #4a90e2;background:#eaf5ff;color:#3275c9}.nado-v6-day b{position:absolute;right:-3px;top:-7px;min-width:20px;height:20px;border-radius:999px;background:#4a90e2;color:#fff;font-size:.65rem}.nado-v6-time-scroll{max-height:520px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #dce5ee;border-radius:16px;background:#f8fafc;scrollbar-gutter:stable}.nado-v6-time-scroll.dragging{cursor:ns-resize;box-shadow:0 0 0 3px rgba(74,144,226,.12)}.nado-v6-time-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0;user-select:none}.nado-v6-time{display:flex;align-items:center;justify-content:space-between;min-height:50px;padding:0 18px;border:0;border-bottom:1px solid #e5ebf1;border-radius:0;background:#fff;color:#24364b;font-weight:850;touch-action:none}.nado-v6-time:last-child{border-bottom:0}.nado-v6-time small{color:#8a98a9;font-size:.72rem;font-weight:750}.nado-v6-time:hover{background:#eef6ff}.nado-v6-time.selected{background:#4a90e2;color:#fff}.nado-v6-time.selected small{color:rgba(255,255,255,.78)}.nado-v6-status{margin-top:14px;color:#7b8794;line-height:1.55}@media(max-width:700px){#page-schedule .schedule-form-panel{padding:0!important;border:0!important;box-shadow:none!important}.nado-v6-location-buttons{gap:8px}.nado-v6-location-button{min-height:52px;font-size:.88rem}.nado-v6-area-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.nado-v6-days{gap:3px}.nado-v6-day{min-width:0;min-height:46px;padding:3px 0;font-size:.72rem}.nado-v6-time-scroll{max-height:460px}.nado-v6-time{min-height:48px;font-size:.9rem}}`;document.head.appendChild(style);applyLanguage();return true}
-  async function switchLoc(v){if(v===activeLocation)return;if(dirty&&!confirm(tr('저장하지 않은 변경사항이 있습니다. 장소를 바꿀까요?','You have unsaved changes. Switch locations?'))){renderLocations();return}activeLocation=v;activeArea='';dragState=null;stopDragScroll();const sel=$('scheduleLocation');if(sel)sel.value=v;await loadAreas();await loadSchedule();applyLanguage()}
-  function events(){document.addEventListener('pointerdown',e=>{const t=e.target.closest?.('[data-v6-time]');if(t)beginTimeDrag(t,e)},true);document.addEventListener('pointermove',moveTimeDrag,{passive:false,capture:true});document.addEventListener('pointerup',endTimeDrag,{passive:false,capture:true});document.addEventListener('pointercancel',endTimeDrag,{passive:false,capture:true});document.addEventListener('click',e=>{const l=e.target.closest?.('[data-v6-location]');if(l){e.preventDefault();e.stopImmediatePropagation();switchLoc(l.dataset.v6Location);return}const d=e.target.closest?.('[data-v6-day]');if(d){activeDay=Number(d.dataset.v6Day);dragState=null;stopDragScroll();renderPicker();return}const t=e.target.closest?.('[data-v6-time]');if(t){e.preventDefault();e.stopImmediatePropagation();if(suppressTimeClick)return;const m=Number(t.dataset.v6Time),set=slots[activeDay];if(set.has(m))set.delete(m);else set.add(m);setDirty(true);renderPicker();return}if(e.target.closest?.('#nadoCustomAreaAdd')){addArea();return}if(e.target.closest?.('#saveScheduleButton')){e.preventDefault();e.stopImmediatePropagation();save();return}if(e.target.closest?.('#clearScheduleButton')){e.preventDefault();e.stopImmediatePropagation();reset();dragState=null;stopDragScroll();setDirty(true);renderPicker()}},true);document.addEventListener('change',e=>{const a=e.target.closest?.('[data-v6-area]');if(a){e.stopImmediatePropagation();toggleArea(a);return}if(e.target?.id==='nadoAreaSelect'){activeArea=e.target.value;dragState=null;stopDragScroll();loadSchedule();return}if(e.target?.id==='scheduleLocation'){e.stopImmediatePropagation();switchLoc(e.target.value)}},true);document.addEventListener('keydown',e=>{if(e.target?.id==='nadoCustomAreaInput'&&e.key==='Enter'){e.preventDefault();addArea()}if(e.key==='Escape'&&dragState){dragState=null;stopDragScroll();$('nadoTimeScroll')?.classList.remove('dragging');renderPicker()}});document.addEventListener('nado:languagechange',()=>setTimeout(applyLanguage,30))}
-  async function start(){for(let i=0;i<40&&!$('scheduleLocation');i++)await new Promise(r=>setTimeout(r,250));if(!installUI())return;events();const {data}=await client.auth.getUser();user=data?.user||null;if(!user){client.auth.onAuthStateChange((_e,s)=>{if(!s?.user)return;user=s.user;activeLocation=$('scheduleLocation')?.value||'송도';loadAreas().then(loadSchedule).then(applyLanguage)});return}activeLocation=$('scheduleLocation')?.value||'송도';await loadAreas();await loadSchedule();applyLanguage()}
+  function canDiscard(){return !dirty||confirm(tr('저장하지 않은 시간 변경사항이 있습니다. 변경사항을 버리고 이동할까요?','You have unsaved time changes. Discard them and continue?'))}
+  async function save(){
+    if(busy||!scheduleReady||!user)return;
+    if(needsArea()&&!activeArea)return toast('먼저 세부 가능 지역을 선택해주세요.','Select a detailed area first.','error');
+    finishTimeDrag(false);const rows=payload(),btn=$('saveScheduleButton');setBusy(true);
+    if(btn)btn.textContent=tr('저장 중...','Saving...');
+    try{
+      let del=client.from('availability').delete().eq('teacher_id',user.id).eq('location',activeLocation);
+      del=needsArea()?del.eq('service_area',activeArea):del.is('service_area',null);
+      const {error:e1}=await del;if(e1)throw e1;
+      if(rows.length){const {error:e2}=await client.from('availability').insert(rows);if(e2)throw e2}
+      setDirty(false);toast('가능 시간이 저장되었습니다.','Availability saved.');
+    }catch(e){console.error(e);toast('저장에 실패했습니다. 다시 저장해주세요.','Failed to save. Please try saving again.','error')}
+    finally{setBusy(false);if(btn)btn.textContent=tr('저장','Save')}
+  }
+  async function toggleArea(input){
+    const checked=input.checked,area=input.value,previousArea=activeArea;
+    if(busy||!user){input.checked=!checked;return}
+    const switchesArea=(checked&&area!==activeArea)||(!checked&&area===activeArea);
+    if(switchesArea&&!canDiscard()){input.checked=!checked;return}
+    const r=region();setBusy(true);
+    try{
+      if(checked){
+        const {data:ex,error:e1}=await client.from('teacher_service_areas').select('id').eq('teacher_id',user.id).eq('region',r).eq('area',area).limit(1);if(e1)throw e1;
+        const result=ex?.length?await client.from('teacher_service_areas').update({active:true}).eq('id',ex[0].id):await client.from('teacher_service_areas').insert({teacher_id:user.id,region:r,area,active:true});
+        if(result.error)throw result.error;if(activeArea!==area)scheduleReady=false;activeArea=area;
+      }else{
+        const {error}=await client.from('teacher_service_areas').delete().eq('teacher_id',user.id).eq('region',r).eq('area',area);if(error)throw error;
+        const {error:e2}=await client.from('availability').delete().eq('teacher_id',user.id).eq('location',activeLocation).eq('service_area',area);if(e2)throw e2;
+        if(activeArea===area){scheduleReady=false;activeArea=''}
+      }
+      await loadAreas();
+      if(activeArea!==previousArea||switchesArea)await loadSchedule();
+    }catch(e){input.checked=!checked;toast('가능 지역 변경에 실패했습니다.','Could not update area.','error')}
+    finally{setBusy(false)}
+  }
+  async function addArea(){
+    if(busy||!user||!needsArea())return;
+    const input=$('nadoCustomAreaInput'),label=String(input?.value||'').trim().replace(/\s+/g,' ');
+    if(!label)return;
+    if(label.length>30)return toast('장소명은 30자 이내로 입력해주세요.','Location must be 30 characters or fewer.','error');
+    if(label!==activeArea&&!canDiscard())return;
+    const previousArea=activeArea;setBusy(true);
+    try{
+      const {data:existing,error:e1}=await client.from('teacher_service_areas').select('id').eq('teacher_id',user.id).eq('region',region()).eq('area',label).limit(1);if(e1)throw e1;
+      const result=existing?.length?await client.from('teacher_service_areas').update({active:true}).eq('id',existing[0].id):await client.from('teacher_service_areas').insert({teacher_id:user.id,region:region(),area:label,active:true});
+      if(result.error)throw result.error;
+      if(activeArea!==label)scheduleReady=false;activeArea=label;if(input)input.value='';await loadAreas();
+      if(activeArea!==previousArea)await loadSchedule();
+      toast('새 가능 장소가 추가되었습니다.','New location added.');
+    }catch(e){toast('장소 추가에 실패했습니다.','Could not add location.','error')}
+    finally{setBusy(false)}
+  }
+  function applyLanguage(){if($('nadoTimeGrid'))$('nadoTimeGrid').setAttribute('aria-label',tr('요일별 수업 가능 시간','Weekly teaching availability'));const intro=document.querySelector('#page-schedule .page-intro > div');if(intro){const h=intro.querySelector('h2'),p=intro.querySelector('p:not(.section-kicker)');if(h)h.textContent=tr('수업 가능 스케줄','Teaching Availability');if(p)p.textContent=tr('가능 장소와 수업 가능한 시간대를 등록해주세요.','Choose where and when you are available to teach.')}const lbl=document.querySelector('label[for="scheduleLocation"]');if(lbl)lbl.textContent=tr('가능 장소','Available Location');const sel=$('scheduleLocation');if(sel){const cur=sel.value||activeLocation;sel.innerHTML=LOCS.map(([v,ko,e])=>`<option value="${esc(v)}">${esc(tr(ko,e))}</option>`).join('');sel.value=cur}if($('nadoAreaTitle'))$('nadoAreaTitle').textContent=region()==='Seoul'?tr('서울 가능 지역','Available Seoul Areas'):region()==='Songdo'?tr('송도 가능 지역','Available Songdo Areas'):tr('IGC & 트스 가능 지역','Available IGC & Triple Street Areas');if($('nadoAreaCopy'))$('nadoAreaCopy').textContent=tr('수업할 수 있는 지역을 모두 선택해주세요. 직접 장소를 추가할 수도 있습니다.','Select every area where you can teach. You can also add a specific place.');if($('nadoAreaLabel'))$('nadoAreaLabel').textContent=tr('시간 설정 지역','Area for Time Setting');if($('nadoAreaEmpty'))$('nadoAreaEmpty').textContent=tr('가능한 세부 지역을 먼저 선택해주세요.','Select a detailed area first.');if($('nadoCustomAreaInput'))$('nadoCustomAreaInput').placeholder=tr('구체적인 장소 추가','Add a specific place');if($('nadoCustomAreaAdd'))$('nadoCustomAreaAdd').textContent=tr('추가','Add');if($('nadoTimeTitle'))$('nadoTimeTitle').textContent=tr('가능한 시간대를 선택해주세요','Select your available times');if($('nadoTimeCopy'))$('nadoTimeCopy').textContent=tr('월요일부터 일요일까지 한눈에 보고, 원하는 요일과 시간을 가로·세로로 드래그해 선택하세요. 화면 가장자리에서는 자동 스크롤됩니다.','View Monday through Sunday together. Drag across days and times to select a block. The grid scrolls automatically at the edges.');if($('clearScheduleButton'))$('clearScheduleButton').textContent=tr('시간 초기화','Clear Times');if($('saveScheduleButton')&&!$('saveScheduleButton').disabled)$('saveScheduleButton').textContent=tr('저장','Save');renderLocations();renderAreas();renderPicker()}
+  function installUI(){const sel=$('scheduleLocation');if(!sel||$('nadoScheduleV6'))return false;const field=sel.closest('.schedule-preference-field'),panel=field?.closest('.schedule-form-panel'),head=panel?.querySelector('.form-section-head');if(!field||!panel||!head)return false;panel.insertBefore(field,head);document.querySelector('#page-schedule .availability-picker')?.setAttribute('hidden','');document.querySelector('#page-schedule .current-slots-panel')?.setAttribute('hidden','');const memo=$('scheduleMemo')?.closest('.field-group');if(memo)memo.hidden=true;const notice=document.querySelector('#page-schedule .location-assignment-notice');if(notice)notice.hidden=true;const ui=document.createElement('div');ui.id='nadoScheduleV6';ui.innerHTML=`<div id="nadoLocationButtons" class="nado-v6-location-buttons"></div><div id="nadoAreaPanel" class="nado-v6-area-panel" hidden><strong id="nadoAreaTitle"></strong><p id="nadoAreaCopy"></p><div id="nadoAreaGrid" class="nado-v6-area-grid"></div><div class="nado-v6-custom"><input id="nadoCustomAreaInput" maxlength="30"><button id="nadoCustomAreaAdd" type="button"></button></div><div class="nado-v6-area-editor"><label id="nadoAreaLabel" for="nadoAreaSelect"></label><select id="nadoAreaSelect"></select><p id="nadoAreaEmpty" hidden></p></div></div>`;field.appendChild(ui);head.innerHTML=`<div><h3 id="nadoTimeTitle"></h3><p id="nadoTimeCopy"></p></div>`;const picker=document.createElement('div');picker.className='nado-v6-picker';picker.innerHTML=`<div id="nadoTimeScroll" class="nado-v6-time-scroll"><div id="nadoTimeGrid" class="nado-v6-time-grid" role="group" aria-label="Weekly availability"></div></div><div id="nadoRangeStatus" class="nado-v6-status" aria-live="polite"></div>`;head.insertAdjacentElement('afterend',picker);const style=document.createElement('style');style.textContent=`#page-schedule .availability-picker[hidden],#page-schedule .current-slots-panel[hidden]{display:none!important}#page-schedule .schedule-layout{display:block!important}#page-schedule #scheduleLocation{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.nado-v6-location-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.nado-v6-location-button{min-height:64px;border:1px solid #d3deeb;border-radius:16px;background:#fff;font-weight:800}.nado-v6-location-button.active{background:#2f6feb;color:#fff;border-color:#2f6feb}.nado-v6-area-panel{margin-top:24px}.nado-v6-area-panel>strong{font-size:1.15rem}.nado-v6-area-panel>p{color:#667085}.nado-v6-area-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.nado-v6-area-chip input{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);opacity:0}.nado-v6-area-chip span{display:grid;place-items:center;min-height:48px;border:1px solid #d4dfed;border-radius:12px;background:#fff;font-weight:750;text-align:center;padding:8px}.nado-v6-area-chip input:checked+span{background:#4a90e2;color:#fff;border-color:#4a90e2}.nado-v6-custom{display:flex;gap:8px;margin-top:12px}.nado-v6-custom input{flex:1;min-width:0;min-height:46px;border:1px solid #d4dfed;border-radius:10px;padding:0 12px;font-size:16px}.nado-v6-custom button{border:0;border-radius:10px;background:#4a90e2;color:#fff;font-weight:800;padding:0 18px}.nado-v6-area-editor{margin-top:16px}.nado-v6-area-editor label{display:block;font-weight:800;margin-bottom:7px}.nado-v6-area-editor select{width:100%;min-height:48px;border:1px solid #d4dfed;border-radius:10px;padding:0 12px;font-size:16px}.nado-v6-picker{min-width:0}.nado-v6-time-scroll{max-height:560px;overflow:auto;overscroll-behavior:contain;border:1px solid #dce5ee;border-radius:14px;background:#fff;scrollbar-gutter:stable}.nado-v6-time-scroll.dragging{cursor:crosshair;box-shadow:0 0 0 3px rgba(74,144,226,.12)}.nado-v6-time-grid{display:grid;grid-template-columns:48px repeat(7,minmax(36px,1fr));min-width:300px;gap:0;user-select:none}.nado-v6-corner,.nado-v6-day-head{position:sticky;top:0;z-index:3;display:grid;place-items:center;height:42px;background:#f1f6fc;border-bottom:1px solid #cbd9ea;color:#3f5772;font-size:.8rem;font-weight:750}.nado-v6-corner{left:0;z-index:4;font-size:.7rem}.nado-v6-time-label{position:sticky;left:0;z-index:2;display:flex;align-items:flex-start;justify-content:center;padding-top:5px;background:#f8fafc;color:#66758a;font-size:.68rem;border-bottom:1px solid #e6edf5;border-right:1px solid #dce5ee;font-variant-numeric:tabular-nums}.nado-v6-time{position:relative;display:grid;place-items:center;min-width:0;min-height:34px;padding:0;border:0;border-bottom:1px solid #e6edf5;border-right:1px solid #e6edf5;border-radius:0;background:#fff;color:#fff;touch-action:none;cursor:crosshair;scroll-margin:46px 50px}.nado-v6-time.hour,.nado-v6-time-label.hour{border-top:1px solid #d3dfed}.nado-v6-time:hover:not(:disabled){background:#e9f3ff}.nado-v6-time.selected{background:#347bd2}.nado-v6-time.selected:hover:not(:disabled){background:#296bbd}.nado-v6-time.selected::after{content:'✓';font-size:.8rem;font-weight:700}.nado-v6-time:focus-visible{z-index:1;outline:2px solid #16324f;outline-offset:-3px}.nado-v6-time:disabled{cursor:wait;opacity:.6}.nado-v6-status{margin-top:14px;color:#64748b;font-size:.82rem;line-height:1.55}.nado-v6-status.active{color:#2468b8;font-weight:650}@media(max-width:700px){#page-schedule .schedule-form-panel{padding:0!important;border:0!important;box-shadow:none!important}.nado-v6-location-buttons{gap:8px}.nado-v6-location-button{min-height:52px;font-size:.88rem}.nado-v6-area-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.nado-v6-time-scroll{max-height:480px}.nado-v6-day-head{font-size:.72rem}.nado-v6-time{min-height:36px}}`;document.head.appendChild(style);applyLanguage();return true}
+  async function switchLoc(v){
+    const sel=$('scheduleLocation');
+    if(busy||v===activeLocation){if(sel)sel.value=activeLocation;return}
+    if(!canDiscard()){if(sel)sel.value=activeLocation;renderLocations();return}
+    finishTimeDrag(true);activeLocation=v;activeArea='';setBusy(true);if(sel)sel.value=v;
+    try{await loadAreas();await loadSchedule();applyLanguage()}
+    catch(e){scheduleReady=false;toast('가능 장소를 불러오지 못했습니다. 다시 시도해주세요.','Could not load location. Please try again.','error')}
+    finally{setBusy(false)}
+  }
+  async function switchArea(value){
+    if(busy||value===activeArea){if($('nadoAreaSelect'))$('nadoAreaSelect').value=activeArea;return}
+    if(!canDiscard()){if($('nadoAreaSelect'))$('nadoAreaSelect').value=activeArea;return}
+    finishTimeDrag(true);activeArea=value;setBusy(true);
+    try{await loadSchedule()}finally{setBusy(false)}
+  }
+  function focusSlot(day,time){
+    focusedCell={day,time};syncTimeButtons();
+    const button=document.querySelector(`#nadoTimeGrid [data-v6-day="${day}"][data-v6-time="${time}"]`);
+    button?.focus({preventScroll:true});button?.scrollIntoView({block:'nearest',inline:'nearest'});
+  }
+  function events(){
+    document.addEventListener('pointerdown',e=>{const t=e.target.closest?.('[data-v6-time]');if(t)beginTimeDrag(t,e)},true);
+    document.addEventListener('pointermove',moveTimeDrag,{passive:false,capture:true});
+    document.addEventListener('pointerup',endTimeDrag,{passive:false,capture:true});
+    document.addEventListener('pointercancel',endTimeDrag,{passive:false,capture:true});
+    window.addEventListener('blur',()=>finishTimeDrag(true));
+    document.addEventListener('click',e=>{
+      const l=e.target.closest?.('[data-v6-location]');if(l){e.preventDefault();e.stopImmediatePropagation();switchLoc(l.dataset.v6Location);return}
+      const t=e.target.closest?.('[data-v6-time]');
+      if(t){
+        e.preventDefault();e.stopImmediatePropagation();if(busy||!scheduleReady||(suppressTimeClick&&e.detail!==0))return;
+        const d=Number(t.dataset.v6Day),m=Number(t.dataset.v6Time);focusedCell={day:d,time:m};
+        if(slots[d].has(m))slots[d].delete(m);else slots[d].add(m);
+        setDirty(true);syncTimeButtons();renderStatus();return;
+      }
+      if(e.target.closest?.('#nadoCustomAreaAdd')){addArea();return}
+      if(e.target.closest?.('#saveScheduleButton')){e.preventDefault();e.stopImmediatePropagation();save();return}
+      if(e.target.closest?.('#clearScheduleButton')){e.preventDefault();e.stopImmediatePropagation();if(busy||!scheduleReady)return;finishTimeDrag(true);reset();setDirty(true);syncTimeButtons();renderStatus()}
+    },true);
+    document.addEventListener('change',e=>{
+      const a=e.target.closest?.('[data-v6-area]');if(a){e.stopImmediatePropagation();toggleArea(a);return}
+      if(e.target?.id==='nadoAreaSelect'){e.stopImmediatePropagation();switchArea(e.target.value);return}
+      if(e.target?.id==='scheduleLocation'){e.stopImmediatePropagation();switchLoc(e.target.value)}
+    },true);
+    document.addEventListener('keydown',e=>{
+      if(e.target?.id==='nadoCustomAreaInput'&&e.key==='Enter'){e.preventDefault();addArea();return}
+      if(e.key==='Escape'&&dragState){e.preventDefault();finishTimeDrag(true);return}
+      const t=e.target.closest?.('[data-v6-time]');if(!t||busy||!scheduleReady)return;
+      let column=ORDER.indexOf(Number(t.dataset.v6Day)),time=Number(t.dataset.v6Time);
+      if(e.key==='ArrowLeft')column=Math.max(0,column-1);
+      else if(e.key==='ArrowRight')column=Math.min(6,column+1);
+      else if(e.key==='ArrowUp')time=Math.max(START,time-STEP);
+      else if(e.key==='ArrowDown')time=Math.min(END-STEP,time+STEP);
+      else if(e.key==='Home'){column=0;if(e.ctrlKey||e.metaKey)time=START}
+      else if(e.key==='End'){column=6;if(e.ctrlKey||e.metaKey)time=END-STEP}
+      else return;
+      e.preventDefault();focusSlot(ORDER[column],time);
+    });
+    window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+    document.addEventListener('nado:languagechange',()=>setTimeout(()=>{finishTimeDrag(true);applyLanguage();setDirty(dirty);setBusy(busy)},30));
+  }
+  async function initializeUser(nextUser){
+    if(busy)return;user=nextUser;activeLocation=$('scheduleLocation')?.value||'송도';setBusy(true);
+    try{await loadAreas();await loadSchedule();applyLanguage()}
+    catch(e){scheduleReady=false;toast('스케줄을 불러오지 못했습니다. 페이지를 새로고침해주세요.','Could not load schedule. Please refresh the page.','error')}
+    finally{setBusy(false)}
+  }
+  async function start(){
+    for(let i=0;i<40&&!$('scheduleLocation');i++)await new Promise(r=>setTimeout(r,250));
+    if(!installUI())return;events();setBusy(true);
+    const {data}=await client.auth.getUser();setBusy(false);
+    if(data?.user){await initializeUser(data.user);return}
+    client.auth.onAuthStateChange((_e,s)=>{if(s?.user)initializeUser(s.user)});
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

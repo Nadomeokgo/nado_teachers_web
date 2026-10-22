@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20260923-experience-v1" />
+  <link rel="stylesheet" href="css/style.css?v=20261022-teacher-updates-v1" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -557,8 +557,12 @@
       <input type="checkbox" data-guide="check-group-chat" />
       <span class="guide-check"></span>
       <div>
-        <b>02</b><h3>Nado teachers 단톡방에서 새 학생 매칭 소식 확인하기</h3>
+        <b>02</b><h3>새 학생 매칭 안내 확인하기</h3>
         <p>Nado teachers 단톡방에 새로운 학생 매칭 안내가 올라오는지 확인해주세요. 수업 신청은 선착순으로 이루어집니다.</p>
+        <div class="guide-direct-match" role="note">
+          <strong>학생이 선생님을 직접 선택한 경우</strong>
+          <p>학생이 선생님을 선택해 신청하면 나도 운영팀이 개별적으로 연락드립니다. 이 경우 운영팀의 연락을 기다려주시고, 안내를 받으시면 수업 가능 여부와 일정을 확인해주세요.</p>
+        </div>
         <div class="guide-example-image">
           <img src="images/student_info_ex.jpg" alt="선생님께 전달되는 학생 정보 예시" loading="lazy" />
         </div>
@@ -691,6 +695,7 @@
                 <select id="payGuideSessions"></select>
               </label>
             </div>
+            <p id="payGuideSessionBasisNote" class="payguide-basis-note">정산 수업 횟수는 첫 달에만 적용되며, 2개월 차부터의 총액은 주당 횟수에 따른 전체 4회 또는 8회 패키지 기준입니다.</p>
 
             <div id="payGuideSelection" class="payguide-selection">Standard · 1시간 · 주 1회 · 4회 정산</div>
 
@@ -706,9 +711,12 @@
                 <small>첫 달 Teacher 정산 기준</small>
               </article>
               <article class="payguide-summary-card month-two">
-                <span>2개월 차부터 시급</span>
-                <strong id="payGuideMonthTwoHourly">-</strong>
-                <small>동일 학생과 수업 지속 시</small>
+                <span id="payGuideMonthTwoTitle">2개월 차부터 받는 금액</span>
+                <div class="payguide-month-two-values">
+                  <div><span id="payGuideMonthTwoHourlyLabel">시급</span><strong id="payGuideMonthTwoHourly">-</strong></div>
+                  <div><span id="payGuideMonthTwoTotalLabel">총 수령액</span><strong id="payGuideMonthTwoTotal">-</strong></div>
+                </div>
+                <small id="payGuideMonthTwoNote">주 1회 · 총 4회 패키지 기준 · 동일 학생과 수업 지속 시</small>
               </article>
             </div>
 
@@ -749,7 +757,7 @@
                       <th>수업 시간</th>
                       <th>첫 달 정산액</th>
                       <th>첫 달 시급</th>
-                      <th>2개월 차부터 시급</th>
+                      <th id="payGuideMonthTwoTableHeading">2개월 차부터 시급 / 총액</th>
                     </tr>
                   </thead>
                   <tbody id="payGuideDurationRows"></tbody>
@@ -886,8 +894,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20260921-when2meet-v5"></script>
   <script src="js/pricing.js?v=20260919-group-pricing-v1"></script>
-  <script src="js/i18n.js?v=20260923-experience-v1"></script>
-  <script src="js/app.js?v=20260923-experience-v1"></script>
-  <script src="js/schedule-v6.js?v=20260921-when2meet-v5"></script>
+  <script src="js/i18n.js?v=20261022-teacher-updates-v1"></script>
+  <script src="js/app.js?v=20261022-teacher-updates-v1"></script>
+  <script src="js/schedule-v6.js?v=20261022-teacher-updates-v1"></script>
 </body>
 </html>
