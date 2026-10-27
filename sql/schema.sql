@@ -1868,3 +1868,35 @@ I have read and understood the entire NADO Teacher Service Agreement and agree t
   '3daac8ca78d4b243713e538fc8e7a96a37be598fca93fff2b100b5dcb63ffee2'
 )
 on conflict (version) do nothing;
+
+
+-- 2026-10-27: private administrator nicknames and introduction limit
+-- Private teacher aliases are shared by administrators, never public profiles.
+create table if not exists public.teacher_admin_nicknames (
+  teacher_id uuid primary key references public.profiles(id) on delete cascade,
+  nickname text not null default '' constraint teacher_admin_nickname_length check (char_length(nickname) <= 80),
+  updated_at timestamptz not null default now()
+);
+alter table public.teacher_admin_nicknames enable row level security;
+revoke all on public.teacher_admin_nicknames from public, anon, authenticated;
+grant select, insert, update on public.teacher_admin_nicknames to authenticated;
+grant all on public.teacher_admin_nicknames to service_role;
+
+drop policy if exists teacher_nicknames_admin_select on public.teacher_admin_nicknames;
+create policy teacher_nicknames_admin_select on public.teacher_admin_nicknames
+for select to authenticated using ((select public.is_admin()));
+drop policy if exists teacher_nicknames_admin_insert on public.teacher_admin_nicknames;
+create policy teacher_nicknames_admin_insert on public.teacher_admin_nicknames
+for insert to authenticated with check ((select public.is_admin()));
+drop policy if exists teacher_nicknames_admin_update on public.teacher_admin_nicknames;
+create policy teacher_nicknames_admin_update on public.teacher_admin_nicknames
+for update to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
+
+comment on table public.teacher_admin_nicknames is 'Internal teacher nicknames; only active administrators may read or modify.';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.profiles'::regclass and conname = 'profiles_bio_length') then
+    alter table public.profiles add constraint profiles_bio_length check (bio is null or char_length(bio) <= 500);
+  end if;
+end;
+$$;

@@ -26,6 +26,10 @@
     premium: { 1: 220000 }
   };
   let teachers = [];
+  const teacherAdminNicknames = new Map();
+  const teacherNicknameDrafts = new Map();
+  const teacherNicknameSaving = new Set();
+  let teacherNicknamesReady = false;
   const activeTeachers = () => teachers.filter((teacher) => teacher.is_active !== false);
   let assignments = [];
   let assignmentFilter = "current";
@@ -522,7 +526,7 @@
     if (error) return toast("데이터를 불러오지 못했습니다: " + error.message, true);
     teachers = data || [];
     try {
-      await Promise.all([hydrateTeacherPhotos(), hydrateTeacherAgreements(), hydrateTeacherServiceAreas()]);
+      await Promise.all([hydrateTeacherPhotos(), hydrateTeacherAgreements(), hydrateTeacherServiceAreas(), hydrateTeacherNicknames()]);
     } catch (error) {
       toast("전자계약 데이터를 불러오지 못했습니다. Supabase 계약 업데이트 SQL을 확인해주세요.", true);
       return;
@@ -533,6 +537,77 @@
     syncAvailabilityAreaFilter();
     renderAvailabilityBoard();
     await Promise.all([loadAssignments(), loadContent(), loadFailedSubmissions()]);
+  }
+
+  async function hydrateTeacherNicknames() {
+    teacherNicknamesReady = false;
+    teacherAdminNicknames.clear();
+    try {
+      const { data, error } = await supabase.from("teacher_admin_nicknames").select("teacher_id,nickname,updated_at");
+      if (error) throw error;
+      (data || []).forEach((row) => teacherAdminNicknames.set(row.teacher_id, row.nickname || ""));
+      teacherNicknamesReady = true;
+    } catch (error) {
+      console.warn("Admin-only teacher nickname lookup failed:", error);
+      toast(currentLanguage() === "en" ? "Private nicknames could not be loaded. Refresh and try again." : "관리자 별명을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.", true);
+    }
+  }
+
+  function adminNicknameFor(teacher) {
+    return teacherAdminNicknames.get(teacher?.id) || "";
+  }
+
+  function normalizeTeacherSearch(value) {
+    return String(value || "").normalize("NFKC").trim().toLocaleLowerCase("ko");
+  }
+
+  function renderTeacherNicknameEditor(teacher) {
+    const english = currentLanguage() === "en";
+    const saving = teacherNicknameSaving.has(teacher.id);
+    const value = teacherNicknameDrafts.get(teacher.id) ?? adminNicknameFor(teacher);
+    const disabled = !teacherNicknamesReady || saving;
+    const label = english ? "Private nickname" : "관리자 별명";
+    return `<form class="teacher-private-nickname" data-teacher-nickname-form="${escapeHtml(teacher.id)}" autocomplete="off">
+      <div class="teacher-private-nickname-heading"><strong>${label}</strong><span>${english ? "Admins only" : "관리자 전용"}</span></div>
+      <div class="teacher-private-nickname-controls">
+        <input type="text" name="nickname" data-teacher-nickname-input="${escapeHtml(teacher.id)}" value="${escapeHtml(value)}" maxlength="80" placeholder="${english ? "Enter a Korean or English nickname" : "한글 또는 영어 별명 입력"}" aria-label="${escapeHtml(teacher.full_name || "Teacher")} ${label}" ${disabled ? "disabled" : ""} />
+        <button type="submit" class="button secondary small" ${disabled ? "disabled" : ""}>${saving ? (english ? "Saving…" : "저장 중…") : (english ? "Save" : "저장")}</button>
+      </div>
+      <p>${!teacherNicknamesReady
+        ? (english ? "Nicknames are unavailable. Refresh to try again." : "별명을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.")
+        : (english ? "Only admins can view and edit this. To remove it, clear the field and save." : "관리자만 보고 수정할 수 있습니다. 지우려면 입력란을 비우고 저장해주세요.")}</p>
+    </form>`;
+  }
+
+  async function saveTeacherNickname(form) {
+    const teacherId = form.dataset.teacherNicknameForm;
+    if (!teacherNicknamesReady || teacherNicknameSaving.has(teacherId) || !teachers.some((teacher) => teacher.id === teacherId)) return;
+    const input = form.querySelector("[data-teacher-nickname-input]");
+    const nickname = input.value.normalize("NFC").trim();
+    if ([...nickname].length > 80) return toast(currentLanguage() === "en" ? "Use 80 characters or fewer." : "별명은 80자 이내로 입력해주세요.", true);
+    teacherNicknameDrafts.set(teacherId, nickname);
+    teacherNicknameSaving.add(teacherId);
+    input.disabled = true;
+    const button = form.querySelector("button");
+    button.disabled = true;
+    button.textContent = currentLanguage() === "en" ? "Saving…" : "저장 중…";
+    try {
+      const { data, error } = await supabase.from("teacher_admin_nicknames")
+        .upsert({ teacher_id: teacherId, nickname, updated_at: new Date().toISOString() }, { onConflict: "teacher_id" })
+        .select("teacher_id,nickname,updated_at").single();
+      if (error) throw error;
+      if (!data || data.teacher_id !== teacherId) throw new Error("The saved nickname could not be confirmed.");
+      teacherAdminNicknames.set(teacherId, data.nickname || "");
+      teacherNicknameDrafts.delete(teacherId);
+      populateTeacherOptions();
+      toast(currentLanguage() === "en" ? "Private nickname saved." : "관리자 별명을 저장했습니다.");
+    } catch (error) {
+      console.warn("Admin-only teacher nickname save failed:", error);
+      toast(currentLanguage() === "en" ? "Could not save the nickname. Your entry is kept; please try again." : "별명을 저장하지 못했습니다. 입력한 내용은 유지됩니다. 다시 시도해주세요.", true);
+    } finally {
+      teacherNicknameSaving.delete(teacherId);
+      render();
+    }
   }
 
   function formatSubmissionDateTime(value) {
@@ -746,7 +821,9 @@
 
   function teacherSearchLabel(teacher) {
     const name = teacher?.full_name || "이름 미입력";
-    return teacher?.email ? `${name} · ${teacher.email}` : name;
+    const nickname = adminNicknameFor(teacher);
+    const displayName = nickname ? `${name} (${nickname})` : name;
+    return teacher?.email ? `${displayName} · ${teacher.email}` : displayName;
   }
 
   function setSelectedTeacher(teacherId) {
@@ -756,13 +833,13 @@
   }
 
   function resolveTeacherSearchValue() {
-    const value = $("assignmentTeacherSearch").value.trim().toLocaleLowerCase("ko");
+    const value = normalizeTeacherSearch($("assignmentTeacherSearch").value);
     if (!value) {
       $("assignmentTeacher").value = "";
       return null;
     }
-    const exactLabel = activeTeachers().find((teacher) => teacherSearchLabel(teacher).toLocaleLowerCase("ko") === value);
-    const exactNames = activeTeachers().filter((teacher) => String(teacher.full_name || "").trim().toLocaleLowerCase("ko") === value);
+    const exactLabel = activeTeachers().find((teacher) => normalizeTeacherSearch(teacherSearchLabel(teacher)) === value);
+    const exactNames = activeTeachers().filter((teacher) => [teacher.full_name, adminNicknameFor(teacher)].some((name) => normalizeTeacherSearch(name) === value));
     const teacher = exactLabel || (exactNames.length === 1 ? exactNames[0] : null);
     $("assignmentTeacher").value = teacher?.id || "";
     if (teacher) $("assignmentTeacherSearch").value = teacherSearchLabel(teacher);
@@ -989,18 +1066,18 @@
   }
 
   function filteredTeachers() {
-    const keyword = $("teacherSearch").value.trim().toLowerCase();
+    const keyword = normalizeTeacherSearch($("teacherSearch").value);
     const day = $("dayFilter").value;
     const status = $("teacherStatusFilter").value;
     return teachers.map((teacher) => ({
       ...teacher,
       availability: (teacher.availability || []).filter((slot) => day === "all" || String(slot.day_of_week) === day)
     })).filter((teacher) => {
-      const matchesText = !keyword || `${teacher.full_name || ""} ${teacher.email || ""} ${teacher.school || ""} ${teacher.major || ""} ${teacher.phone || ""} ${teacher.kakao_id || ""} ${JSON.stringify(teacher.experience || {})}`.toLowerCase().includes(keyword);
+      const matchesText = !keyword || normalizeTeacherSearch(`${teacher.full_name || ""} ${adminNicknameFor(teacher)} ${teacher.email || ""} ${teacher.school || ""} ${teacher.major || ""} ${teacher.phone || ""} ${teacher.kakao_id || ""} ${JSON.stringify(teacher.experience || {})}`).includes(keyword);
       const matchesDay = day === "all" || teacher.availability.length > 0;
       const matchesStatus = status === "all" || (status === "active") === (teacher.is_active !== false);
       return matchesText && matchesDay && matchesStatus;
-    });
+    }).sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0) || String(b.id).localeCompare(String(a.id)));
   }
 
   function render() {
@@ -1013,7 +1090,7 @@
       const slots = [...(teacher.availability || [])].sort((a,b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time));
       const latest = slots.map((s) => s.updated_at).filter(Boolean).sort().at(-1);
       const memo = slots.find((s) => s.memo)?.memo;
-      return `<article class="panel teacher-admin-card${teacher.is_active === false ? " teacher-admin-card-inactive" : ""}">
+      return `<article class="panel teacher-admin-card${teacher.is_active === false ? " teacher-admin-card-inactive" : ""}" data-teacher-id="${escapeHtml(teacher.id)}">
         <div class="teacher-admin-head">
           <div class="teacher-admin-profile">
             <span class="teacher-admin-avatar">${teacher.profile_photo_url
@@ -1030,11 +1107,12 @@
             <span class="updated-at">${latest ? `업데이트 ${new Date(latest).toLocaleString(currentLocale())}` : "미제출"}</span>
           </div>
         </div>
+        ${renderTeacherNicknameEditor(teacher)}
         <div class="teacher-admin-details">
           <div><span>연락처</span><strong>${escapeHtml(teacher.phone || "미입력")}</strong></div>
           <div><span>카카오톡 ID</span><strong>${escapeHtml(teacher.kakao_id || "미입력")}</strong></div>
           <div><span>정산 계좌</span><strong>${escapeHtml(teacher.bank_name || "은행 미입력")} ${escapeHtml(teacher.account_number || "계좌번호 미입력")}</strong></div>
-          <div class="teacher-admin-bio"><span>한 줄 소개</span><strong>${escapeHtml(teacher.bio || "미입력")}</strong></div>
+          <div class="teacher-admin-bio"><span>한 줄 소개</span><strong class="teacher-bio-value">${escapeHtml(teacher.bio || "미입력")}</strong></div>
           <div class="teacher-admin-experience"><span>경험 및 활동</span>${renderTeacherExperience(teacher.experience)}</div>
           <div class="teacher-admin-bio"><span>가능 장소</span><strong>${Object.entries(teacher.service_areas || {}).length ? Object.entries(teacher.service_areas).map(([region, areas]) => `${escapeHtml(({Seoul:"서울",Songdo:"송도",IGC_TRIPLE:"IGC & 트스"})[region] || region)}: ${escapeHtml(areas.join(" · "))}`).join("<br>") : "미입력"}</strong></div>
           <div class="teacher-agreement-detail"><span>서비스 계약</span>${teacher.agreement
@@ -1817,6 +1895,16 @@
   $("adminTeacherList").addEventListener("change", (event) => {
     const input = event.target.closest("[data-teacher-active]");
     if (input) changeTeacherActive(input);
+  });
+  $("adminTeacherList").addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-teacher-nickname-form]");
+    if (!form) return;
+    event.preventDefault();
+    saveTeacherNickname(form);
+  });
+  $("adminTeacherList").addEventListener("input", (event) => {
+    const input = event.target.closest("[data-teacher-nickname-input]");
+    if (input) teacherNicknameDrafts.set(input.dataset.teacherNicknameInput, input.value);
   });
   $("teacherSearch").addEventListener("input", render);
   $("dayFilter").addEventListener("change", render);
