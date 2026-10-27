@@ -1320,12 +1320,15 @@
 
   function assignmentCard(assignment, isHistory = false) {
     const plan = assignment.plan || "unassigned";
-    const isTrial = assignment.assignment_type === "trial";
+    const isPaidTrial = assignment.assignment_type === "paid_trial";
+    const isTrial = assignment.assignment_type === "trial" || isPaidTrial;
     const statusLabel = isHistory
       ? (currentLanguage() === "en" ? "Payout complete" : "정산 완료")
       : (currentLanguage() === "en" ? "Current student" : "현재 학생");
     const trialBadge = isTrial
-      ? `<span class="assignment-type-badge trial">${escapeHtml(currentLanguage() === "en" ? "Free trial lesson" : "무료 체험수업")}</span>`
+      ? `<span class="assignment-type-badge trial">${escapeHtml(isPaidTrial
+        ? (currentLanguage() === "en" ? "Paid single trial lesson" : "1회 체험수업 · 유료")
+        : (currentLanguage() === "en" ? "Free trial lesson" : "무료 체험수업"))}</span>`
       : "";
 
     return `
@@ -1353,7 +1356,11 @@
             : (currentLanguage() === "en" ? "First-month teacher payout" : (isHistory ? "첫 달 Teacher 정산액" : "첫 달 Teacher 정산 예정액")))}</span>
           <strong>${escapeHtml(formatWon(assignment.teacher_payout_amount))}</strong>
           ${isTrial
-            ? `<small>${escapeHtml(currentLanguage() === "en" ? "Free for the student · Economy trial lesson" : "학생 무료 · Economy 체험수업")}</small>`
+            ? `<small>${escapeHtml(isPaidTrial
+              ? (currentLanguage() === "en"
+                ? `1-session tuition ${formatWon(Number(assignment.four_lesson_tuition) / PACKAGE_SESSIONS)} · NADO fee ${formatWon(Number(assignment.four_lesson_tuition) / PACKAGE_SESSIONS - Number(assignment.teacher_payout_amount))}`
+                : `1회 학생 수업료 ${formatWon(Number(assignment.four_lesson_tuition) / PACKAGE_SESSIONS)} · NADO 수수료 ${formatWon(Number(assignment.four_lesson_tuition) / PACKAGE_SESSIONS - Number(assignment.teacher_payout_amount))}`)
+              : (currentLanguage() === "en" ? "Free for the student · Economy trial lesson" : "학생 무료 · Economy 체험수업"))}</small>`
             : (() => {
                 const weekly = Number(assignment.weekly_frequency) === 2 ? 2 : 1;
                 const packageSessions = PACKAGE_SESSIONS * weekly;

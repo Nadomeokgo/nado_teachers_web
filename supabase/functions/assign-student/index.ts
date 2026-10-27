@@ -61,7 +61,9 @@ Deno.serve(async (request) => {
     }
 
     const input = await request.json();
-    const assignmentType = input.assignment_type === "trial" ? "trial" : "regular";
+    const assignmentType = ["regular", "trial", "paid_trial"].includes(input.assignment_type)
+      ? input.assignment_type
+      : "regular";
     const name = String(input.student_name || "").trim();
     const email = String(input.student_email || "").trim().toLowerCase();
     const teacherId = String(input.teacher_id || "");
@@ -195,8 +197,8 @@ Deno.serve(async (request) => {
       assignment_type: assignmentType,
       plan: input.plan || null,
       lesson_duration_minutes: input.lesson_duration_minutes || null,
-      weekly_frequency: input.weekly_frequency || null,
-      settlement_sessions: input.settlement_sessions || null,
+      weekly_frequency: assignmentType === "paid_trial" ? 1 : (input.weekly_frequency || null),
+      settlement_sessions: assignmentType === "paid_trial" ? 1 : (input.settlement_sessions || null),
       four_lesson_tuition: input.four_lesson_tuition ?? null,
       nado_fee_percent: input.nado_fee_percent ?? null,
       four_lesson_nado_fee: input.four_lesson_nado_fee ?? null,

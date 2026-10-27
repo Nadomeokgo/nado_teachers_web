@@ -7,6 +7,7 @@
   const TRIAL_PLAN = "economy";
   const TRIAL_TEACHER_PAYOUT = 20000;
   const TRIAL_PRICING_VERSION = "NADO-TRIAL-FREE-20000-2026-08";
+  const PAID_TRIAL_PRICING_VERSION = "NADO-PAID-TRIAL-2026-10";
   const lessonPriceTable = Object.freeze({
     economy: Object.freeze({ 30: 80000, 35: 93400, 40: 106700, 45: 120000, 60: 140000, 70: 163400, 80: 186700, 90: 210000, 100: 233400, 110: 256700, 120: 280000 }),
     standard: Object.freeze({ 30: 100000, 35: 116700, 40: 133400, 45: 150000, 60: 180000, 70: 210000, 80: 240000, 90: 270000, 100: 300000, 110: 330000, 120: 360000 }),
@@ -74,6 +75,31 @@
     };
   }
 
+  function paidTrialPricing(plan, durationMinutes, groupSize = 1) {
+    const minutes = Number(durationMinutes);
+    if (!durationOptions.includes(minutes)) return null;
+    const base = basePricing(plan, minutes, groupSize);
+    if (!base) return null;
+    const tuition = Math.round(base.tuition / PACKAGE_SESSIONS);
+    // Match the regular plan's one-session settlement and rounding exactly.
+    const teacherPayout = teacherPayoutForSessions(plan, minutes, 1, groupSize);
+    return {
+      plan,
+      durationMinutes: minutes,
+      groupSize: Number(groupSize) || 1,
+      baseTuition: base.tuition,
+      baseNadoFee: base.nadoFee,
+      baseTeacherPayout: base.teacherPayout,
+      tuition,
+      studentTuition: tuition,
+      nadoFee: tuition - teacherPayout,
+      teacherPayout,
+      sessions: 1,
+      packageSessions: 1,
+      weekly: 1
+    };
+  }
+
   window.NADO_PRICING = Object.freeze({
     NADO_FEE_RATE,
     PACKAGE_SESSIONS,
@@ -81,6 +107,7 @@
     TRIAL_PLAN,
     TRIAL_TEACHER_PAYOUT,
     TRIAL_PRICING_VERSION,
+    PAID_TRIAL_PRICING_VERSION,
     lessonPriceTable,
     groupLessonPriceTable,
     durationOptions,
@@ -90,6 +117,7 @@
     basePricing,
     teacherPayoutForSessions,
     hourlyRates,
-    trialPricing
+    trialPricing,
+    paidTrialPricing
   });
 })();

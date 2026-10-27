@@ -15,6 +15,7 @@
   const TRIAL_PLAN = pricingCatalog.TRIAL_PLAN || "economy";
   const TRIAL_TEACHER_PAYOUT = pricingCatalog.TRIAL_TEACHER_PAYOUT ?? 20000;
   const TRIAL_PRICING_VERSION = pricingCatalog.TRIAL_PRICING_VERSION || "NADO-TRIAL-FREE-20000-2026-08";
+  const PAID_TRIAL_PRICING_VERSION = pricingCatalog.PAID_TRIAL_PRICING_VERSION || "NADO-PAID-TRIAL-2026-10";
   const lessonPriceTable = pricingCatalog.lessonPriceTable || {
     economy: { 30: 80000, 35: 93400, 40: 106700, 45: 120000, 60: 140000, 70: 163400, 80: 186700, 90: 210000, 100: 233400, 110: 256700, 120: 280000 },
     standard: { 30: 100000, 35: 116700, 40: 133400, 45: 150000, 60: 180000, 70: 210000, 80: 240000, 90: 270000, 100: 300000, 110: 330000, 120: 360000 },
@@ -28,6 +29,8 @@
   let teachers = [];
   const teacherAdminNicknames = new Map();
   const teacherNicknameDrafts = new Map();
+  const teacherAdminTraits = new Map();
+  const teacherTraitDrafts = new Map();
   const teacherNicknameSaving = new Set();
   let teacherNicknamesReady = false;
   const activeTeachers = () => teachers.filter((teacher) => teacher.is_active !== false);
@@ -172,7 +175,7 @@
 
   function twoWeekFollowUpAssignments() {
     return assignments
-      .filter((assignment) => !isAssignmentHistory(assignment))
+      .filter((assignment) => !isAssignmentHistory(assignment) && assignment.assignment_type !== "paid_trial")
       .map((assignment) => ({ assignment, elapsedDays: daysSinceDateKey(assignment.first_lesson_date) }))
       .filter(({ elapsedDays }) => Number.isFinite(elapsedDays) && elapsedDays >= 14)
       .sort((a, b) => b.elapsedDays - a.elapsedDays || a.assignment.student_name.localeCompare(b.assignment.student_name, "ko"));
@@ -207,13 +210,13 @@
   }
 
   function assignmentTypeLabel(value) {
-    const isTrial = value === "trial";
-    if (currentLanguage() === "en") return isTrial ? "Free trial lesson" : "Regular lesson";
-    return isTrial ? "무료 체험수업" : "정규 수업";
+    if (value === "paid_trial") return currentLanguage() === "en" ? "Paid single trial lesson" : "1회 체험수업 · 유료";
+    if (value === "trial") return currentLanguage() === "en" ? "Free trial lesson" : "무료 체험수업";
+    return currentLanguage() === "en" ? "Regular lesson" : "정규 수업";
   }
 
   function isTrialAssignment(assignment) {
-    return assignment?.assignment_type === "trial";
+    return ["trial", "paid_trial"].includes(assignment?.assignment_type);
   }
 
   function lessonDurationLabel(minutes) {
@@ -304,10 +307,14 @@
     };
   }
 
+  function paidTrialPricingFor(plan, durationMinutes, groupSize = 1) {
+    return pricingCatalog.paidTrialPricing?.(plan, durationMinutes, groupSize) || null;
+  }
+
   function syncSettlementSessionOptions(preferredValue = null) {
     const select = $("assignmentSettlementSessions");
     if (!select) return;
-    const isTrial = $("assignmentType")?.value === "trial";
+    const isTrial = ["trial", "paid_trial"].includes($("assignmentType")?.value);
     const weekly = Number($("assignmentWeeklyFrequency")?.value) || 1;
     const maxSessions = isTrial ? 1 : packageSessionCount(weekly);
     const requested = Number(preferredValue);
@@ -370,25 +377,37 @@
   }
 
   function syncAssignmentTypeFields(preferredSessions = null) {
-    const isTrial = $("assignmentType")?.value === "trial";
+    const assignmentType = $("assignmentType")?.value;
+    const isFreeTrial = assignmentType === "trial";
+    const isPaidTrial = assignmentType === "paid_trial";
+    const isTrial = isFreeTrial || isPaidTrial;
     const planSelect = $("assignmentPlan");
     const weeklySelect = $("assignmentWeeklyFrequency");
     const sessionSelect = $("assignmentSettlementSessions");
     const note = $("assignmentPackageNote");
     const emailInput = $("assignmentStudentEmail");
+    const selectedWeekly = weeklySelect.value || "1";
+    weeklySelect.innerHTML = isTrial
+      ? `<option value="1">${currentLanguage() === "en" ? "One trial session" : "체험 1회"}</option>`
+      : `<option value="1">${weeklyFrequencyLabel(1)}</option><option value="2">${weeklyFrequencyLabel(2)}</option>`;
+    weeklySelect.value = isTrial ? "1" : selectedWeekly;
 
     if (isTrial) {
       if (emailInput) emailInput.required = false;
-      planSelect.value = TRIAL_PLAN;
+      if (isFreeTrial) planSelect.value = TRIAL_PLAN;
       weeklySelect.value = "1";
-      planSelect.disabled = true;
+      planSelect.disabled = isFreeTrial;
       weeklySelect.disabled = true;
       sessionSelect.disabled = true;
       syncSettlementSessionOptions(1);
       if (note) {
-        note.textContent = currentLanguage() === "en"
-          ? "Free trial lessons are handled as Economy. Students pay ₩0, and the Teacher receives ₩20,000 for one completed trial lesson."
-          : "무료 체험수업은 Economy로 처리됩니다. 학생 결제 금액은 0원이며, 실제 체험수업 1회 진행 시 Teacher에게 20,000원이 지급됩니다.";
+        note.textContent = isPaidTrial
+          ? (currentLanguage() === "en"
+            ? "One paid trial lesson. Tuition is one session of the selected plan; the regular 35% NADO fee and settlement rate apply."
+            : "유료 체험수업 1회입니다. 선택한 플랜의 1회분 수업료에 정규 수업과 동일한 NADO 수수료 35% 및 정산 기준을 적용합니다.")
+          : (currentLanguage() === "en"
+            ? "Free trial lessons are handled as Economy. Students pay ₩0, and the Teacher receives ₩20,000 for one completed trial lesson."
+            : "무료 체험수업은 Economy로 처리됩니다. 학생 결제 금액은 0원이며, 실제 체험수업 1회 진행 시 Teacher에게 20,000원이 지급됩니다.");
       }
     } else {
       if (emailInput) emailInput.required = false;
@@ -443,6 +462,29 @@
     }
 
     const plan = $("assignmentPlan").value;
+    if (assignmentType === "paid_trial") {
+      const pricing = paidTrialPricingFor(plan, duration, groupSize);
+      if (!pricing) {
+        target.innerHTML = `<div class="assignment-pricing-placeholder">${escapeHtml(currentLanguage() === "en"
+          ? "Select a plan and lesson duration to calculate one paid trial lesson."
+          : "플랜과 수업 시간을 선택하면 유료 체험수업 1회 금액이 계산됩니다.")}</div>`;
+        return;
+      }
+      target.innerHTML = `
+        <div class="assignment-pricing-head">
+          <div><span>${escapeHtml(assignmentTypeLabel("paid_trial"))}</span><strong>${escapeHtml(planLabel(plan))} · 1:${groupSize} · ${escapeHtml(lessonDurationLabel(duration))}</strong></div>
+          <span class="assignment-pricing-rate">${escapeHtml(currentLanguage() === "en" ? "1 session · NADO fee 35%" : "1회 · NADO 수수료 35%")}</span>
+        </div>
+        <dl class="assignment-pricing-grid">
+          <div><dt>${escapeHtml(currentLanguage() === "en" ? "Student tuition · 1 session" : "학생 수업료 · 1회")}</dt><dd>${escapeHtml(formatWon(pricing.tuition))}</dd></div>
+          <div><dt>${escapeHtml(currentLanguage() === "en" ? "NADO fee · 1 session" : "NADO 수수료 · 1회")}</dt><dd>${escapeHtml(formatWon(pricing.nadoFee))}</dd></div>
+          <div class="assignment-pricing-total"><dt>${escapeHtml(currentLanguage() === "en" ? "Teacher payout · 1 session" : "Teacher 정산액 · 1회")}</dt><dd>${escapeHtml(formatWon(pricing.teacherPayout))}</dd></div>
+        </dl>
+        <p class="assignment-pricing-rounding">${escapeHtml(currentLanguage() === "en"
+          ? "One quarter of the selected plan's 4-session tuition. The regular fee and per-session settlement rules apply."
+          : "선택한 플랜의 4회 기준 수업료를 4로 나눈 금액입니다. 정규 수업과 동일한 수수료와 1회 정산 기준을 적용합니다.")}</p>`;
+      return;
+    }
     const sessions = Number($("assignmentSettlementSessions").value);
     const weekly = Number($("assignmentWeeklyFrequency").value);
     const pricing = pricingFor(plan, duration, weekly, sessions, groupSize);
@@ -542,19 +584,65 @@
   async function hydrateTeacherNicknames() {
     teacherNicknamesReady = false;
     teacherAdminNicknames.clear();
+    teacherAdminTraits.clear();
     try {
-      const { data, error } = await supabase.from("teacher_admin_nicknames").select("teacher_id,nickname,updated_at");
+      const { data, error } = await supabase.from("teacher_admin_nicknames").select("teacher_id,nickname,gender,nationality_group,updated_at");
       if (error) throw error;
-      (data || []).forEach((row) => teacherAdminNicknames.set(row.teacher_id, row.nickname || ""));
+      (data || []).forEach((row) => {
+        teacherAdminNicknames.set(row.teacher_id, row.nickname || "");
+        teacherAdminTraits.set(row.teacher_id, normalizeTeacherTraits(row));
+      });
       teacherNicknamesReady = true;
     } catch (error) {
       console.warn("Admin-only teacher nickname lookup failed:", error);
-      toast(currentLanguage() === "en" ? "Private nicknames could not be loaded. Refresh and try again." : "관리자 별명을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.", true);
+      toast(currentLanguage() === "en" ? "Private teacher details could not be loaded. Refresh and try again." : "관리자 정보를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.", true);
     }
   }
 
   function adminNicknameFor(teacher) {
     return teacherAdminNicknames.get(teacher?.id) || "";
+  }
+
+  function normalizeTeacherTraits(value = {}) {
+    return {
+      gender: ["female", "male"].includes(value.gender) ? value.gender : null,
+      nationality_group: ["korean", "foreign"].includes(value.nationality_group) ? value.nationality_group : null
+    };
+  }
+
+  function matchesAvailabilityTraits(teacher) {
+    const gender = $("densityGenderFilter")?.value || "all";
+    const nationality = $("densityNationalityFilter")?.value || "all";
+    if (gender === "all" && nationality === "all") return true;
+    if (!teacherNicknamesReady) return false;
+    const traits = teacherAdminTraits.get(teacher.id) || {};
+    const matches = (filter, value) => filter === "all" || (filter === "unset" ? !value : value === filter);
+    return matches(gender, traits.gender) && matches(nationality, traits.nationality_group);
+  }
+
+  function availabilityTeachers() {
+    return activeTeachers().filter(matchesAvailabilityTraits);
+  }
+
+  function refreshAvailabilityTraits() {
+    const english = currentLanguage() === "en";
+    const gender = $("densityGenderFilter")?.value || "all";
+    const nationality = $("densityNationalityFilter")?.value || "all";
+    const labels = english
+      ? { all: "All", female: "Female", male: "Male", korean: "Korean", foreign: "Non-Korean", unset: "Not set" }
+      : { all: "전체", female: "여성", male: "남성", korean: "한국인", foreign: "외국인", unset: "미설정" };
+    ["densityGenderFilter", "densityNationalityFilter"].forEach((id) => {
+      const select = $(id);
+      if (!select) return;
+      select.disabled = !teacherNicknamesReady;
+      [...select.options].forEach((option) => { option.textContent = labels[option.value]; });
+    });
+    const summary = teacherNicknamesReady
+      ? (english ? `Gender: ${labels[gender]} · Nationality: ${labels[nationality]} · ${availabilityTeachers().length} active teachers match. Filters also apply to the detailed schedule.`
+        : `성별 ${labels[gender]} · 국적 ${labels[nationality]} · 활성 선생님 ${availabilityTeachers().length}명 해당 · 아래 상세 스케줄에도 적용됩니다.`)
+      : (english ? "Private teacher details could not be loaded. Refresh to use these filters." : "관리자 정보를 불러오지 못했습니다. 새로고침 후 필터를 사용해주세요.");
+    if ($("densityTraitStatus")) $("densityTraitStatus").textContent = summary;
+    if ($("availabilityTraitSummary")) $("availabilityTraitSummary").textContent = summary;
   }
 
   function normalizeTeacherSearch(value) {
@@ -565,17 +653,23 @@
     const english = currentLanguage() === "en";
     const saving = teacherNicknameSaving.has(teacher.id);
     const value = teacherNicknameDrafts.get(teacher.id) ?? adminNicknameFor(teacher);
+    const traits = teacherTraitDrafts.get(teacher.id) || teacherAdminTraits.get(teacher.id) || {};
     const disabled = !teacherNicknamesReady || saving;
     const label = english ? "Private nickname" : "관리자 별명";
+    const traitOptions = (items, selected) => items.map(([key, text]) => `<option value="${key}" ${key === (selected || "") ? "selected" : ""}>${text}</option>`).join("");
     return `<form class="teacher-private-nickname" data-teacher-nickname-form="${escapeHtml(teacher.id)}" autocomplete="off">
       <div class="teacher-private-nickname-heading"><strong>${label}</strong><span>${english ? "Admins only" : "관리자 전용"}</span></div>
       <div class="teacher-private-nickname-controls">
         <input type="text" name="nickname" data-teacher-nickname-input="${escapeHtml(teacher.id)}" value="${escapeHtml(value)}" maxlength="80" placeholder="${english ? "Enter a Korean or English nickname" : "한글 또는 영어 별명 입력"}" aria-label="${escapeHtml(teacher.full_name || "Teacher")} ${label}" ${disabled ? "disabled" : ""} />
-        <button type="submit" class="button secondary small" ${disabled ? "disabled" : ""}>${saving ? (english ? "Saving…" : "저장 중…") : (english ? "Save" : "저장")}</button>
       </div>
+      <div class="teacher-private-traits">
+        <label>${english ? "Gender" : "성별"}<select name="gender" data-teacher-trait="gender" ${disabled ? "disabled" : ""}>${traitOptions([["", english ? "Not set" : "미설정"], ["female", english ? "Female" : "여성"], ["male", english ? "Male" : "남성"]], traits.gender)}</select></label>
+        <label>${english ? "Nationality" : "국적 구분"}<select name="nationality_group" data-teacher-trait="nationality_group" ${disabled ? "disabled" : ""}>${traitOptions([["", english ? "Not set" : "미설정"], ["korean", english ? "Korean" : "한국인"], ["foreign", english ? "Non-Korean" : "외국인"]], traits.nationality_group)}</select></label>
+      </div>
+      <div class="teacher-private-actions"><button type="submit" class="button secondary small" ${disabled ? "disabled" : ""}>${saving ? (english ? "Saving…" : "저장 중…") : (english ? "Save" : "저장")}</button></div>
       <p>${!teacherNicknamesReady
-        ? (english ? "Nicknames are unavailable. Refresh to try again." : "별명을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.")
-        : (english ? "Only admins can view and edit this. To remove it, clear the field and save." : "관리자만 보고 수정할 수 있습니다. 지우려면 입력란을 비우고 저장해주세요.")}</p>
+        ? (english ? "Private details are unavailable. Refresh to try again." : "관리자 정보를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.")
+        : (english ? "Only admins can view and edit these details. Leave unknown characteristics as Not set. To clear a value, remove it and save." : "관리자만 보고 수정할 수 있습니다. 확인되지 않은 특징은 미설정으로 두세요. 값을 지우거나 미설정으로 바꾼 뒤 저장할 수 있습니다.")}</p>
     </form>`;
   }
 
@@ -584,26 +678,34 @@
     if (!teacherNicknamesReady || teacherNicknameSaving.has(teacherId) || !teachers.some((teacher) => teacher.id === teacherId)) return;
     const input = form.querySelector("[data-teacher-nickname-input]");
     const nickname = input.value.normalize("NFC").trim();
+    const traits = normalizeTeacherTraits({ gender: form.elements.gender.value, nationality_group: form.elements.nationality_group.value });
     if ([...nickname].length > 80) return toast(currentLanguage() === "en" ? "Use 80 characters or fewer." : "별명은 80자 이내로 입력해주세요.", true);
     teacherNicknameDrafts.set(teacherId, nickname);
+    teacherTraitDrafts.set(teacherId, traits);
     teacherNicknameSaving.add(teacherId);
-    input.disabled = true;
+    form.querySelectorAll("input, select").forEach((field) => { field.disabled = true; });
     const button = form.querySelector("button");
     button.disabled = true;
     button.textContent = currentLanguage() === "en" ? "Saving…" : "저장 중…";
     try {
       const { data, error } = await supabase.from("teacher_admin_nicknames")
-        .upsert({ teacher_id: teacherId, nickname, updated_at: new Date().toISOString() }, { onConflict: "teacher_id" })
-        .select("teacher_id,nickname,updated_at").single();
+        .upsert({ teacher_id: teacherId, nickname, ...traits, updated_at: new Date().toISOString() }, { onConflict: "teacher_id" })
+        .select("teacher_id,nickname,gender,nationality_group,updated_at").single();
       if (error) throw error;
       if (!data || data.teacher_id !== teacherId) throw new Error("The saved nickname could not be confirmed.");
       teacherAdminNicknames.set(teacherId, data.nickname || "");
+      teacherAdminTraits.set(teacherId, normalizeTeacherTraits(data));
       teacherNicknameDrafts.delete(teacherId);
+      teacherTraitDrafts.delete(teacherId);
       populateTeacherOptions();
-      toast(currentLanguage() === "en" ? "Private nickname saved." : "관리자 별명을 저장했습니다.");
+      refreshAvailabilityTraits();
+      renderWeeklyAvailabilityDensity();
+      syncAvailabilityAreaFilter();
+      renderAvailabilityBoard();
+      toast(currentLanguage() === "en" ? "Private teacher details saved." : "관리자 정보를 저장했습니다.");
     } catch (error) {
       console.warn("Admin-only teacher nickname save failed:", error);
-      toast(currentLanguage() === "en" ? "Could not save the nickname. Your entry is kept; please try again." : "별명을 저장하지 못했습니다. 입력한 내용은 유지됩니다. 다시 시도해주세요.", true);
+      toast(currentLanguage() === "en" ? "Could not save the private details. Your entry is kept; please try again." : "관리자 정보를 저장하지 못했습니다. 입력한 내용은 유지됩니다. 다시 시도해주세요.", true);
     } finally {
       teacherNicknameSaving.delete(teacherId);
       render();
@@ -901,6 +1003,7 @@
   function renderWeeklyAvailabilityDensity() {
     const target = $("weeklyAvailabilityDensity");
     if (!target) return;
+    refreshAvailabilityTraits();
 
     const dayOrder = [1, 2, 3, 4, 5, 6, 0];
     const shortDays = ["일", "월", "화", "수", "목", "금", "토"];
@@ -914,9 +1017,9 @@
       { key: "songdo", label: "송도", note: "IGC·트리플스트리트 포함" }
     ];
     const availableTeachers = new Map();
-    const teacherById = new Map(activeTeachers().map((teacher) => [teacher.id, teacher]));
+    const teacherById = new Map(availabilityTeachers().map((teacher) => [teacher.id, teacher]));
 
-    activeTeachers().forEach((teacher) => {
+    availabilityTeachers().forEach((teacher) => {
       (teacher.availability || []).forEach((slot) => {
         const day = Number(slot.day_of_week);
         const start = Number(slot.start_time?.slice(0, 2)) * 60 + Number(slot.start_time?.slice(3, 5));
@@ -998,7 +1101,7 @@
     const region = serviceRegionForLocation(location);
     const serviceRegions = location === "songdo_all" ? ["Songdo", "IGC_TRIPLE"] : region ? [region] : [];
     const values = new Set();
-    activeTeachers().forEach((teacher) => {
+    availabilityTeachers().forEach((teacher) => {
       (teacher.availability || []).forEach((slot) => {
         const slotLocation = normalizedLocation(slot.location);
         const matchesLocation = location === "all" || (location === "songdo_all" ? ["송도", "IGC & 트스"].includes(slotLocation) : slotLocation === location);
@@ -1013,7 +1116,7 @@
   }
 
   function teachersForAvailabilityCell(day, minutes, locationFilter, areaFilter) {
-    return activeTeachers().filter((teacher) => (teacher.availability || []).some((slot) => {
+    return availabilityTeachers().filter((teacher) => (teacher.availability || []).some((slot) => {
       if (Number(slot.day_of_week) !== day) return false;
       const slotLocation = normalizedLocation(slot.location);
       if (locationFilter !== "all" && (locationFilter === "songdo_all" ? !["송도", "IGC & 트스"].includes(slotLocation) : slotLocation !== locationFilter)) return false;
@@ -1220,7 +1323,7 @@
   function renderCalendarEvent(event) {
     const isTrial = isTrialAssignment(event.assignment);
     const typeLabel = event.type === "first"
-      ? (isTrial ? (currentLanguage() === "en" ? "Trial" : "체험수업") : (currentLanguage() === "en" ? "First lesson" : "첫 수업"))
+      ? (isTrial ? assignmentTypeLabel(event.assignment.assignment_type) : (currentLanguage() === "en" ? "First lesson" : "첫 수업"))
       : (currentLanguage() === "en" ? "Payout" : "정산");
     return `<div class="calendar-event calendar-event-${event.type}${isTrial ? " calendar-event-trial" : ""}" data-calendar-assignment="${escapeHtml(event.assignment.id)}">
       <span class="calendar-event-type">${typeLabel}</span>
@@ -1292,9 +1395,10 @@
       const teacher = teacherById(assignment.teacher_id);
       const isHistory = isAssignmentHistory(assignment);
       const isTrial = isTrialAssignment(assignment);
+      const isPaidTrial = assignment.assignment_type === "paid_trial";
       const plan = assignment.plan || "unassigned";
       const typeBadge = isTrial
-        ? `<span class="assignment-type-badge trial">${escapeHtml(assignmentTypeLabel("trial"))}</span>`
+        ? `<span class="assignment-type-badge trial">${escapeHtml(assignmentTypeLabel(assignment.assignment_type))}</span>`
         : "";
       const serviceTags = assignment.lesson_duration_minutes
         ? `<div class="admin-assignment-service-tags">
@@ -1308,7 +1412,11 @@
         : '<div class="assignment-pricing-missing">기존 기록 · 수업/정산 상세 미지정</div>';
 
       const payoutDetail = isTrial
-        ? (currentLanguage() === "en" ? "Student free · Economy trial lesson" : "학생 무료 · Economy 체험수업")
+        ? (isPaidTrial
+          ? (currentLanguage() === "en"
+            ? `1-session tuition ${formatWon(Number(assignment.four_lesson_tuition) / PACKAGE_SESSIONS)} · NADO fee ${formatWon(Number(assignment.four_lesson_tuition) / PACKAGE_SESSIONS - Number(assignment.teacher_payout_amount))}`
+            : `1회 학생 수업료 ${formatWon(Number(assignment.four_lesson_tuition) / PACKAGE_SESSIONS)} · NADO 수수료 ${formatWon(Number(assignment.four_lesson_tuition) / PACKAGE_SESSIONS - Number(assignment.teacher_payout_amount))}`)
+          : (currentLanguage() === "en" ? "Student free · Economy trial lesson" : "학생 무료 · Economy 체험수업"))
         : (() => {
             const weekly = Number(assignment.weekly_frequency) === 2 ? 2 : 1;
             const packageSessions = PACKAGE_SESSIONS * weekly;
@@ -1424,17 +1532,21 @@
       ? assignments.find((item) => item.id === editingAssignmentId)
       : null;
     const isReactivation = Boolean(existingAssignment && reactivatingAssignmentId === editingAssignmentId);
-    const assignmentType = $("assignmentType").value === "trial" ? "trial" : "regular";
-    const isTrial = assignmentType === "trial";
-    const groupSize = isTrial ? 1 : currentGroupSize();
+    const assignmentType = ["regular", "trial", "paid_trial"].includes($("assignmentType").value) ? $("assignmentType").value : "regular";
+    const isFreeTrial = assignmentType === "trial";
+    const isPaidTrial = assignmentType === "paid_trial";
+    const isTrial = isFreeTrial || isPaidTrial;
+    const groupSize = isFreeTrial ? 1 : currentGroupSize();
     const groupMembers = collectGroupMembers();
-    const plan = isTrial ? TRIAL_PLAN : $("assignmentPlan").value;
+    const plan = isFreeTrial ? TRIAL_PLAN : $("assignmentPlan").value;
     const lessonDurationMinutes = Number($("assignmentLessonDuration").value);
     const weeklyFrequency = isTrial ? 1 : Number($("assignmentWeeklyFrequency").value);
     const settlementSessions = isTrial ? 1 : Number($("assignmentSettlementSessions").value);
-    const pricing = isTrial
+    const pricing = isFreeTrial
       ? trialPricingFor(lessonDurationMinutes)
-      : pricingFor(plan, lessonDurationMinutes, weeklyFrequency, settlementSessions, groupSize);
+      : isPaidTrial
+        ? paidTrialPricingFor(plan, lessonDurationMinutes, groupSize)
+        : pricingFor(plan, lessonDurationMinutes, weeklyFrequency, settlementSessions, groupSize);
 
     const payload = {
       teacher_id: selectedTeacher?.id || "",
@@ -1447,12 +1559,12 @@
       lesson_duration_minutes: lessonDurationMinutes,
       weekly_frequency: weeklyFrequency,
       settlement_sessions: settlementSessions,
-      four_lesson_tuition: isTrial ? null : (pricing?.baseTuition ?? null),
-      nado_fee_percent: isTrial ? null : 35,
-      four_lesson_nado_fee: isTrial ? null : (pricing?.baseNadoFee ?? null),
-      four_lesson_teacher_payout: isTrial ? null : (pricing?.baseTeacherPayout ?? null),
+      four_lesson_tuition: isFreeTrial ? null : (pricing?.baseTuition ?? null),
+      nado_fee_percent: isFreeTrial ? null : 35,
+      four_lesson_nado_fee: isFreeTrial ? null : (pricing?.baseNadoFee ?? null),
+      four_lesson_teacher_payout: isFreeTrial ? null : (pricing?.baseTeacherPayout ?? null),
       teacher_payout_amount: pricing?.teacherPayout ?? null,
-      pricing_version: isTrial ? TRIAL_PRICING_VERSION : PRICING_VERSION,
+      pricing_version: isFreeTrial ? TRIAL_PRICING_VERSION : isPaidTrial ? PAID_TRIAL_PRICING_VERSION : PRICING_VERSION,
       first_lesson_date: $("assignmentFirstLessonDate").value,
       settlement_date: $("assignmentSettlementDate").value
     };
@@ -1460,9 +1572,11 @@
     const validRegularSessions = Number.isInteger(settlementSessions)
       && settlementSessions >= 1
       && settlementSessions <= packageSessionCount(weeklyFrequency);
-    const validAssignment = isTrial
+    const validAssignment = isFreeTrial
       ? Boolean(pricing && plan === TRIAL_PLAN && weeklyFrequency === 1 && settlementSessions === 1 && pricing.teacherPayout === TRIAL_TEACHER_PAYOUT)
-      : Boolean(pricing && [1, 2].includes(weeklyFrequency) && validRegularSessions);
+      : isPaidTrial
+        ? Boolean(pricing && weeklyFrequency === 1 && settlementSessions === 1)
+        : Boolean(pricing && [1, 2].includes(weeklyFrequency) && validRegularSessions);
 
     const membersComplete = groupMembers.length === groupSize && groupMembers.every((member) => member.name);
     if (!payload.teacher_id || !payload.student_name || !membersComplete || !payload.plan || !lessonDurationMinutes || !validAssignment || !payload.first_lesson_date || !payload.settlement_date) {
@@ -1487,7 +1601,7 @@
       : existingAssignment
         ? `${payload.student_name} 학생의 배정 정보를 수정할까요?`
         : isTrial
-          ? `${payload.student_name} 학생의 무료 체험수업을 배정할까요?`
+          ? `${payload.student_name} 학생의 ${assignmentTypeLabel(assignmentType)}을 배정할까요?`
           : payload.student_email && groupSize === 1
             ? `${payload.student_name} 학생을 배정하고 계정이 없으면 초대 이메일을 보낼까요?`
             : `${groupSize > 1 ? `1:${groupSize} 수업` : `${payload.student_name} 학생`}을 이메일 계정 연결 없이 배정할까요?`;
@@ -1534,7 +1648,7 @@
 
     toast(existingAssignment
       ? (isReactivation ? "학생을 다시 활성화했습니다." : "학생 배정 정보를 수정했습니다.")
-      : (isTrial ? "무료 체험수업을 배정했습니다." : (resultData?.invitation_sent ? "학생 배정과 계정 초대를 완료했습니다." : "학생 배정을 저장했습니다.")));
+      : (isTrial ? `${assignmentTypeLabel(assignmentType)}을 배정했습니다.` : (resultData?.invitation_sent ? "학생 배정과 계정 초대를 완료했습니다." : "학생 배정을 저장했습니다.")));
     resetAssignmentForm();
     await loadAssignments();
   }
@@ -1878,6 +1992,7 @@
   });
   document.addEventListener("nado:languagechange", () => {
     render();
+    renderWeeklyAvailabilityDensity();
     renderAvailabilityBoard();
     renderAssignmentList();
     syncAssignmentTypeFields(Number($("assignmentSettlementSessions").value));
@@ -1895,6 +2010,11 @@
   $("adminTeacherList").addEventListener("change", (event) => {
     const input = event.target.closest("[data-teacher-active]");
     if (input) changeTeacherActive(input);
+    const trait = event.target.closest("[data-teacher-trait]");
+    if (trait) {
+      const form = trait.closest("[data-teacher-nickname-form]");
+      teacherTraitDrafts.set(form.dataset.teacherNicknameForm, normalizeTeacherTraits({ gender: form.elements.gender.value, nationality_group: form.elements.nationality_group.value }));
+    }
   });
   $("adminTeacherList").addEventListener("submit", (event) => {
     const form = event.target.closest("[data-teacher-nickname-form]");
@@ -1912,6 +2032,13 @@
   $("weeklyAvailabilityDensity").addEventListener("click", (event) => {
     const button = event.target.closest("[data-density-region]");
     if (button) focusDensityCell(button);
+  });
+  ["densityGenderFilter", "densityNationalityFilter"].forEach((id) => {
+    $(id)?.addEventListener("change", () => {
+      renderWeeklyAvailabilityDensity();
+      syncAvailabilityAreaFilter();
+      renderAvailabilityBoard();
+    });
   });
   $("availabilityLocationFilter").addEventListener("change", () => {
     syncAvailabilityAreaFilter();

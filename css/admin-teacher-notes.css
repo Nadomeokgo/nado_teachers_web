@@ -10,7 +10,15 @@
 .teacher-private-nickname p { margin: 0; color: #64748b; font-size: .7rem; line-height: 1.5; }
 .teacher-private-nickname :disabled { cursor: not-allowed; opacity: .65; }
 .teacher-admin-details .teacher-bio-value { white-space: pre-wrap; overflow-wrap: anywhere; }
+.teacher-private-traits, .density-trait-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.teacher-private-traits label, .density-trait-filters label { display: grid; gap: 6px; min-width: 0; color: #34475d; font-size: .75rem; font-weight: 600; }
+.teacher-private-traits select, .density-trait-filters select { width: 100%; min-width: 0; min-height: 40px; padding: 8px 10px; border: 1px solid #d3deeb; border-radius: 9px; background: #fff; color: #172b43; font: inherit; }
+.teacher-private-actions { display: flex; justify-content: flex-end; }
+.teacher-private-actions button { min-height: 40px; }
+.density-trait-filters { margin: 14px 0 8px; max-width: 440px; }
+.availability-density-panel .density-trait-status, .availability-trait-summary { margin: 0 0 14px; color: #64748b; font-size: .72rem; line-height: 1.5; font-weight: 400; }
 @media (max-width: 560px) {
   .teacher-private-nickname { padding: 12px; }
   .teacher-private-nickname-controls input { font-size: 16px; }
+  .teacher-private-traits select, .density-trait-filters select { font-size: 16px; }
 }
