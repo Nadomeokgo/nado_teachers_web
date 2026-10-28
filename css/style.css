@@ -1658,3 +1658,14 @@ body.modal-open { overflow: hidden; }
 .profile-bio-count { color: var(--gray); font-size: .72rem; font-weight: 500; line-height: 1.5; text-align: right; }
 .profile-bio-count.at-limit { color: #a65d00; }
 .profile-bio-count.over-limit { color: var(--danger); }
+.onboarding-card-head .onboarding-next-step { margin-top: 8px; color: #216bb4; }
+.schedule-onboarding-banner { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; padding: 22px 24px; border: 1px solid #bcd9f4; border-radius: 16px; background: #edf6ff; }
+.schedule-onboarding-text { min-width: 0; }
+.schedule-onboarding-step { display: inline-block; margin-bottom: 8px; color: #236bb1; font-size: .72rem; font-weight: 750; }
+.schedule-onboarding-banner h2 { margin: 0 0 7px; color: #18334d; font-size: 1.1rem; line-height: 1.4; word-break: keep-all; }
+.schedule-onboarding-banner p { margin: 0; color: #526c84; font-size: .85rem; line-height: 1.65; }
+.schedule-onboarding-banner .button { flex: 0 0 auto; }
+@media (max-width: 700px) {
+  .schedule-onboarding-banner { align-items: stretch; flex-direction: column; gap: 16px; padding: 18px; }
+  .schedule-onboarding-banner .button { width: 100%; }
+}

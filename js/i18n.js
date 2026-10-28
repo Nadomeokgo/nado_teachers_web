@@ -82,6 +82,8 @@
   "은행명 또는 계좌번호가 정상적으로 입력되지 않으면 첫 달 수업료 지급이 지연되거나 차질이 발생할 수 있습니다.": "Incorrect bank details may delay or disrupt your first-month payout.",
   "다른 계정으로 로그인": "Sign in with another account",
   "프로필 저장하고 시작하기": "Save Profile and Continue",
+  "프로필 저장하고 스케줄 입력": "Save profile and set availability",
+  "프로필을 저장하면 다음 단계에서 수업 가능한 장소와 시간을 입력합니다.": "After saving your profile, choose where and when you can teach in the next step.",
   "내 정보": "My Profile",
   "운영팀이 매칭에 참고할 기본 정보를 관리합니다.": "Manage the basic information used by the operations team for matching.",
   "기본 정보 및 정산 계좌": "Profile and Payout Account",

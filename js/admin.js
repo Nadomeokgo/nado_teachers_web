@@ -1091,6 +1091,21 @@
     return location;
   }
 
+  function displayLocationGroup(value) {
+    const location = normalizedLocation(value);
+    return location === "IGC & 트스" ? "송도" : location;
+  }
+
+  function groupedTeacherAreas(teacher) {
+    const groups = new Map();
+    Object.entries(teacher.service_areas || {}).forEach(([region, areas]) => {
+      const label = ({ Seoul: "서울", Songdo: "송도", IGC_TRIPLE: "송도", Incheon: "인천" })[region] || region;
+      if (!groups.has(label)) groups.set(label, new Set());
+      areas.forEach((area) => groups.get(label).add(area));
+    });
+    return [...groups].map(([label, areas]) => [label, [...areas]]);
+  }
+
   function serviceRegionForLocation(location) {
     return location === "서울" ? "Seoul" : location === "IGC & 트스" ? "IGC_TRIPLE" : location === "송도" ? "Songdo" : "";
   }
@@ -1152,6 +1167,7 @@
     const start = Number(button.dataset.densityStart);
     const end = Number(button.dataset.densityEnd);
     $("availabilityLocationFilter").value = region === "seoul" ? "서울" : "songdo_all";
+    $("availabilityAreaFilter").value = "all";
     syncAvailabilityAreaFilter();
     renderAvailabilityBoard();
     $("dayFilter").value = String(day);
@@ -1217,12 +1233,12 @@
           <div><span>정산 계좌</span><strong>${escapeHtml(teacher.bank_name || "은행 미입력")} ${escapeHtml(teacher.account_number || "계좌번호 미입력")}</strong></div>
           <div class="teacher-admin-bio"><span>한 줄 소개</span><strong class="teacher-bio-value">${escapeHtml(teacher.bio || "미입력")}</strong></div>
           <div class="teacher-admin-experience"><span>경험 및 활동</span>${renderTeacherExperience(teacher.experience)}</div>
-          <div class="teacher-admin-bio"><span>가능 장소</span><strong>${Object.entries(teacher.service_areas || {}).length ? Object.entries(teacher.service_areas).map(([region, areas]) => `${escapeHtml(({Seoul:"서울",Songdo:"송도",IGC_TRIPLE:"IGC & 트스"})[region] || region)}: ${escapeHtml(areas.join(" · "))}`).join("<br>") : "미입력"}</strong></div>
+          <div class="teacher-admin-bio"><span>가능 장소</span><strong>${groupedTeacherAreas(teacher).length ? groupedTeacherAreas(teacher).map(([label, areas]) => `${escapeHtml(label)}: ${escapeHtml(areas.join(" · "))}`).join("<br>") : "미입력"}</strong></div>
           <div class="teacher-agreement-detail"><span>서비스 계약</span>${teacher.agreement
             ? `<strong class="agreement-ok">동의 완료 · ${escapeHtml(teacher.agreement.agreement_version)}</strong><small>${escapeHtml(new Date(teacher.agreement.agreed_at).toLocaleString(currentLocale()))} · ${escapeHtml(teacher.agreement.teacher_name)}</small>`
             : `<strong class="agreement-missing">미동의 · ${CURRENT_AGREEMENT_VERSION}</strong><small>다음 로그인 시 계약 동의 화면이 표시됩니다.</small>`}</div>
         </div>
-        <div class="admin-slots">${slots.length ? slots.map((slot) => `<div class="admin-slot"><strong>${days[Number(slot.day_of_week)]}</strong>${escapeHtml(slot.start_time.slice(0,5))}–${escapeHtml(slot.end_time.slice(0,5))}<br>${escapeHtml(slot.location || "")}</div>`).join("") : '<div class="empty-state compact">제출된 시간이 없습니다.</div>'}</div>
+        <div class="admin-slots">${slots.length ? slots.map((slot) => `<div class="admin-slot"><strong>${days[Number(slot.day_of_week)]}</strong>${escapeHtml(slot.start_time.slice(0,5))}–${escapeHtml(slot.end_time.slice(0,5))}<br>${escapeHtml(displayLocationGroup(slot.location))}${slot.service_area ? ` · ${escapeHtml(slot.service_area)}` : ""}</div>`).join("") : '<div class="empty-state compact">제출된 시간이 없습니다.</div>'}</div>
         ${memo ? `<div class="admin-memo"><strong>메모:</strong> ${escapeHtml(memo)}</div>` : ""}
       </article>`;
     }).join("");
@@ -1892,9 +1908,9 @@
   function exportCsv() {
     const rows = [["선생님", "이메일", "학교", "전공", "카카오톡 ID", "전체 가능 장소", "요일", "시작", "종료", "장소", "세부 지역", "메모", "업데이트"]];
     activeTeachers().forEach((teacher) => {
-      const allAreas = Object.entries(teacher.service_areas || {}).map(([region, areas]) => `${region}: ${areas.join(" · ")}`).join(" / ");
+      const allAreas = groupedTeacherAreas(teacher).map(([region, areas]) => `${region}: ${areas.join(" · ")}`).join(" / ");
       if (!(teacher.availability || []).length) rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, allAreas, "미제출", "", "", "", "", "", ""]);
-      (teacher.availability || []).forEach((slot) => rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, allAreas, days[slot.day_of_week], slot.start_time.slice(0,5), slot.end_time.slice(0,5), normalizedLocation(slot.location), slot.service_area || "", slot.memo, slot.updated_at]));
+      (teacher.availability || []).forEach((slot) => rows.push([teacher.full_name, teacher.email, teacher.school, teacher.major, teacher.kakao_id, allAreas, days[slot.day_of_week], slot.start_time.slice(0,5), slot.end_time.slice(0,5), displayLocationGroup(slot.location), slot.service_area || "", slot.memo, slot.updated_at]));
     });
     const csv = "\ufeff" + rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });

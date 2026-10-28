@@ -316,6 +316,7 @@
   let logoutInProgress = false;
   let loginInProgress = false;
   let onboardingRequired = false;
+  let scheduleOnboardingRequired = false;
   let agreementRequired = false;
   let agreementRecord = null;
   let agreementVersionRecord = null;
@@ -700,6 +701,8 @@
     selectedAvailability = new Set();
     scheduleMemo = "";
     onboardingRequired = false;
+    scheduleOnboardingRequired = false;
+    renderScheduleOnboarding();
     agreementRequired = false;
     agreementRecord = null;
     agreementVersionRecord = null;
@@ -756,6 +759,52 @@
 
   function isProfileOnboardingRequired() {
     return profile?.role !== "admin" && (!profile?.profile_completed_at || !String(profile?.kakao_id || "").trim());
+  }
+
+  function onboardingSubmitLabel() {
+    return currentLanguage() === "en" ? "Save profile and set availability" : "프로필 저장하고 스케줄 입력";
+  }
+
+  function renderScheduleOnboarding() {
+    const banner = $("scheduleOnboardingBanner");
+    if (!banner) return;
+    const visible = scheduleOnboardingRequired && Boolean(currentUser) && !onboardingRequired && !agreementRequired;
+    banner.classList.toggle("hidden", !visible);
+    const english = currentLanguage() === "en";
+    const copy = {
+      scheduleOnboardingStep: english ? "INITIAL SETUP · 2 / 2" : "처음 설정 · 2 / 2",
+      scheduleOnboardingTitle: english ? "Add your teaching availability" : "이제 수업 가능한 시간을 알려주세요",
+      scheduleOnboardingCopy: english
+        ? "Your profile is saved. Choose your teaching areas, drag to select available times, and save. You can update them later."
+        : "프로필이 저장되었습니다. 수업 가능한 지역과 시간을 선택한 뒤 저장해주세요. 등록한 스케줄은 나중에도 수정할 수 있습니다.",
+      scheduleOnboardingContinueButton: english ? "Set availability" : "스케줄 입력하기"
+    };
+    Object.entries(copy).forEach(([id, text]) => { if ($(id)) $(id).textContent = text; });
+  }
+
+  function updateScheduleOnboarding(rows) {
+    const hasSavedTime = rows.some((row) => Number.isInteger(Number(row.day_of_week))
+      && Number(row.day_of_week) >= 0 && Number(row.day_of_week) <= 6
+      && Number.isFinite(timeToMinutes(row.start_time))
+      && timeToMinutes(row.end_time) > timeToMinutes(row.start_time));
+    scheduleOnboardingRequired = profile?.role !== "admin" && !isProfileOnboardingRequired() && !hasSavedTime;
+    renderScheduleOnboarding();
+  }
+
+  async function handleScheduleSaved(event) {
+    const detail = event.detail || {};
+    if (!currentUser || detail.teacherId !== currentUser.id) return;
+    const completedSetup = scheduleOnboardingRequired && Number(detail.rowCount) > 0;
+    if (completedSetup) {
+      scheduleOnboardingRequired = false;
+      renderScheduleOnboarding();
+      showToast(currentLanguage() === "en"
+        ? "Initial setup is complete. You can add availability for more areas."
+        : "처음 설정이 완료되었습니다. 다른 지역의 가능 시간도 이어서 등록할 수 있습니다.");
+    }
+    // Refresh the home summary from persisted rows without touching the active
+    // per-area editor or moving the teacher away from their current schedule.
+    await loadAvailability({ preserveEditor: true });
   }
 
   function isAgreementRequired() {
@@ -1213,7 +1262,8 @@
       renderGuideProgress();
       dashboardInitialized = true;
     }
-    switchPage(requestedPage);
+    renderScheduleOnboarding();
+    switchPage(scheduleOnboardingRequired ? "schedule" : requestedPage);
   }
 
   async function initializeSession(existingSession = null) {
@@ -1238,6 +1288,8 @@
 
     currentUser = session.user;
     dashboardInitialized = false;
+    scheduleOnboardingRequired = false;
+    renderScheduleOnboarding();
     $("loginView").classList.add("hidden");
     $("appView").classList.add("hidden");
     $("agreementView").classList.add("hidden");
@@ -1581,7 +1633,7 @@
       return;
     }
 
-    setLoading(button, true, "프로필 저장하고 시작하기");
+    setLoading(button, true, onboardingSubmitLabel());
     try {
       // Save text/account fields first, but do not mark onboarding complete yet.
       const savedBaseProfile = await persistProfile({ ...basePayload, updated_at: new Date().toISOString() });
@@ -1594,14 +1646,14 @@
         } catch (photoError) {
           console.error("Onboarding profile photo upload failed:", photoError);
           showToast("프로필 사진 저장에 실패했습니다. 사진을 다시 확인한 뒤 저장해주세요.", "error");
-          setLoading(button, false, "프로필 저장하고 시작하기");
+          setLoading(button, false, onboardingSubmitLabel());
           return;
         }
       }
 
       if (!profile?.profile_photo_path) {
         showToast("프로필 사진 저장을 확인할 수 없습니다. 다시 사진을 선택해주세요.", "error");
-        setLoading(button, false, "프로필 저장하고 시작하기");
+        setLoading(button, false, onboardingSubmitLabel());
         return;
       }
 
@@ -1621,19 +1673,21 @@
           : "프로필 저장에 실패했습니다: " + (error?.message || "알 수 없는 오류"),
         "error"
       );
-      setLoading(button, false, "프로필 저장하고 시작하기");
+      setLoading(button, false, onboardingSubmitLabel());
       return;
     }
 
     hideOnboarding();
-    setLoading(button, false, "프로필 저장하고 시작하기");
-    showToast("프로필 작성이 완료되었습니다.");
+    scheduleOnboardingRequired = profile?.role !== "admin";
+    renderScheduleOnboarding();
+    setLoading(button, false, onboardingSubmitLabel());
+    showToast(currentLanguage() === "en" ? "Your profile is saved. Next, add your availability." : "프로필이 저장되었습니다. 이어서 수업 가능한 시간을 입력해주세요.");
     try {
       await initializeDashboardData("dashboard");
     } catch (error) {
       console.error("Post-onboarding dashboard initialization failed:", error);
       $("appView").classList.remove("hidden");
-      switchPage("dashboard");
+      switchPage(scheduleOnboardingRequired ? "schedule" : "dashboard");
       showToast("프로필은 저장되었지만 일부 정보를 불러오지 못했습니다. 새로고침해주세요.", "error");
     }
   }
@@ -1843,14 +1897,23 @@
     finishGridSelectionChange();
   }
 
-  async function loadAvailability() {
+  async function loadAvailability({ preserveEditor = false } = {}) {
+    const teacherId = currentUser?.id;
+    if (!teacherId) return;
     const { data, error } = await supabase
       .from("availability")
       .select("id, day_of_week, start_time, end_time, location, memo, updated_at")
-      .eq("teacher_id", currentUser.id)
+      .eq("teacher_id", teacherId)
       .order("day_of_week")
       .order("start_time");
+    if (currentUser?.id !== teacherId) return;
     if (error) return showToast("스케줄을 불러오지 못했습니다.", "error");
+    updateScheduleOnboarding(data || []);
+    if (preserveEditor) {
+      slots = (data || []).map((row, index) => ({ ...row, localId: row.id || `saved-${index}` }));
+      renderScheduleSummary();
+      return;
+    }
 
     selectedAvailability = new Set();
     (data || []).forEach((row) => {
@@ -2111,6 +2174,9 @@ function loadGuideChecks() {
     initializeProfileBioLimits();
   document.addEventListener("nado:languagechange", () => {
     refreshProfileBioCounters();
+    renderScheduleOnboarding();
+    const onboardingButton = $("onboardingForm")?.querySelector('button[type="submit"]');
+    if (onboardingButton && !onboardingButton.disabled) onboardingButton.textContent = onboardingSubmitLabel();
     buildAvailabilityGrid();
     renderAssignments();
     syncPayGuideDurationOptions(Number($("payGuideDuration")?.value) || 60);
@@ -2129,6 +2195,9 @@ function loadGuideChecks() {
     $("logoutButton").addEventListener("click", logout);
     $("profileForm").addEventListener("submit", saveProfile);
     $("onboardingForm").addEventListener("submit", completeOnboarding);
+    document.addEventListener("nado:schedule-saved", (event) => {
+      handleScheduleSaved(event).catch((error) => console.warn("Schedule summary refresh failed:", error));
+    });
     document.querySelectorAll("[data-experience-scope]").forEach((section) => section.addEventListener("click", handleExperienceClick));
     $("onboardingLogoutButton").addEventListener("click", logout);
     $("agreementForm").addEventListener("submit", completeAgreement);
