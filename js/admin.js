@@ -529,6 +529,7 @@
     if (!session) return location.replace("index.html");
     const { data: me } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
     if (me?.role !== "admin") { alert("관리자 권한이 없습니다."); return location.replace("index.html"); }
+    await window.NADO_CURRICULUM_ADMIN?.init({ supabase, user: session.user });
     await loadData();
   }
 

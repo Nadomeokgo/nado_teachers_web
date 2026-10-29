@@ -725,6 +725,7 @@
 
     // 무거운 iframe과 이전 사용자 콘텐츠를 즉시 정리합니다.
     $("videoGrid").innerHTML = "";
+    window.NADO_CURRICULUM?.clear();
     $("resourceGrid").innerHTML = "";
     $("announcementList").innerHTML = "";
     $("assignmentList").innerHTML = "";
@@ -2094,32 +2095,15 @@
   }
 
   async function loadResources() {
-    const { data, error } = await supabase
-      .from("resources")
-      .select("title, description, title_en, description_en, category, file_url, storage_path, original_name, size_bytes, sort_order")
-      .eq("is_active", true)
-      .order("sort_order");
-    if (error || !data?.length) {
-      $("resourceGrid").innerHTML = '<div class="panel empty-state">등록된 자료가 없습니다. 관리자에게 자료 URL 등록을 요청해주세요.</div>';
+    if (!window.NADO_CURRICULUM) {
+      $("resourceGrid").replaceChildren();
+      if ($("curriculumLegacySection")) $("curriculumLegacySection").hidden = true;
+      if ($("curriculumCatalog")) $("curriculumCatalog").textContent = currentLanguage() === "en"
+        ? "Could not initialize the lesson library. Please refresh."
+        : "자료 화면을 불러오지 못했습니다. 새로고침해주세요.";
       return;
     }
-    $("resourceGrid").innerHTML = data.map((item) => `
-      <article class="resource-card">
-        <div class="resource-icon">${item.category === "PDF" ? "PDF" : "DOC"}</div>
-        <span class="resource-type">${escapeHtml(item.category || "RESOURCE")}</span>
-        <h3>${escapeHtml(localizedContent(item, "title"))}</h3>
-        <p>${escapeHtml(localizedContent(item, "description"))}</p>
-        ${item.storage_path
-          ? `<button class="resource-open-button" data-resource-storage="${escapeHtml(item.storage_path)}" type="button">회원 자료 열기 →</button>`
-          : `<a href="${escapeHtml(item.file_url)}" target="_blank" rel="noopener">자료 열기 →</a>`}
-      </article>`).join("");
-    document.querySelectorAll("[data-resource-storage]").forEach((button) => button.addEventListener("click", async () => {
-      button.disabled = true;
-      const { data: signed, error: signedError } = await supabase.storage.from("member-resources").createSignedUrl(button.dataset.resourceStorage, 60);
-      button.disabled = false;
-      if (signedError) return showToast("자료를 열지 못했습니다.", "error");
-      window.open(signed.signedUrl, "_blank", "noopener");
-    }));
+    return window.NADO_CURRICULUM.load({ client: supabase, user: currentUser, profile });
   }
 
   async function loadVideos() {

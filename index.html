@@ -15,6 +15,7 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css?v=20261028-schedule-onboarding-v1" />
+  <link rel="stylesheet" href="css/curriculum.css?v=20261029-curriculum-v1" />
 </head>
 <body>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -626,13 +627,15 @@
             <div>
               <p class="section-kicker">CURRICULUM & RESOURCES</p>
               <h2>수업 자료와 커리큘럼</h2>
-              <p>학생의 수준과 목표에 맞게 선택하여 활용하세요. 운영팀이 Supabase에서 자료를 추가하면 자동으로 표시됩니다.</p>
+              <p>학생의 수준과 목표에 맞는 수업을 찾고, 수업 내용과 진행 메모를 이곳에서 확인하세요.</p>
             </div>
           </div>
-          <div id="resourceGrid" class="resource-grid">
-            <article class="resource-card skeleton-card"></article>
-            <article class="resource-card skeleton-card"></article>
-          </div>
+          <div id="curriculumCatalog" aria-live="polite"></div>
+          <div id="curriculumReader" class="hidden"></div>
+          <section id="curriculumLegacySection" class="nc-legacy" hidden>
+            <div class="nc-legacy-heading"><h3>기존 수업 자료</h3><p>이전 중인 자료와 회원 전용 첨부 파일입니다.</p></div>
+            <div id="resourceGrid" class="resource-grid"></div>
+          </section>
         </section>
 
         <section id="page-training" class="page">
@@ -904,8 +907,10 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20261027-teacher-workflow-v3"></script>
   <script src="js/pricing.js?v=20261028-trial-traits-v1"></script>
-  <script src="js/i18n.js?v=20261028-schedule-onboarding-v1"></script>
-  <script src="js/app.js?v=20261028-schedule-onboarding-v1"></script>
+  <script src="js/i18n.js?v=20261029-curriculum-v1"></script>
+  <script src="js/curriculum-shared.js?v=20261029-curriculum-v1"></script>
+  <script src="js/curriculum-reader.js?v=20261029-curriculum-v1"></script>
+  <script src="js/app.js?v=20261029-curriculum-v1"></script>
   <script src="js/schedule-v6.js?v=20261028-schedule-onboarding-v1"></script>
 </body>
 </html>

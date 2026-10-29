@@ -1,0 +1,137 @@
+/* Internal curriculum: scoped to keep the existing operations dashboard intact. */
+.nc-admin-root, #curriculumCatalog, #curriculumReader { min-width: 0; }
+.nc-admin-root { margin: 0 0 32px; scroll-margin-top: 24px; }
+.nc-muted { color: #64748b; font-size: .84rem; line-height: 1.65; }
+.nc-meta, .nc-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.nc-badge, .nc-meta-tag { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 7px; background: #edf3fa; color: #42627f; font-size: .72rem; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
+.nc-empty, .nc-message { padding: 28px; border: 1px solid #dce6f0; border-radius: 14px; background: #fff; color: #5a7087; line-height: 1.75; }
+.nc-empty h3 { margin: 0 0 8px; color: #1c3954; }
+.nc-empty p { margin: 6px 0; }
+.nc-error { border-color: #eac1c1; background: #fff7f7; color: #a23d3d; }
+.nc-filters { display: grid; grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(115px, 1fr)); gap: 12px; margin: 0 0 18px; }
+.nc-search-field, .nc-filter-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; color: #526b83; font-size: .78rem; font-weight: 650; }
+.nc-filters input, .nc-filters select, .nc-admin-root input:not([type="checkbox"]), .nc-admin-root select, .nc-admin-root textarea { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid #cddbe9; border-radius: 9px; background: #fff; color: #1f354b; font: inherit; line-height: 1.55; padding: 10px 12px; }
+.nc-filters input, .nc-filters select { min-height: 44px; font-size: .86rem; }
+.nc-admin-root input:focus, .nc-admin-root select:focus, .nc-admin-root textarea:focus, .nc-filters :is(input,select):focus { outline: 3px solid #4a90e226; border-color: #4a90e2; }
+.nc-admin-root textarea { resize: vertical; min-height: 96px; }
+.nc-catalog-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.nc-catalog-card { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; min-width: 0; padding: 24px; border: 1px solid #dbe6f0; border-radius: 16px; background: #fff; box-shadow: 0 4px 12px #16324f04; }
+.nc-catalog-card h4 { margin: 0; font-size: 1.08rem; color: #193b5a; line-height: 1.5; overflow-wrap: anywhere; }
+.nc-catalog-card p { margin: 0; color: #657a8e; font-size: .86rem; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nc-catalog-card .button, .nc-catalog-card button { margin-top: auto; }
+.nc-catalog-card:hover { border-color: #b8d0e8; }
+.nc-results, .nc-result-count { color: #64748b; font-size: .8rem; margin: 0 0 14px; }
+.nc-reader-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 18px; }
+.nc-reader-back { cursor: pointer; }
+.nc-lesson { max-width: 920px; margin: 0 auto; border: 1px solid #dce5ee; border-radius: 18px; background: #fff; overflow: hidden; }
+.nc-lesson-header { padding: 36px 40px 28px; background: linear-gradient(125deg, #f0f6fc, #fff); }
+.nc-lesson-eyebrow { color: #3575b7; font-size: .7rem; font-weight: 800; letter-spacing: .12em; margin-bottom: 14px; }
+.nc-lesson h2 { margin: 0 0 14px; color: #173651; font-size: clamp(1.45rem, 2.2vw, 2rem); line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
+.nc-lesson-summary { margin: 0 0 20px; color: #526d85; font-size: .96rem; line-height: 1.85; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nc-timing { margin: 16px 0 0; color: #6a8094; font-size: .76rem; line-height: 1.6; }
+.nc-watermark { padding: 11px 40px; border-top: 1px solid #e7eef5; border-bottom: 1px solid #e7eef5; color: #6d8297; font-size: .73rem; background: #f9fbfd; overflow-wrap: anywhere; }
+.nc-lesson-section { padding: 30px 40px; border-bottom: 1px solid #e7eef5; }
+.nc-section-heading { display: flex; align-items: baseline; gap: 13px; margin-bottom: 18px; }
+.nc-section-number { color: #79a0c8; font-size: .78rem; font-weight: 800; flex: 0 0 auto; }
+.nc-section-heading h3 { margin: 0; color: #243f59; font-size: 1.08rem; line-height: 1.5; overflow-wrap: anywhere; flex: 1; }
+.nc-section-time { flex: 0 0 auto; color: #647b91; font-size: .73rem; }
+.nc-lesson-body { white-space: pre-wrap; overflow-wrap: anywhere; color: #344e65; line-height: 1.9; font-size: .94rem; }
+.nc-teacher-note { margin-top: 22px; padding: 17px 20px; border-left: 3px solid #b7cde4; border-radius: 0 9px 9px 0; background: #f5f8fc; }
+.nc-teacher-note > strong { display: block; margin-bottom: 7px; color: #38658f; font-size: .76rem; }
+.nc-teacher-note .nc-lesson-body { font-size: .84rem; color: #5b7188; }
+.nc-lesson-footer { padding: 20px 40px; color: #7b8da0; font-size: .73rem; line-height: 1.7; }
+.nc-legacy { margin-top: 36px; padding-top: 24px; border-top: 1px solid #dbe5ef; }
+.nc-legacy-heading h3 { margin: 0 0 7px; font-size: 1rem; color: #3e5871; }
+.nc-legacy-heading p { margin: 0 0 18px; color: #788a9c; font-size: .82rem; line-height: 1.6; }
+.nc-admin-root button { cursor: pointer; }
+.nc-admin-root button:disabled { cursor: not-allowed; opacity: .55; }
+.nc-admin-root label { color: #425d76; font-size: .8rem; font-weight: 650; line-height: 1.6; }
+.nc-admin-root button:focus-visible, .nc-catalog-card button:focus-visible { outline: 3px solid #69a6e8; outline-offset: 3px; }
+.nc-catalog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 20px; }
+.nc-catalog-heading h3 { margin: 0; color: #274761; font-size: 1.05rem; }
+.nc-catalog-heading p { margin: 7px 0 0; color: #72869a; font-size: .84rem; line-height: 1.7; }
+.nc-catalog-grid > .nc-empty { grid-column: 1 / -1; }
+.nc-private-label { color: #6d8297; font-size: .76rem; }
+.nc-admin-heading { margin: 0 0 20px; }
+.nc-admin-message:empty { display: none; }
+.nc-admin-message { margin: 0 0 16px; padding: 13px 17px; border-radius: 9px; background: #edf7ef; color: #2e744c; line-height: 1.6; font-size: .85rem; }
+.nc-admin-message.is-error { background: #fff2f2; color: #a64141; }
+.nc-admin-layout { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); align-items: start; gap: 22px; }
+.nc-admin-sidebar { position: sticky; top: 20px; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.nc-admin-sidebar > .button { width: 100%; }
+.nc-admin-sidebar label, .nc-lesson-form label { display: flex; flex-direction: column; gap: 7px; }
+.nc-admin-list-count { margin: 0; font-size: .76rem; color: #7b8d9e; }
+.nc-admin-lesson-list { display: flex; flex-direction: column; gap: 8px; max-height: 64vh; overflow-y: auto; }
+.nc-admin-list-item { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; border: 1px solid #e1e9f1; background: #fff; border-radius: 10px; padding: 15px 13px; text-align: left; width: 100%; color: #2b4862; }
+.nc-admin-list-item.is-selected { background: #edf5ff; border-color: #93bce6; box-shadow: inset 3px 0 #4a90e2; }
+.nc-admin-list-item strong { font-size: .86rem; line-height: 1.55; overflow-wrap: anywhere; }
+.nc-admin-list-meta { color: #71869a; font-size: .69rem; line-height: 1.6; overflow-wrap: anywhere; }
+.nc-status-badge { display: inline-flex; padding: 3px 7px; border-radius: 5px; font-size: .66rem; font-weight: 750; }
+.nc-status-draft { background: #edf0f4; color: #62748b; }
+.nc-status-published { background: #e5f4ec; color: #29714c; }
+.nc-admin-editor { min-width: 0; padding: 28px; }
+.nc-editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.nc-editor-heading > div { display: flex; align-items: center; gap: 12px; }
+.nc-editor-heading h3 { margin: 0; color: #25445f; font-size: 1.1rem; }
+.nc-dirty-label { color: #8b724c; font-size: .72rem; line-height: 1.5; }
+.nc-admin-help { color: #6a8094; font-size: .77rem; line-height: 1.75; margin: 10px 0 22px; }
+.nc-admin-help:last-child { margin-bottom: 0; }
+.nc-conflict-message { margin: 16px 0; padding: 16px; border: 1px solid #eed6ad; border-radius: 9px; background: #fff9ed; color: #8a6931; font-size: .83rem; line-height: 1.65; }
+.nc-conflict-message p { margin: 0 0 12px; }
+.nc-lesson-form > fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 20px; }
+.nc-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.nc-form-row small { color: #7a8e9f; font-size: .7rem; font-weight: 400; }
+.nc-sections-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid #e1eaf3; }
+.nc-sections-heading h4 { margin: 0; color: #31526e; font-size: .95rem; }
+.nc-sections-heading > span { color: #8a9bac; font-size: .7rem; }
+.nc-section-editors { display: grid; gap: 24px; }
+.nc-section-editor { min-width: 0; margin: 0; padding: 20px; border: 1px solid #dbe6f1; border-radius: 12px; background: #f9fbfd; display: grid; gap: 17px; }
+.nc-section-editor legend { padding: 0 8px; font-size: .75rem; font-weight: 750; color: #5580a8; }
+.nc-section-editor-tools { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.nc-section-editor-tools > span { margin-right: auto; font-size: .7rem; color: #8195a8; }
+.nc-section-editor-tools .button { min-height: 32px; padding: 6px 10px; font-size: .7rem; }
+.nc-editor-actions { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 9px; padding: 16px 0; background: #ffffffed; border-top: 1px solid #e1eaf3; backdrop-filter: blur(8px); }
+.nc-editor-actions .button { padding: 11px 15px; font-size: .79rem; }
+.nc-admin-settings { margin-top: 22px; padding: 22px 26px; }
+.nc-admin-settings h3 { margin: 0 0 10px; color: #34536f; font-size: .96rem; }
+.nc-setting-toggle { display: flex; align-items: flex-start; gap: 10px; }
+.nc-setting-toggle input { flex: 0 0 auto; width: 18px; height: 18px; accent-color: #4a90e2; margin: 3px 0 0; }
+.nc-preview-dialog { width: min(980px, calc(100vw - 40px)); max-height: 92vh; box-sizing: border-box; overflow-y: auto; padding: 24px; border: 0; border-radius: 18px; background: #f4f8fc; color: #243f59; box-shadow: 0 30px 100px #102b4e55; }
+.nc-preview-dialog::backdrop { background: #10263fc9; }
+.nc-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.nc-preview-toolbar h3 { margin: 0; font-size: 1rem; }
+.nc-preview-note { margin: 12px 0 22px; color: #6f8499; font-size: .78rem; line-height: 1.6; }
+@media (max-width: 1000px) {
+  .nc-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .nc-search-field { grid-column: 1 / -1; }
+  .nc-admin-layout { grid-template-columns: 220px minmax(0, 1fr); gap: 16px; }
+  .nc-admin-editor { padding: 20px; }
+}
+@media (max-width: 700px) {
+  .nc-catalog-grid { grid-template-columns: 1fr; }
+  .nc-catalog-card { padding: 20px; }
+  .nc-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .nc-filters input, .nc-filters select, .nc-admin-root input, .nc-admin-root select, .nc-admin-root textarea { font-size: 16px; }
+  .nc-filter-field:last-child { grid-column: 1 / -1; }
+  .nc-lesson-header { padding: 25px 20px; }
+  .nc-watermark, .nc-lesson-footer { padding: 13px 20px; }
+  .nc-lesson-section { padding: 24px 20px; }
+  .nc-section-heading { flex-wrap: wrap; gap: 8px; }
+  .nc-section-heading h3 { min-width: 65%; }
+  .nc-section-time { margin-left: 26px; }
+  .nc-lesson-body { font-size: .9rem; line-height: 1.85; }
+  .nc-teacher-note { padding: 14px; }
+  .admin-header, .admin-header-actions { flex-wrap: wrap; }
+  .admin-header-actions { gap: 8px; }
+  .nc-admin-layout { grid-template-columns: 1fr; }
+  .nc-admin-sidebar { position: static; padding: 18px; }
+  .nc-admin-lesson-list { max-height: 240px; }
+  .nc-admin-editor { padding: 18px; }
+  .nc-form-row { grid-template-columns: 1fr; gap: 16px; }
+  .nc-editor-heading { align-items: flex-start; }
+  .nc-section-editor { padding: 16px 12px; }
+  .nc-editor-actions { gap: 8px; }
+  .nc-editor-actions .button { flex: 1 1 45%; padding: 10px 8px; }
+  .nc-admin-settings { padding: 20px; }
+  .nc-preview-dialog { width: calc(100vw - 20px); max-height: 95vh; padding: 15px; }
+}

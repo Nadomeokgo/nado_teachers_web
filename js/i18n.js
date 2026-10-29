@@ -4,6 +4,12 @@
   const STORAGE_KEY = "nado-ui-language";
   const SUPPORTED = new Set(["ko", "en"]);
   const translations = {
+  "학생의 수준과 목표에 맞는 수업을 찾고, 수업 내용과 진행 메모를 이곳에서 확인하세요.": "Find a lesson for your student's level and goals, and read its content and teaching notes here.",
+  "기존 수업 자료": "Existing materials",
+  "이전 중인 자료와 회원 전용 첨부 파일입니다.": "Materials being transferred and private attachments.",
+  "커리큘럼 관리": "Curriculum manager",
+  "내부 커리큘럼을 작성하고, 공지사항과 기존 수업 자료를 관리하세요.": "Write internal lessons and manage announcements and existing materials.",
+  "기존 자료·첨부 파일 관리": "Existing materials and attachments",
     
   // STEP1
   "가능 시간을 최신 상태로 유지하기": "Keep your availability up to date",
@@ -584,7 +590,7 @@
   function isUserAuthoredContent(element) {
     return Boolean(element?.closest?.(
       "#announcementList h4, #announcementList p, #announcementList .announcement-item strong, " +
-      "#resourceGrid h3, #resourceGrid p, " +
+      "#resourceGrid h3, #resourceGrid p, [data-curriculum-authored], " +
       ".assignment-student-name strong, .admin-assignment-person > strong, " +
       ".teacher-admin-profile strong, .teacher-admin-profile span, .teacher-admin-bio strong, .experience-value, .admin-memo, " +
       ".calendar-student-name, .calendar-teacher-name, .manager-item strong, .manager-item-en, " +
