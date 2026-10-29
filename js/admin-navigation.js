@@ -32,7 +32,12 @@
     }
 
     function setVisible(panel, visible) {
-      if (!visible) panel.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
+      if (!visible) {
+        panel.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
+        // Use the existing close action so its scroll lock and active record reset too.
+        const submissionModal = panel.querySelector("#failedSubmissionModal:not(.hidden)");
+        submissionModal?.querySelector("#failedSubmissionModalClose")?.click();
+      }
       panel.hidden = !visible;
       panel.toggleAttribute("inert", !visible);
       panel.setAttribute("aria-hidden", String(!visible));
