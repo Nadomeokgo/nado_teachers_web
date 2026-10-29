@@ -8,6 +8,8 @@
   const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
   const PROFILE_BIO_MAX_LENGTH = 500;
   const profileBioStates = new WeakMap();
+  const profileLanguageComposing = new WeakSet();
+  let profileLanguageFieldSequence = 0;
   const PROFILE_PHOTO_EXTENSIONS = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
   const EXPERIENCE_CATEGORIES = [
@@ -1053,11 +1055,119 @@
       : "한 줄 소개를 공백 포함 500자 이하로 줄여주세요.";
   }
 
+  function profileLanguageFields(scope) {
+    const fixed = ["Name", "School", "Major", "Bio"].map((suffix) => $(`${scope}${suffix}`)).filter(Boolean);
+    const experience = experienceSection(scope)?.querySelectorAll("[data-experience-field]") || [];
+    return [...fixed, ...experience];
+  }
+
+  function isProfileLanguageField(field) {
+    return Boolean(field && (/^(profile|onboarding)(Name|School|Major|Bio)$/.test(field.id || "")
+      || (field.dataset?.experienceField && field.closest('[data-experience-scope="profile"], [data-experience-scope="onboarding"]'))));
+  }
+
+  function profileLanguageMessage(field) {
+    const english = currentLanguage() === "en";
+    const key = field?.dataset?.experienceField || String(field?.id || "").replace(/^(profile|onboarding)/, "");
+    const labels = {
+      Name: ["이름", "Name"], School: ["학교", "School"], Major: ["전공", "Major"], Bio: ["한 줄 소개", "Introduction"],
+      organization: ["기관·회사·단체", "Organization"], role: ["역할·직책", "Role"],
+      period: ["활동 기간", "Period"], description: ["상세 내용", "Description"]
+    };
+    const label = labels[key]?.[english ? 1 : 0] || "";
+    if (window.NADO_PROFILE_LANGUAGE?.message) return window.NADO_PROFILE_LANGUAGE.message(label);
+    return english ? `${label ? `${label}: ` : ""}Please write in English using Latin letters.` : `${label ? `${label}: ` : ""}영문으로 작성해주세요.`;
+  }
+
+  function profileFieldValidationMessage(field) {
+    if (!isProfileLanguageField(field)) return "";
+    if (/Bio$/.test(field.id) && field.value.length > PROFILE_BIO_MAX_LENGTH) return profileBioLimitMessage();
+    const checker = window.NADO_PROFILE_LANGUAGE?.isEnglishText
+      || ((value) => [...String(value || "")].every((character) => !/\p{L}/u.test(character) || /\p{Script=Latin}/u.test(character)));
+    return checker(field.value) ? "" : profileLanguageMessage(field);
+  }
+
+  function updateProfileLanguageField(field) {
+    if (!isProfileLanguageField(field)) return "";
+    const message = profileFieldValidationMessage(field);
+    field.setCustomValidity(message);
+    field.classList.toggle("profile-language-invalid", Boolean(message));
+    if (message) field.setAttribute("aria-invalid", "true");
+    else field.removeAttribute("aria-invalid");
+    if (!field.id) field.id = `profileLanguageField-${++profileLanguageFieldSequence}`;
+    const errorId = `${field.id}LanguageError`;
+    let error = $(errorId);
+    if (message && !error) {
+      error = document.createElement("small");
+      error.id = errorId;
+      error.className = "profile-language-error";
+      error.setAttribute("aria-live", "polite");
+      field.insertAdjacentElement("afterend", error);
+    }
+    if (error) {
+      error.textContent = message;
+      error.hidden = !message;
+      const descriptions = new Set(String(field.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean));
+      if (message) descriptions.add(errorId);
+      else descriptions.delete(errorId);
+      if (descriptions.size) field.setAttribute("aria-describedby", [...descriptions].join(" "));
+      else field.removeAttribute("aria-describedby");
+    }
+    return message;
+  }
+
+  function refreshProfileLanguageValidation(scope) {
+    const scopes = scope ? [scope] : ["profile", "onboarding"];
+    scopes.forEach((currentScope) => profileLanguageFields(currentScope).forEach((field) => {
+      if (!profileLanguageComposing.has(field)) updateProfileLanguageField(field);
+    }));
+  }
+
+  function validateProfileLanguage(scope) {
+    let firstInvalid = null;
+    profileLanguageFields(scope).forEach((field) => {
+      const message = updateProfileLanguageField(field);
+      if (message && !firstInvalid) firstInvalid = { field, message };
+    });
+    if (!firstInvalid) return true;
+    firstInvalid.field.focus();
+    showToast(firstInvalid.message, "error");
+    return false;
+  }
+
+  function initializeProfileLanguageValidation() {
+    ["profileForm", "onboardingForm"].forEach((id) => {
+      const form = $(id);
+      if (!form) return;
+      form.addEventListener("compositionstart", (event) => {
+        if (isProfileLanguageField(event.target)) profileLanguageComposing.add(event.target);
+      });
+      form.addEventListener("compositionend", (event) => {
+        if (!isProfileLanguageField(event.target)) return;
+        profileLanguageComposing.delete(event.target);
+        updateProfileLanguageField(event.target);
+      });
+      form.addEventListener("input", (event) => {
+        if (!isProfileLanguageField(event.target) || event.isComposing || profileLanguageComposing.has(event.target)) return;
+        updateProfileLanguageField(event.target);
+      });
+    });
+    refreshProfileLanguageValidation();
+  }
+
+  function reportProfileLanguageServerError(error, scope) {
+    if (error?.code !== "23514" || !/profile_english_only/i.test([error.message, error.details, error.hint].filter(Boolean).join(" "))) return false;
+    refreshProfileLanguageValidation(scope);
+    profileLanguageFields(scope).find((field) => profileFieldValidationMessage(field))?.focus();
+    showToast(profileLanguageMessage(), "error");
+    return true;
+  }
+
   function updateProfileBioCounter(field) {
     const count = field.value.length;
     const counter = $(`${field.id}Count`);
     const overLimit = count > PROFILE_BIO_MAX_LENGTH;
-    field.setCustomValidity(overLimit ? profileBioLimitMessage() : "");
+    updateProfileLanguageField(field);
     if (!counter) return;
     counter.textContent = currentLanguage() === "en"
       ? `${count} / ${PROFILE_BIO_MAX_LENGTH} characters · including spaces${overLimit ? " · Please shorten before saving." : ""}`
@@ -1147,10 +1257,10 @@
     return `<div class="experience-entry">
       <div class="experience-entry-head"><strong>경험 ${index + 1}</strong><button class="button ghost small danger-text" type="button" data-remove-experience="${index}" aria-label="경험 ${index + 1} 삭제">삭제</button></div>
       <div class="experience-entry-fields">
-        <label>기관·회사·단체<input data-experience-field="organization" type="text" maxlength="120" value="${escapeHtml(entry.organization)}" placeholder="예: 나도" /></label>
-        <label>역할·직책<input data-experience-field="role" type="text" maxlength="120" value="${escapeHtml(entry.role)}" placeholder="예: 영어 회화 튜터" /></label>
-        <label>활동 기간<input data-experience-field="period" type="text" maxlength="80" value="${escapeHtml(entry.period)}" placeholder="예: 2025.03–2026.08" /></label>
-        <label class="experience-description">상세 내용<textarea data-experience-field="description" rows="3" maxlength="600" placeholder="담당한 일과 성과를 간단히 적어주세요.">${escapeHtml(entry.description)}</textarea></label>
+        <label>기관·회사·단체<input data-experience-field="organization" type="text" maxlength="120" value="${escapeHtml(entry.organization)}" placeholder="e.g. NADO" /></label>
+        <label>역할·직책<input data-experience-field="role" type="text" maxlength="120" value="${escapeHtml(entry.role)}" placeholder="e.g. English conversation tutor" /></label>
+        <label>활동 기간<input data-experience-field="period" type="text" maxlength="80" value="${escapeHtml(entry.period)}" placeholder="e.g. Mar 2025–Aug 2026" /></label>
+        <label class="experience-description">상세 내용<textarea data-experience-field="description" rows="3" maxlength="600" placeholder="Describe your responsibilities and achievements in English.">${escapeHtml(entry.description)}</textarea></label>
       </div>
     </div>`;
   }
@@ -1167,6 +1277,7 @@
           ? experience[key].map(experienceEntryMarkup).join("")
           : '<p class="experience-empty">등록된 경험이 없습니다.</p>'}</div>
       </div>`).join("");
+    refreshProfileLanguageValidation(scope);
   }
 
   function collectExperience(scope) {
@@ -1532,6 +1643,7 @@
       showToast(profileBioLimitMessage(), "error");
       return false;
     }
+    if (!validateProfileLanguage(fieldIds === onboardingFieldIds ? "onboarding" : "profile")) return false;
     const missingKey = Object.keys(profileFieldLabels).find((key) => !payload[key]);
     if (missingKey) {
       $(fieldIds[missingKey]).focus();
@@ -1576,6 +1688,7 @@
     event.preventDefault();
     const form = $("profileForm");
     const button = event.submitter || form.querySelector('button[type="submit"]');
+    if (!validateProfileLanguage("profile")) return;
     const payload = collectProfilePayload(profileFieldIds);
     const selectedPhotoFile = pendingProfilePhotoFile;
     if (!validateProfilePayload(payload, profileFieldIds)) return;
@@ -1608,6 +1721,7 @@
         : "내 정보가 저장되었습니다.");
     } catch (error) {
       console.error("Profile update failed:", error);
+      if (reportProfileLanguageServerError(error, "profile")) return;
       const missingColumn = /bank_name|account_number|kakao_id|profile_completed_at|profile_photo_path|experience/i.test(error?.message || "");
       showToast(
         missingColumn
@@ -1624,6 +1738,7 @@
     event.preventDefault();
     const form = $("onboardingForm");
     const button = event.submitter || form.querySelector('button[type="submit"]');
+    if (!validateProfileLanguage("onboarding")) return;
     const basePayload = collectProfilePayload(onboardingFieldIds);
     if (!validateProfilePayload(basePayload, onboardingFieldIds)) return;
     if (!validateExperience("onboarding")) return;
@@ -1667,6 +1782,10 @@
       applySavedProfile(completedProfile);
     } catch (error) {
       console.error("Profile onboarding failed:", error);
+      if (reportProfileLanguageServerError(error, "onboarding")) {
+        setLoading(button, false, onboardingSubmitLabel());
+        return;
+      }
       const missingColumn = /profile_completed_at|experience/i.test(error?.message || "");
       showToast(
         missingColumn
@@ -2156,8 +2275,10 @@ function loadGuideChecks() {
     $("resetPasswordButton").addEventListener("click", resetPassword);
     initializePayGuide();
     initializeProfileBioLimits();
+    initializeProfileLanguageValidation();
   document.addEventListener("nado:languagechange", () => {
     refreshProfileBioCounters();
+    refreshProfileLanguageValidation();
     renderScheduleOnboarding();
     const onboardingButton = $("onboardingForm")?.querySelector('button[type="submit"]');
     if (onboardingButton && !onboardingButton.disabled) onboardingButton.textContent = onboardingSubmitLabel();

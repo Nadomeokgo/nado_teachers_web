@@ -14,7 +14,7 @@
   <title>나도 Teachers</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=20261028-schedule-onboarding-v1" />
+  <link rel="stylesheet" href="css/style.css?v=20261029-profile-english-v1" />
   <link rel="stylesheet" href="css/curriculum.css?v=20261029-curriculum-v1" />
 </head>
 <body>
@@ -181,6 +181,10 @@
         </div>
 
         <form id="onboardingForm" class="profile-form onboarding-form">
+          <div class="profile-language-notice full-field" role="note">
+            <strong>프로필은 영어로 작성해주세요.</strong>
+            <p>이름·학교·전공·한 줄 소개·경험 및 활동은 영어로 입력해주세요. 연락처와 정산 정보는 실제 사용하는 정보로 입력하면 됩니다.</p>
+          </div>
           <div class="profile-photo-field full-field">
             <div class="profile-photo-preview" aria-hidden="true">
               <img id="onboardingPhotoImage" alt="프로필 사진 미리보기" hidden />
@@ -202,15 +206,15 @@
           </div>
           <label>
             <span class="field-label">이름 <b class="required-mark">*</b></span>
-            <input id="onboardingName" type="text" maxlength="50" autocomplete="name" required />
+            <input id="onboardingName" type="text" maxlength="50" autocomplete="name" lang="en" placeholder="e.g. Junseo Kim" required />
           </label>
           <label>
             <span class="field-label">학교 <b class="required-mark">*</b></span>
-            <input id="onboardingSchool" type="text" maxlength="100" placeholder="George Mason University Korea" autocomplete="organization" required />
+            <input id="onboardingSchool" type="text" maxlength="100" placeholder="George Mason University Korea" autocomplete="organization" lang="en" required />
           </label>
           <label>
             <span class="field-label">전공 <b class="required-mark">*</b></span>
-            <input id="onboardingMajor" type="text" maxlength="100" placeholder="Economics" required />
+            <input id="onboardingMajor" type="text" maxlength="100" placeholder="Economics" lang="en" required />
           </label>
           <label>
             <span class="field-label">휴대전화 <b class="required-mark">*</b></span>
@@ -230,7 +234,7 @@
           </label>
           <label class="full-field">
             <span class="field-label">한 줄 소개 <b class="required-mark">*</b></span>
-            <textarea id="onboardingBio" rows="4" maxlength="500" aria-describedby="onboardingBioCount" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
+            <textarea id="onboardingBio" rows="4" maxlength="500" aria-describedby="onboardingBioCount" lang="en" placeholder="Introduce yourself to students in English." required></textarea>
             <small id="onboardingBioCount" class="profile-bio-count" aria-live="polite">0 / 500자 · 공백 포함</small>
           </label>
           <section class="experience-section full-field" data-experience-scope="onboarding" aria-label="경험 및 활동">
@@ -242,7 +246,7 @@
           </section>
           <div class="profile-publication-notice full-field" role="note">
             <strong>프로필 공개 안내</strong>
-            <p>프로필 사진과 한 줄 소개는 서비스 소개 및 매칭을 위해 나도 웹사이트에 게시될 수 있습니다. 한 줄 소개는 한국어 또는 영어 중 편한 언어로 작성해주세요.</p>
+            <p>프로필 사진과 한 줄 소개는 서비스 소개 및 매칭을 위해 나도 웹사이트에 게시될 수 있습니다. 한 줄 소개는 영어로 작성해주세요.</p>
           </div>
           <div class="profile-payment-warning full-field" role="note">
             <strong>정산 계좌를 정확히 확인해주세요.</strong>
@@ -821,6 +825,10 @@
               <span class="required-note"><b>*</b> 필수 입력</span>
             </div>
             <form id="profileForm" class="profile-form">
+              <div class="profile-language-notice full-field" role="note">
+                <strong>프로필은 영어로 작성해주세요.</strong>
+                <p>이름·학교·전공·한 줄 소개·경험 및 활동은 영어로 입력해주세요. 연락처와 정산 정보는 실제 사용하는 정보로 입력하면 됩니다.</p>
+              </div>
               <div class="profile-photo-field full-field">
                 <div class="profile-photo-preview">
                   <img id="profilePhotoImage" alt="프로필 사진 미리보기" hidden />
@@ -841,15 +849,15 @@
               </div>
               <label>
                 <span class="field-label">이름 <b class="required-mark">*</b></span>
-                <input id="profileName" type="text" maxlength="50" autocomplete="name" required />
+                <input id="profileName" type="text" maxlength="50" autocomplete="name" lang="en" placeholder="e.g. Junseo Kim" required />
               </label>
               <label>
                 <span class="field-label">학교 <b class="required-mark">*</b></span>
-                <input id="profileSchool" type="text" maxlength="100" placeholder="George Mason University Korea" autocomplete="organization" required />
+                <input id="profileSchool" type="text" maxlength="100" placeholder="George Mason University Korea" autocomplete="organization" lang="en" required />
               </label>
               <label>
                 <span class="field-label">전공 <b class="required-mark">*</b></span>
-                <input id="profileMajor" type="text" maxlength="100" placeholder="Economics" required />
+                <input id="profileMajor" type="text" maxlength="100" placeholder="Economics" lang="en" required />
               </label>
               <label>
                 <span class="field-label">휴대전화 <b class="required-mark">*</b></span>
@@ -869,7 +877,7 @@
               </label>
               <label class="full-field">
                 <span class="field-label">한 줄 소개 <b class="required-mark">*</b></span>
-                <textarea id="profileBio" rows="4" maxlength="500" aria-describedby="profileBioCount" placeholder="학생들에게 보여줄 간단한 소개를 작성해주세요." required></textarea>
+                <textarea id="profileBio" rows="4" maxlength="500" aria-describedby="profileBioCount" lang="en" placeholder="Introduce yourself to students in English." required></textarea>
                 <small id="profileBioCount" class="profile-bio-count" aria-live="polite">0 / 500자 · 공백 포함</small>
               </label>
               <section class="experience-section full-field" data-experience-scope="profile" aria-label="경험 및 활동">
@@ -881,7 +889,7 @@
               </section>
               <div class="profile-publication-notice full-field" role="note">
                 <strong>프로필 공개 안내</strong>
-                <p>프로필 사진과 한 줄 소개는 서비스 소개 및 매칭을 위해 나도 웹사이트에 게시될 수 있습니다. 한 줄 소개는 한국어 또는 영어 중 편한 언어로 작성해주세요.</p>
+                <p>프로필 사진과 한 줄 소개는 서비스 소개 및 매칭을 위해 나도 웹사이트에 게시될 수 있습니다. 한 줄 소개는 영어로 작성해주세요.</p>
               </div>
               <div class="profile-payment-warning full-field" role="note">
                 <strong>정산 계좌를 정확히 확인해주세요.</strong>
@@ -907,10 +915,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20261027-teacher-workflow-v3"></script>
   <script src="js/pricing.js?v=20261028-trial-traits-v1"></script>
-  <script src="js/i18n.js?v=20261029-curriculum-v1"></script>
+  <script src="js/i18n.js?v=20261029-profile-english-v1"></script>
   <script src="js/curriculum-shared.js?v=20261029-curriculum-v1"></script>
   <script src="js/curriculum-reader.js?v=20261029-curriculum-v1"></script>
-  <script src="js/app.js?v=20261029-curriculum-v1"></script>
+  <script src="js/profile-language.js?v=20261029-profile-english-v1"></script>
+  <script src="js/app.js?v=20261029-profile-english-v1"></script>
   <script src="js/schedule-v6.js?v=20261028-schedule-onboarding-v1"></script>
 </body>
 </html>
