@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="css/style.css?v=20261029-profile-english-v1" />
   <link rel="stylesheet" href="css/admin-teacher-notes.css?v=20261028-trial-traits-v1" />
   <link rel="stylesheet" href="css/curriculum.css?v=20261029-curriculum-v1" />
+  <link rel="stylesheet" href="css/admin-navigation.css?v=20261029-admin-navigation-v1" />
 </head>
 <body class="admin-body">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -22,13 +23,27 @@
     <a class="logo" href="index.html"><img class="site-logo" src="assets/nado-logo.png" alt="NADO" /><span class="logo-text">Teachers Admin</span></a>
     <div class="admin-header-actions">
       <div class="language-slot language-slot-dark" data-nado-language-slot></div>
-      <a class="button ghost small" href="#curriculumAdminRoot">커리큘럼 관리</a>
+      <a class="button ghost small" href="#content-curriculum">커리큘럼 관리</a>
       <a class="button ghost small" href="index.html">선생님 화면</a>
       <button id="adminLogoutButton" class="button secondary small" type="button">로그아웃</button>
     </div>
   </header>
 
   <main class="admin-main">
+    <nav id="adminWorkspaceNav" class="admin-workspace-nav" aria-label="관리 영역 선택">
+      <div class="admin-workspace-tabs" role="tablist" aria-label="관리 영역">
+        <button id="adminTeachersTab" class="admin-workspace-tab" type="button" role="tab" data-admin-view="teachers" aria-selected="true" aria-controls="adminTeachersPanel">선생님 관리</button>
+        <button id="adminContentTab" class="admin-workspace-tab" type="button" role="tab" data-admin-view="content" aria-selected="false" aria-controls="adminContentPanel" tabindex="-1">사이트 콘텐츠</button>
+      </div>
+      <div id="adminContentTabs" class="admin-content-tabs" role="tablist" aria-label="콘텐츠 종류" hidden>
+        <button id="adminCurriculumTab" type="button" role="tab" data-admin-content="curriculum" aria-selected="true" aria-controls="curriculumAdminRoot">커리큘럼</button>
+        <button id="adminAnnouncementsTab" type="button" role="tab" data-admin-content="announcements" aria-selected="false" aria-controls="adminAnnouncementsPanel" tabindex="-1">공지사항</button>
+        <button id="adminResourcesTab" type="button" role="tab" data-admin-content="resources" aria-selected="false" aria-controls="adminResourcesPanel" tabindex="-1">자료·첨부 파일</button>
+        <button id="adminVideosTab" type="button" role="tab" data-admin-content="videos" aria-selected="false" aria-controls="adminVideosPanel" tabindex="-1">교육 영상</button>
+      </div>
+    </nav>
+
+    <section id="adminTeachersPanel" data-admin-panel="teachers" role="tabpanel" aria-labelledby="adminTeachersTab" tabindex="-1">
     <section class="page-intro admin-intro">
       <div>
         <p class="section-kicker">OPERATIONS DASHBOARD</p>
@@ -307,8 +322,9 @@
     <section id="adminTeacherList" class="admin-teacher-list">
       <article class="panel skeleton-card"></article>
     </section>
+    </section>
 
-    <section class="admin-content-section">
+    <section id="adminContentPanel" class="admin-content-section" data-admin-panel="content" role="tabpanel" aria-labelledby="adminContentTab" tabindex="-1" hidden>
       <div class="page-intro admin-content-title">
         <div>
           <p class="section-kicker">CONTENT MANAGEMENT</p>
@@ -317,10 +333,10 @@
         </div>
       </div>
 
-      <section id="curriculumAdminRoot" class="nc-admin-root" aria-label="내부 커리큘럼 관리"></section>
+      <section id="curriculumAdminRoot" class="nc-admin-root" data-admin-content-panel="curriculum" role="tabpanel" aria-labelledby="adminCurriculumTab" tabindex="-1"></section>
 
       <div class="admin-content-grid">
-        <article class="panel content-manager-card">
+        <article id="adminAnnouncementsPanel" class="panel content-manager-card" data-admin-content-panel="announcements" role="tabpanel" aria-labelledby="adminAnnouncementsTab" tabindex="-1" hidden>
           <h3>공지사항 등록</h3>
           <form id="announcementForm" class="manager-form">
             <label>한국어 제목<input id="announcementTitle" type="text" maxlength="120" required /></label>
@@ -336,7 +352,7 @@
           <div id="adminAnnouncementList" class="manager-list"></div>
         </article>
 
-        <article class="panel content-manager-card">
+        <article id="adminResourcesPanel" class="panel content-manager-card" data-admin-content-panel="resources" role="tabpanel" aria-labelledby="adminResourcesTab" tabindex="-1" hidden>
           <h3>기존 자료·첨부 파일 관리</h3>
           <form id="resourceForm" class="manager-form">
             <label>한국어 자료 제목<input id="resourceTitle" type="text" maxlength="120" required /></label>
@@ -358,7 +374,7 @@
           <div id="adminResourceList" class="manager-list"></div>
         </article>
 
-        <article class="panel content-manager-card">
+        <article id="adminVideosPanel" class="panel content-manager-card" data-admin-content-panel="videos" role="tabpanel" aria-labelledby="adminVideosTab" tabindex="-1" hidden>
           <h3>교육 영상 등록</h3>
           <form id="videoForm" class="manager-form">
             <label>한국어 영상 제목<input id="videoTitle" type="text" maxlength="120" required /></label>
@@ -383,7 +399,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js?v=20261027-teacher-workflow-v3"></script>
   <script src="js/pricing.js?v=20261028-trial-traits-v1"></script>
-  <script src="js/i18n.js?v=20261029-profile-english-v1"></script>
+  <script src="js/i18n.js?v=20261029-admin-navigation-v1"></script>
+  <script src="js/admin-navigation.js?v=20261029-admin-navigation-v1"></script>
   <script src="js/curriculum-shared.js?v=20261029-curriculum-v1"></script>
   <script src="js/curriculum-admin.js?v=20261029-curriculum-v1"></script>
   <script src="js/admin.js?v=20261029-curriculum-v1"></script>

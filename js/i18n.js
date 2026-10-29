@@ -4,6 +4,13 @@
   const STORAGE_KEY = "nado-ui-language";
   const SUPPORTED = new Set(["ko", "en"]);
   const translations = {
+  "관리 영역 선택": "Choose management area",
+  "관리 영역": "Management area",
+  "선생님 관리": "Teacher Management",
+  "사이트 콘텐츠": "Site Content",
+  "콘텐츠 종류": "Content type",
+  "공지사항": "Notices",
+  "자료·첨부 파일": "Materials & Files",
   "학생의 수준과 목표에 맞는 수업을 찾고, 수업 내용과 진행 메모를 이곳에서 확인하세요.": "Find a lesson for your student's level and goals, and read its content and teaching notes here.",
   "기존 수업 자료": "Existing materials",
   "이전 중인 자료와 회원 전용 첨부 파일입니다.": "Materials being transferred and private attachments.",

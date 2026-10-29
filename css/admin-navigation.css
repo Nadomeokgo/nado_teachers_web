@@ -1,0 +1,101 @@
+.admin-workspace-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: -12px 0 28px;
+  padding: 12px 0;
+  background: var(--page);
+  border-bottom: 1px solid #dce5ee;
+}
+
+.admin-workspace-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid #d9e4ee;
+  border-radius: 14px;
+  background: #e7eef5;
+}
+
+.admin-workspace-tab {
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  color: #48647e;
+  background: transparent;
+  font: inherit;
+  font-size: .95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-workspace-tab[aria-selected="true"] {
+  background: var(--navy);
+  color: white;
+  box-shadow: 0 2px 6px #16324f14;
+}
+
+.admin-content-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin-content-tabs button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid #d7e2ed;
+  border-radius: 10px;
+  color: #49647e;
+  background: white;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-content-tabs button[aria-selected="true"] {
+  border-color: #b7d4f0;
+  background: #eaf4ff;
+  color: #185b9c;
+}
+
+.admin-workspace-tab:focus-visible,
+.admin-content-tabs button:focus-visible {
+  outline: 3px solid #4a90e2;
+  outline-offset: 3px;
+}
+
+/* Keep hidden panels out of layout even when their original styles use grid. */
+[data-admin-panel][hidden],
+[data-admin-content-panel][hidden],
+#adminContentTabs[hidden] { display: none !important; }
+
+#adminContentPanel { margin-top: 0; padding-top: 0; border-top: 0; }
+#adminContentPanel .admin-content-grid { grid-template-columns: minmax(0, 1fr); }
+#adminContentPanel .content-manager-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .9fr);
+  column-gap: 28px;
+  align-items: start;
+}
+#adminContentPanel .content-manager-card > h3 { grid-column: 1 / -1; }
+#adminContentPanel .content-manager-card > .manager-list {
+  margin-top: 0;
+  padding: 0 0 0 24px;
+  border-top: 0;
+  border-left: 1px solid #e5ebf1;
+}
+
+@media (max-width: 760px) {
+  .admin-header-actions { flex: 1 1 100%; flex-wrap: wrap; }
+  .admin-workspace-nav { margin-top: -8px; margin-bottom: 22px; padding: 8px 0; }
+  .admin-workspace-tab { min-height: 44px; padding-inline: 8px; font-size: .85rem; }
+  .admin-content-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+  .admin-content-tabs button { padding: 8px; font-size: .78rem; }
+  #adminContentPanel .content-manager-card { grid-template-columns: minmax(0, 1fr); }
+  #adminContentPanel .content-manager-card > .manager-list { margin-top: 22px; padding: 22px 0 0; border-left: 0; border-top: 1px solid #e5ebf1; }
+}
