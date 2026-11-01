@@ -27,13 +27,16 @@
   let user=null,activeLocation='송도',activeArea='',catalog=[],selectedAreas=new Set(),dirty=false,slots=Array.from({length:7},()=>new Set());
   let dragState=null,dragPointer={x:0,y:0},dragScrollFrame=0,suppressTimeClick=false;
   let busy=false,scheduleReady=false,focusedCell={day:1,time:START};
+  let authGeneration=0,authEventVersion=0,authSuspended=false;
+  const userContext=()=>({generation:authGeneration,userId:user?.id});
+  const isCurrent=context=>!!context?.userId&&context.generation===authGeneration&&context.userId===user?.id;
   const en=()=>window.NADO_I18N?.getLanguage?.()==='en';
   const tr=(ko,enText)=>en()?enText:ko;
   const esc=(v='')=>String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const areaKey=(location,area)=>JSON.stringify([location,area]);
   const activeDescriptor=()=>catalog.find(a=>a.key===activeArea);
   const areaQuery=(query,area)=>area.code===null?query.is('service_area',null):query.eq('service_area',area.code);
-  const notifySaved=(area,rowCount)=>document.dispatchEvent(new CustomEvent('nado:schedule-saved',{detail:{teacherId:user.id,location:area.location,serviceArea:area.code,rowCount}}));
+  const notifySaved=(teacherId,area,rowCount)=>document.dispatchEvent(new CustomEvent('nado:schedule-saved',{detail:{teacherId,location:area.location,serviceArea:area.code,rowCount}}));
   const needsArea=()=>true;
   function areaLabel(a){
     if(a.code===null)return a.location==='IGC & 트스'?tr('IGC·트리플스트리트 공통 시간 (기존)','IGC / Triple Street shared times (existing)'):tr(`${a.location} 공통 시간 (기존)`,`${a.location==='서울'?'Seoul':'Songdo'} shared times (existing)`);
@@ -58,21 +61,23 @@
     if(!arr.some(a=>a.key===activeArea))activeArea=arr[0].key;
     sel.innerHTML=arr.map(a=>`<option value="${esc(a.key)}">${esc(areaLabel(a))}</option>`).join('');sel.value=activeArea;
   }
-  async function loadAreas(){
-    if(!user){catalog=[];selectedAreas=new Set();renderAreas();return}
-    const groups=STORAGE_GROUPS[activeLocation]||STORAGE_GROUPS['송도'];
+  async function loadAreas(context=userContext()){
+    if(!isCurrent(context))return;
+    const location=activeLocation,groups=STORAGE_GROUPS[location]||STORAGE_GROUPS['송도'];
     const results=await Promise.all(groups.map(async group=>{
       const [areas,availability]=await Promise.all([
-        client.from('teacher_service_areas').select('area,active,region').eq('teacher_id',user.id).eq('region',group.region),
-        client.from('availability').select('service_area').eq('teacher_id',user.id).eq('location',group.location)
+        client.from('teacher_service_areas').select('area,active,region').eq('teacher_id',context.userId).eq('region',group.region),
+        client.from('availability').select('service_area').eq('teacher_id',context.userId).eq('location',group.location)
       ]);
       if(areas.error)throw areas.error;if(availability.error)throw availability.error;
       return {...group,mine:areas.data||[],saved:availability.data||[]};
     }));
+    if(!isCurrent(context)||activeLocation!==location)return;
     // Older profiles used Incheon for places whose availability is stored as 송도.
     // Keep those records associated with their existing schedule, without moving them.
-    if(activeLocation==='송도'){
-      const legacy=await client.from('teacher_service_areas').select('area,active,region').eq('teacher_id',user.id).eq('region','Incheon');
+    if(location==='송도'){
+      const legacy=await client.from('teacher_service_areas').select('area,active,region').eq('teacher_id',context.userId).eq('region','Incheon');
+      if(!isCurrent(context)||activeLocation!==location)return;
       if(legacy.error)throw legacy.error;
       const songdo=results.find(group=>group.location==='송도');
       const savedAreas=new Set(songdo.saved.map(row=>row.service_area));
@@ -101,7 +106,7 @@
     let html=`<div class="nado-weekly-corner">${tr('시간','Time')}</div>`+ORDER.map(d=>`<div class="nado-weekly-day">${en()?DEN[d]:DKO[d]}</div>`).join('');
     for(let m=START;m<END;m+=STEP){
       html+=`<div class="nado-weekly-time-label${m%60===0?' hour':''}">${showTime(m)}</div>`;
-      html+=ORDER.map(d=>`<button type="button" class="nado-weekly-cell${m%60===0?' hour':''}${slots[d].has(m)?' selected':''}" data-v6-day="${d}" data-v6-time="${m}" aria-label="${esc(slotLabel(d,m))}" aria-pressed="${slots[d].has(m)}" tabindex="${focusedCell.day===d&&focusedCell.time===m?'0':'-1'}" ${busy||!scheduleReady?'disabled':''}></button>`).join('');
+      html+=ORDER.map(d=>`<button type="button" class="nado-weekly-cell${m%60===0?' hour':''}${slots[d].has(m)?' selected':''}" data-v6-day="${d}" data-v6-time="${m}" aria-label="${esc(slotLabel(d,m))}" aria-pressed="${slots[d].has(m)}" tabindex="${focusedCell.day===d&&focusedCell.time===m?'0':'-1'}" ${busy||!user||!scheduleReady?'disabled':''}></button>`).join('');
     }
     w.innerHTML=html;
   }
@@ -123,15 +128,15 @@
       const d=Number(button.dataset.v6Day),m=Number(button.dataset.v6Time),selected=slots[d].has(m);
       button.classList.toggle('selected',selected);button.setAttribute('aria-pressed',String(selected));
       button.tabIndex=focusedCell.day===d&&focusedCell.time===m?0:-1;
-      button.disabled=busy||!scheduleReady;
+      button.disabled=busy||!user||!scheduleReady;
     });
   }
   function setBusy(value){
     busy=value;
-    document.querySelectorAll('#nadoScheduleV6 button, #nadoScheduleV6 input, #nadoScheduleV6 select, #clearScheduleButton, #saveScheduleButton').forEach(el=>el.disabled=value);
+    document.querySelectorAll('#nadoScheduleV6 button, #nadoScheduleV6 input, #nadoScheduleV6 select, #scheduleLocation, #clearScheduleButton, #saveScheduleButton').forEach(el=>el.disabled=value||!user);
     syncTimeButtons();
-    if($('saveScheduleButton'))$('saveScheduleButton').disabled=value||!scheduleReady;
-    if($('clearScheduleButton'))$('clearScheduleButton').disabled=value||!scheduleReady;
+    if($('saveScheduleButton'))$('saveScheduleButton').disabled=value||!user||!scheduleReady;
+    if($('clearScheduleButton'))$('clearScheduleButton').disabled=value||!user||!scheduleReady;
   }
   function cloneSlots(source=slots){return source.map(day=>new Set(day))}
   function applyDragRange(day,current){
@@ -201,40 +206,44 @@
   }
   function endTimeDrag(event){if(!dragState||event.pointerId!==dragState.pointerId)return;event.preventDefault();finishTimeDrag(event.type==='pointercancel')}
   function renderPicker(){renderTimes();renderStatus()}
-  async function loadSchedule(){
+  async function loadSchedule(context=userContext()){
+    if(!isCurrent(context))return;
     finishTimeDrag(true);scheduleReady=false;
     const area=activeDescriptor();
-    if(!user||!area){reset();renderPicker();setDirty(false);return}
-    let q=areaQuery(client.from('availability').select('day_of_week,start_time,end_time').eq('teacher_id',user.id).eq('location',area.location),area);
+    if(!area){reset();renderPicker();setDirty(false);return}
+    let q=areaQuery(client.from('availability').select('day_of_week,start_time,end_time').eq('teacher_id',context.userId).eq('location',area.location),area);
     const {data,error}=await q.order('day_of_week').order('start_time');
+    if(!isCurrent(context)||activeArea!==area.key)return;
     if(error){reset();renderPicker();return toast('스케줄을 불러오지 못했습니다. 페이지를 새로고침해주세요.','Could not load schedule. Please refresh the page.','error')}
     reset();
     (data||[]).forEach(r=>{const d=Number(r.day_of_week),s=Math.max(START,t2m(r.start_time)),e=Math.min(END,t2m(r.end_time));if(!Number.isInteger(d)||d<0||d>6||!Number.isFinite(s)||!Number.isFinite(e)||e<=s)return;for(let m=s;m<e;m+=STEP)slots[d].add(m)});
     scheduleReady=true;renderPicker();setDirty(false);
   }
   function rangesForDay(d){const arr=[...slots[d]].sort((a,b)=>a-b);if(!arr.length)return[];const out=[];let s=arr[0],p=arr[0];for(let i=1;i<arr.length;i++){const c=arr[i];if(c!==p+STEP){out.push({start:s,end:p+STEP});s=c}p=c}out.push({start:s,end:Math.min(END,p+STEP)});return out}
-  function payload(){const area=activeDescriptor(),out=[];for(let d=0;d<7;d++)rangesForDay(d).forEach(r=>out.push({teacher_id:user.id,day_of_week:d,start_time:m2t(r.start),end_time:m2t(r.end),location:area.location,service_area:area.code,memo:''}));return out}
+  function payload(teacherId,area){const out=[];for(let d=0;d<7;d++)rangesForDay(d).forEach(r=>out.push({teacher_id:teacherId,day_of_week:d,start_time:m2t(r.start),end_time:m2t(r.end),location:area.location,service_area:area.code,memo:''}));return out}
   function canDiscard(){return !dirty||confirm(tr('저장하지 않은 시간 변경사항이 있습니다. 변경사항을 버리고 이동할까요?','You have unsaved time changes. Discard them and continue?'))}
   async function save(){
     if(busy||!scheduleReady||!user)return;
     const area=activeDescriptor();if(!area)return toast('먼저 세부 가능 지역을 선택해주세요.','Select a detailed area first.','error');
-    finishTimeDrag(false);const rows=payload(),btn=$('saveScheduleButton');setBusy(true);
+    const context=userContext();finishTimeDrag(false);const rows=payload(context.userId,area),btn=$('saveScheduleButton');setBusy(true);
     if(btn)btn.textContent=tr('저장 중...','Saving...');
     try{
-      const del=areaQuery(client.from('availability').delete().eq('teacher_id',user.id).eq('location',area.location),area);
-      const {error:e1}=await del;if(e1)throw e1;
-      if(rows.length){const {error:e2}=await client.from('availability').insert(rows);if(e2)throw e2}
-      setDirty(false);toast('가능 시간이 저장되었습니다.','Availability saved.');notifySaved(area,rows.length);
-    }catch(e){console.error(e);toast('저장에 실패했습니다. 다시 저장해주세요.','Failed to save. Please try saving again.','error')}
-    finally{setBusy(false);if(btn)btn.textContent=tr('저장','Save')}
+      const del=areaQuery(client.from('availability').delete().eq('teacher_id',context.userId).eq('location',area.location),area);
+      const {error:e1}=await del;if(!isCurrent(context))return;if(e1)throw e1;
+      if(rows.length){const {error:e2}=await client.from('availability').insert(rows);if(!isCurrent(context))return;if(e2)throw e2}
+      setDirty(false);toast('가능 시간이 저장되었습니다.','Availability saved.');notifySaved(context.userId,area,rows.length);
+    }catch(e){if(isCurrent(context)){console.error(e);toast('저장에 실패했습니다. 다시 저장해주세요.','Failed to save. Please try saving again.','error')}}
+    finally{if(isCurrent(context)){setBusy(false);if(btn)btn.textContent=tr('저장','Save')}}
   }
-  async function activateArea(area){
-    if(area.code===null)return;
+  async function activateArea(area,context){
+    if(!isCurrent(context)||area.code===null)return;
     const regions=area.sourceRegions.length?area.sourceRegions:[area.region];
     for(const r of regions){
-      const {data:existing,error}=await client.from('teacher_service_areas').select('id').eq('teacher_id',user.id).eq('region',r).eq('area',area.code).limit(1);
+      const {data:existing,error}=await client.from('teacher_service_areas').select('id').eq('teacher_id',context.userId).eq('region',r).eq('area',area.code).limit(1);
+      if(!isCurrent(context))return;
       if(error)throw error;
-      const result=existing?.length?await client.from('teacher_service_areas').update({active:true}).eq('id',existing[0].id):await client.from('teacher_service_areas').insert({teacher_id:user.id,region:r,area:area.code,active:true});
+      const result=existing?.length?await client.from('teacher_service_areas').update({active:true}).eq('id',existing[0].id).eq('teacher_id',context.userId):await client.from('teacher_service_areas').insert({teacher_id:context.userId,region:r,area:area.code,active:true});
+      if(!isCurrent(context))return;
       if(result.error)throw result.error;
     }
   }
@@ -243,21 +252,21 @@
     if(busy||!user||!area){input.checked=!checked;return}
     const switchesArea=(checked&&key!==activeArea)||(!checked&&key===activeArea);
     if(switchesArea&&!canDiscard()){input.checked=!checked;return}
-    setBusy(true);
+    const context=userContext();setBusy(true);
     try{
       if(checked){
-        await activateArea(area);if(activeArea!==key)scheduleReady=false;activeArea=key;
+        await activateArea(area,context);if(!isCurrent(context))return;if(activeArea!==key)scheduleReady=false;activeArea=key;
       }else{
         if(area.code!==null)for(const r of area.sourceRegions.length?area.sourceRegions:[area.region]){
-          const {error}=await client.from('teacher_service_areas').delete().eq('teacher_id',user.id).eq('region',r).eq('area',area.code);if(error)throw error;
+          const {error}=await client.from('teacher_service_areas').delete().eq('teacher_id',context.userId).eq('region',r).eq('area',area.code);if(!isCurrent(context))return;if(error)throw error;
         }
-        const {error}=await areaQuery(client.from('availability').delete().eq('teacher_id',user.id).eq('location',area.location),area);if(error)throw error;
+        const {error}=await areaQuery(client.from('availability').delete().eq('teacher_id',context.userId).eq('location',area.location),area);if(!isCurrent(context))return;if(error)throw error;
         if(activeArea===key){scheduleReady=false;activeArea=''}
       }
-      await loadAreas();
-      if(activeArea!==previousArea||switchesArea)await loadSchedule();
-    }catch(e){input.checked=!checked;toast('가능 지역 변경에 실패했습니다.','Could not update area.','error')}
-    finally{setBusy(false)}
+      await loadAreas(context);if(!isCurrent(context))return;
+      if(activeArea!==previousArea||switchesArea)await loadSchedule(context);
+    }catch(e){if(isCurrent(context)){input.checked=!checked;toast('가능 지역 변경에 실패했습니다.','Could not update area.','error')}}
+    finally{if(isCurrent(context))setBusy(false)}
   }
   async function addArea(){
     if(busy||!user||!needsArea())return;
@@ -267,14 +276,16 @@
     const group=STORAGE_GROUPS[activeLocation][0];
     const area=catalog.find(a=>a.code===label)||{key:areaKey(group.location,label),code:label,label,location:group.location,region:group.region,sourceRegions:[]};
     if(area.key!==activeArea&&!canDiscard())return;
-    const previousArea=activeArea;setBusy(true);
+    const context=userContext(),previousArea=activeArea;setBusy(true);
     try{
-      await activateArea(area);
-      if(activeArea!==area.key)scheduleReady=false;activeArea=area.key;if(input)input.value='';await loadAreas();
-      if(activeArea!==previousArea)await loadSchedule();
+      await activateArea(area,context);if(!isCurrent(context))return;
+      if(activeArea!==area.key)scheduleReady=false;activeArea=area.key;if(input)input.value='';await loadAreas(context);
+      if(!isCurrent(context))return;
+      if(activeArea!==previousArea)await loadSchedule(context);
+      if(!isCurrent(context))return;
       toast('새 가능 장소가 추가되었습니다.','New location added.');
-    }catch(e){toast('장소 추가에 실패했습니다.','Could not add location.','error')}
-    finally{setBusy(false)}
+    }catch(e){if(isCurrent(context))toast('장소 추가에 실패했습니다.','Could not add location.','error')}
+    finally{if(isCurrent(context))setBusy(false)}
   }
   function applyLanguage(){
     if($('nadoTimeGrid'))$('nadoTimeGrid').setAttribute('aria-label',tr('요일별 수업 가능 시간','Weekly teaching availability'));
@@ -308,18 +319,18 @@
   async function switchLoc(v){
     const sel=$('scheduleLocation');
     v=v==='서울'?'서울':'송도';
-    if(busy||v===activeLocation){if(sel)sel.value=activeLocation;return}
+    if(busy||!user||v===activeLocation){if(sel)sel.value=activeLocation;return}
     if(!canDiscard()){if(sel)sel.value=activeLocation;renderLocations();return}
-    finishTimeDrag(true);activeLocation=v;activeArea='';setBusy(true);if(sel)sel.value=v;
-    try{await loadAreas();await loadSchedule();applyLanguage()}
-    catch(e){scheduleReady=false;toast('가능 장소를 불러오지 못했습니다. 다시 시도해주세요.','Could not load location. Please try again.','error')}
-    finally{setBusy(false)}
+    const context=userContext();finishTimeDrag(true);activeLocation=v;activeArea='';setBusy(true);if(sel)sel.value=v;
+    try{await loadAreas(context);if(!isCurrent(context))return;await loadSchedule(context);if(isCurrent(context))applyLanguage()}
+    catch(e){if(isCurrent(context)){scheduleReady=false;toast('가능 장소를 불러오지 못했습니다. 다시 시도해주세요.','Could not load location. Please try again.','error')}}
+    finally{if(isCurrent(context))setBusy(false)}
   }
   async function switchArea(value){
-    if(busy||value===activeArea){if($('nadoAreaSelect'))$('nadoAreaSelect').value=activeArea;return}
+    if(busy||!user||value===activeArea){if($('nadoAreaSelect'))$('nadoAreaSelect').value=activeArea;return}
     if(!canDiscard()){if($('nadoAreaSelect'))$('nadoAreaSelect').value=activeArea;return}
-    finishTimeDrag(true);activeArea=value;setBusy(true);
-    try{await loadSchedule()}finally{setBusy(false)}
+    const context=userContext();finishTimeDrag(true);activeArea=value;setBusy(true);
+    try{await loadSchedule(context)}finally{if(isCurrent(context))setBusy(false)}
   }
   function focusSlot(day,time){
     focusedCell={day,time};syncTimeButtons();
@@ -366,19 +377,44 @@
     });
     window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
     document.addEventListener('nado:languagechange',()=>setTimeout(()=>{finishTimeDrag(true);applyLanguage();setDirty(dirty);setBusy(busy)},30));
+    document.addEventListener('nado:teacher-signed-out',signedOut);
+  }
+  function clearUserState(){
+    // Invalidate all outstanding reads and every remaining step of a write.
+    authGeneration++;user=null;scheduleReady=false;
+    finishTimeDrag(true);stopDragScroll();suppressTimeClick=false;
+    reset();catalog=[];selectedAreas=new Set();activeArea='';activeLocation='송도';focusedCell={day:1,time:START};
+    if($('scheduleLocation'))$('scheduleLocation').value=activeLocation;
+    if($('nadoCustomAreaInput'))$('nadoCustomAreaInput').value='';
+    if($('saveScheduleButton'))$('saveScheduleButton').textContent=tr('저장','Save');
+    applyLanguage();setDirty(false);setBusy(false);
+  }
+  function signedOut(){authEventVersion++;authSuspended=true;clearUserState()}
+  function authChanged(event,session){
+    if(event==='SIGNED_OUT'||!session?.user){signedOut();return}
+    // A late refresh must not undo the app's explicit account-access teardown.
+    if(authSuspended&&event!=='SIGNED_IN')return;
+    authSuspended=false;
+    const version=++authEventVersion,nextUser=session.user;
+    if(user&&user.id!==nextUser.id)clearUserState();
+    // Supabase notifies under its Auth lock; start queries after the callback returns.
+    window.setTimeout(()=>{if(version===authEventVersion)initializeUser(nextUser)},0);
   }
   async function initializeUser(nextUser){
-    if(busy)return;user=nextUser;activeLocation=$('scheduleLocation')?.value==='서울'?'서울':'송도';setBusy(true);
-    try{await loadAreas();await loadSchedule();applyLanguage()}
-    catch(e){scheduleReady=false;toast('스케줄을 불러오지 못했습니다. 페이지를 새로고침해주세요.','Could not load schedule. Please refresh the page.','error')}
-    finally{setBusy(false)}
+    if(!nextUser?.id||user?.id===nextUser.id)return;
+    clearUserState();user=nextUser;const context=userContext();setBusy(true);
+    try{await loadAreas(context);if(!isCurrent(context))return;await loadSchedule(context);if(isCurrent(context))applyLanguage()}
+    catch(e){if(isCurrent(context)){scheduleReady=false;toast('스케줄을 불러오지 못했습니다. 페이지를 새로고침해주세요.','Could not load schedule. Please refresh the page.','error')}}
+    finally{if(isCurrent(context))setBusy(false)}
   }
   async function start(){
     for(let i=0;i<40&&!$('scheduleLocation');i++)await new Promise(r=>setTimeout(r,250));
     if(!installUI())return;events();setBusy(true);
-    const {data}=await client.auth.getUser();setBusy(false);
-    if(data?.user){await initializeUser(data.user);return}
-    client.auth.onAuthStateChange((_e,s)=>{if(s?.user)initializeUser(s.user)});
+    const version=authEventVersion;
+    client.auth.onAuthStateChange(authChanged);
+    const {data}=await client.auth.getUser();
+    if(version!==authEventVersion)return;
+    if(data?.user)await initializeUser(data.user);else signedOut();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

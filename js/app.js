@@ -307,6 +307,11 @@
 
   let currentUser = null;
   let profile = null;
+  let sessionGeneration = 0;
+  let accountAccessTimer = null;
+  let accountAccessCheck = null;
+  let inactiveSignOut = null;
+  const ACCOUNT_ACCESS_CHECK_MS = 30 * 1000;
   let slots = [];
   let assignments = [];
   let assignmentDateRefreshTimer = null;
@@ -329,6 +334,14 @@
   let profilePhotoPreviewObjectUrl = "";
   let onboardingPhotoPreviewObjectUrl = "";
   let currentProfilePhotoSignedUrl = "";
+  let currentProfilePhotoPath = "";
+  let currentProfilePhotoOwner = "";
+  let profilePhotoRefreshAt = 0;
+  let profilePhotoExpiresAt = 0;
+  let profilePhotoRefreshTimer = null;
+  let profilePhotoRefreshRequest = null;
+  let profilePhotoGeneration = 0;
+  let profilePhotoRecoveryAttempted = false;
 
   const $ = (id) => document.getElementById(id);
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -395,25 +408,117 @@
 
   async function createProfilePhotoSignedUrl(photoPath) {
     if (!photoPath) return "";
-    const { data, error } = await supabase.storage
-      .from(PROFILE_PHOTO_BUCKET)
-      .createSignedUrl(photoPath, PROFILE_PHOTO_SIGNED_URL_SECONDS);
-    if (error) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(PROFILE_PHOTO_BUCKET)
+        .createSignedUrl(photoPath, PROFILE_PHOTO_SIGNED_URL_SECONDS);
+      if (error) throw error;
+      return data?.signedUrl || "";
+    } catch (error) {
       console.warn("Profile photo signed URL failed:", error);
       return "";
     }
-    return data?.signedUrl || "";
   }
 
-  async function refreshProfilePhoto() {
-    currentProfilePhotoSignedUrl = await createProfilePhotoSignedUrl(profile?.profile_photo_path);
+  function resetProfilePhotoState() {
+    profilePhotoGeneration += 1;
+    clearTimeout(profilePhotoRefreshTimer);
+    profilePhotoRefreshTimer = null;
+    profilePhotoRefreshRequest = null;
+    currentProfilePhotoSignedUrl = "";
+    currentProfilePhotoPath = "";
+    currentProfilePhotoOwner = "";
+    profilePhotoRefreshAt = 0;
+    profilePhotoExpiresAt = 0;
+    profilePhotoRecoveryAttempted = false;
+  }
+
+  function renderSavedProfilePhoto() {
     updateTopbarPhoto(currentProfilePhotoSignedUrl);
-    renderPhotoPreview("profile", currentProfilePhotoSignedUrl);
-    renderPhotoPreview("onboarding", currentProfilePhotoSignedUrl);
-    setPhotoStatus("profile", profile?.profile_photo_path ? "현재 프로필 사진이 등록되어 있습니다." : "등록된 사진이 없습니다.");
-    setPhotoStatus("onboarding", profile?.profile_photo_path ? "현재 프로필 사진이 등록되어 있습니다." : "등록된 사진이 없습니다.");
+    const status = profile?.profile_photo_path ? "현재 프로필 사진이 등록되어 있습니다." : "등록된 사진이 없습니다.";
+    if (!pendingProfilePhotoFile) {
+      renderPhotoPreview("profile", currentProfilePhotoSignedUrl);
+      setPhotoStatus("profile", status);
+    }
+    if (!pendingOnboardingPhotoFile) {
+      renderPhotoPreview("onboarding", currentProfilePhotoSignedUrl);
+      setPhotoStatus("onboarding", status);
+    }
     const profileElements = photoElements("profile");
     if (profileElements.remove) profileElements.remove.disabled = !profile?.profile_photo_path;
+  }
+
+  function scheduleProfilePhotoRefresh() {
+    clearTimeout(profilePhotoRefreshTimer);
+    profilePhotoRefreshTimer = null;
+    if (!currentUser || !currentProfilePhotoPath) return;
+    profilePhotoRefreshTimer = setTimeout(() => {
+      profilePhotoRefreshTimer = null;
+      // Hidden tabs renew when visible again, before displaying an expired image.
+      if (!document.hidden) void refreshProfilePhotoIfNeeded();
+    }, Math.max(1000, profilePhotoRefreshAt - Date.now()));
+  }
+
+  async function refreshProfilePhoto({ recovery = false } = {}) {
+    const owner = currentUser?.id || "";
+    const path = profile?.profile_photo_path || "";
+    if (owner !== currentProfilePhotoOwner || path !== currentProfilePhotoPath) {
+      resetProfilePhotoState();
+      currentProfilePhotoOwner = owner;
+      currentProfilePhotoPath = path;
+    }
+    if (!owner || !path) {
+      renderSavedProfilePhoto();
+      return;
+    }
+    if (profilePhotoRefreshRequest) return profilePhotoRefreshRequest;
+    const generation = profilePhotoGeneration;
+    clearTimeout(profilePhotoRefreshTimer);
+    if (!recovery) profilePhotoRecoveryAttempted = false;
+    const request = (async () => {
+      const signedUrl = await createProfilePhotoSignedUrl(path);
+      if (generation !== profilePhotoGeneration || currentUser?.id !== owner || profile?.profile_photo_path !== path) return;
+      if (signedUrl) {
+        currentProfilePhotoSignedUrl = signedUrl;
+        profilePhotoExpiresAt = Date.now() + PROFILE_PHOTO_SIGNED_URL_SECONDS * 1000;
+        profilePhotoRefreshAt = profilePhotoExpiresAt - 10 * 60 * 1000;
+      } else {
+        if (recovery || Date.now() >= profilePhotoExpiresAt) currentProfilePhotoSignedUrl = "";
+        profilePhotoRefreshAt = Date.now() + 5 * 60 * 1000;
+      }
+      renderSavedProfilePhoto();
+      scheduleProfilePhotoRefresh();
+    })();
+    profilePhotoRefreshRequest = request;
+    try {
+      await request;
+    } finally {
+      if (profilePhotoRefreshRequest === request) profilePhotoRefreshRequest = null;
+    }
+  }
+
+  async function refreshProfilePhotoIfNeeded() {
+    if (!currentUser || !profile?.profile_photo_path) return;
+    if (currentProfilePhotoOwner !== currentUser.id || currentProfilePhotoPath !== profile.profile_photo_path || Date.now() >= profilePhotoRefreshAt) {
+      await refreshProfilePhoto();
+    }
+  }
+
+  function handleProfilePhotoError(scope) {
+    const image = scope === "topbar" ? $("userAvatarImage") : photoElements(scope).image;
+    const failedUrl = image?.getAttribute("src");
+    if (!failedUrl) return;
+    if (scope === "topbar") updateTopbarPhoto("");
+    else renderPhotoPreview(scope, "");
+    // Local upload previews never trigger requests for the saved photo.
+    if (failedUrl !== currentProfilePhotoSignedUrl || !currentProfilePhotoPath) return;
+    if (profilePhotoRecoveryAttempted) {
+      currentProfilePhotoSignedUrl = "";
+      renderSavedProfilePhoto();
+      return;
+    }
+    profilePhotoRecoveryAttempted = true;
+    void refreshProfilePhoto({ recovery: true });
   }
 
   function validateProfilePhotoFile(file) {
@@ -465,12 +570,16 @@
 
   async function uploadProfilePhotoFile(file) {
     if (!validateProfilePhotoFile(file)) throw new Error("Invalid profile photo file");
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
+    if (!userId) throw new Error("No signed-in account.");
     const extension = PROFILE_PHOTO_EXTENSIONS[file.type];
-    const newPath = `${currentUser.id}/profile-${Date.now()}.${extension}`;
+    const newPath = `${userId}/profile-${Date.now()}.${extension}`;
     const previousPath = profile?.profile_photo_path || "";
     const { error: uploadError } = await supabase.storage
       .from(PROFILE_PHOTO_BUCKET)
       .upload(newPath, file, { cacheControl: "3600", contentType: file.type, upsert: false });
+    if (!sessionIsCurrent(userId, generation)) throw new Error("The account session changed.");
     if (uploadError) throw uploadError;
 
     try {
@@ -485,6 +594,7 @@
       const { error: removeError } = await supabase.storage.from(PROFILE_PHOTO_BUCKET).remove([previousPath]);
       if (removeError) console.warn("Old profile photo cleanup failed:", removeError);
     }
+    if (!sessionIsCurrent(userId, generation)) return newPath;
     await refreshProfilePhoto();
     return newPath;
   }
@@ -492,6 +602,8 @@
 
   async function removeProfilePhoto() {
     if (!profile?.profile_photo_path) return;
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
     if (!window.confirm("등록된 프로필 사진을 삭제할까요?")) return;
     const button = $("profilePhotoRemoveButton");
     setLoading(button, true, "사진 삭제");
@@ -500,13 +612,14 @@
       const savedProfile = await persistProfile({ profile_photo_path: null, updated_at: new Date().toISOString() });
       profile = { ...profile, ...savedProfile, profile_photo_path: null };
       const { error: removeError } = await supabase.storage.from(PROFILE_PHOTO_BUCKET).remove([previousPath]);
+      if (!sessionIsCurrent(userId, generation)) return;
       if (removeError) console.warn("Profile photo file cleanup failed:", removeError);
-      currentProfilePhotoSignedUrl = "";
+      resetProfilePhotoState();
       clearSelectedProfilePhoto("profile");
-      updateTopbarPhoto("");
-      renderPhotoPreview("onboarding", "");
+      renderSavedProfilePhoto();
       showToast("프로필 사진이 삭제되었습니다.");
     } catch (error) {
+      if (!sessionIsCurrent(userId, generation)) return;
       console.error("Profile photo removal failed:", error);
       showToast("사진 삭제에 실패했습니다: " + (error?.message || "알 수 없는 오류"), "error");
     } finally {
@@ -649,7 +762,7 @@
 
   async function login(event) {
     event.preventDefault();
-    if (!checkConfiguration() || loginInProgress) return;
+    if (!checkConfiguration() || loginInProgress || inactiveSignOut) return;
 
     const form = $("loginForm");
     const button = event.submitter || form.querySelector('button[type="submit"]');
@@ -667,7 +780,7 @@
       await initializeSession(data.session);
     } catch (error) {
       console.error("Login failed:", error);
-      const message = error?.message?.toLowerCase().includes("invalid login credentials")
+      const message = isInactiveAccountError(error) ? inactiveAccountMessage() : error?.message?.toLowerCase().includes("invalid login credentials")
         ? "이메일 또는 비밀번호를 확인해주세요."
         : "로그인 중 오류가 발생했습니다. 새로고침 후 다시 시도해주세요.";
       showToast(message, "error");
@@ -689,6 +802,9 @@
   }
 
   function renderSignedOutState() {
+    sessionGeneration += 1;
+    stopAccountAccessMonitor();
+    resetProfilePhotoState();
     closeSidebar();
 
     const activeElement = document.activeElement;
@@ -696,6 +812,7 @@
 
     currentUser = null;
     profile = null;
+    document.dispatchEvent(new CustomEvent("nado:teacher-signed-out"));
     slots = [];
     assignments = [];
     if (assignmentDateRefreshTimer) clearTimeout(assignmentDateRefreshTimer);
@@ -713,8 +830,15 @@
     pendingProfilePhotoFile = null;
     pendingOnboardingPhotoFile = null;
     currentProfilePhotoSignedUrl = "";
-    revokePreviewUrl("profile");
-    revokePreviewUrl("onboarding");
+    clearSelectedProfilePhoto("profile");
+    clearSelectedProfilePhoto("onboarding");
+    renderSavedProfilePhoto();
+    $("agreementForm").classList.remove("is-submitting");
+    $("agreementForm").querySelectorAll(".agreement-check").forEach((input) => { input.disabled = false; });
+    $("agreementTeacherName").disabled = false;
+    setLoading($("agreementSubmitButton"), false, "동의 및 계약하기");
+    const onboardingButton = $("onboardingForm").querySelector('button[type="submit"]');
+    if (onboardingButton) setLoading(onboardingButton, false, onboardingSubmitLabel());
 
     document.body.classList.remove("onboarding-open", "agreement-open", "profile-usage-open");
     $("agreementView").classList.add("hidden");
@@ -737,6 +861,90 @@
 
     // hashchange를 다시 발생시키지 않고 로그인 주소로 정리합니다.
     history.replaceState(null, "", `${location.pathname}${location.search}`);
+  }
+
+  function inactiveAccountMessage() {
+    return currentLanguage() === "en"
+      ? "This teacher account has been deactivated. Please contact the NADO team."
+      : "비활성화된 선생님 계정입니다. 나도 운영팀에 문의해주세요.";
+  }
+
+  function isInactiveAccountError(error) {
+    return error?.code === "user_banned";
+  }
+
+  function isTeacherAccountInactive(value) {
+    return value?.role === "teacher" && (value.is_active === false
+      || (typeof value.account_status === "string" && value.account_status !== "active"));
+  }
+
+  function sessionIsCurrent(userId, generation) {
+    return Boolean(userId && currentUser?.id === userId && sessionGeneration === generation);
+  }
+
+  function stopAccountAccessMonitor() {
+    if (accountAccessTimer) window.clearTimeout(accountAccessTimer);
+    accountAccessTimer = null;
+    accountAccessCheck = null;
+  }
+
+  function scheduleAccountAccessCheck() {
+    if (accountAccessTimer) window.clearTimeout(accountAccessTimer);
+    accountAccessTimer = null;
+    if (!currentUser || profile?.role !== "teacher") return;
+    accountAccessTimer = window.setTimeout(() => {
+      accountAccessTimer = null;
+      if (document.hidden) scheduleAccountAccessCheck();
+      else checkAccountAccess();
+    }, ACCOUNT_ACCESS_CHECK_MS);
+  }
+
+  async function endInactiveSession() {
+    if (inactiveSignOut) return inactiveSignOut;
+    renderSignedOutState();
+    showToast(inactiveAccountMessage(), "error");
+    inactiveSignOut = (async () => {
+      try {
+        const { error } = await supabase.auth.signOut({ scope: "local" });
+        if (error) console.warn("Inactive account local sign-out failed:", error);
+      } catch (error) {
+        console.warn("Inactive account local sign-out failed:", error);
+      } finally {
+        inactiveSignOut = null;
+      }
+    })();
+    return inactiveSignOut;
+  }
+
+  async function checkAccountAccess() {
+    if (!supabase || !currentUser || profile?.role !== "teacher" || inactiveSignOut) return;
+    const userId = currentUser.id;
+    const generation = sessionGeneration;
+    if (accountAccessCheck?.userId === userId && accountAccessCheck.generation === generation) return accountAccessCheck.promise;
+    const request = { userId, generation, promise: null };
+    accountAccessCheck = request;
+    request.promise = (async () => {
+      try {
+        const { data, error } = await supabase.from("profiles")
+          .select("id, role, is_active, account_status").eq("id", userId).maybeSingle();
+        if (!sessionIsCurrent(userId, generation)) return;
+        if (error) {
+          if (isInactiveAccountError(error)) await endInactiveSession();
+          else console.warn("Account access check failed:", error);
+          return;
+        }
+        // A failed or empty lookup does not prove the account was deactivated.
+        if (!data) return;
+        if (isTeacherAccountInactive(data)) { await endInactiveSession(); return; }
+        profile = { ...profile, is_active: data.is_active, account_status: data.account_status };
+      } catch (error) {
+        if (sessionIsCurrent(userId, generation)) console.warn("Account access check failed:", error);
+      } finally {
+        if (accountAccessCheck === request) accountAccessCheck = null;
+        if (sessionIsCurrent(userId, generation)) scheduleAccountAccessCheck();
+      }
+    })();
+    return request.promise;
   }
 
   async function logout() {
@@ -822,6 +1030,9 @@
   }
 
   async function loadAgreementState() {
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
+    if (!userId) return;
     if (profile?.role === "admin") {
       agreementRecord = null;
       agreementVersionRecord = null;
@@ -838,11 +1049,12 @@
       supabase
         .from("teacher_agreements")
         .select("id, teacher_id, teacher_name, agreement_version, confirmations, agreed_at")
-        .eq("teacher_id", currentUser.id)
+        .eq("teacher_id", userId)
         .eq("agreement_version", CURRENT_AGREEMENT_VERSION)
         .maybeSingle()
     ]);
 
+    if (!sessionIsCurrent(userId, generation)) return;
     if (versionResult.error) throw versionResult.error;
     if (!versionResult.data) throw new Error(`Agreement version ${CURRENT_AGREEMENT_VERSION} is not configured.`);
     if (agreementResult.error) throw agreementResult.error;
@@ -943,6 +1155,9 @@
 
   async function completeAgreement(event) {
     event.preventDefault();
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
+    if (!userId) return;
     if (agreementViewMode !== "required") return;
     const form = $("agreementForm");
     const button = event.submitter || $("agreementSubmitButton");
@@ -965,7 +1180,7 @@
       const { data, error } = await supabase
         .from("teacher_agreements")
         .insert({
-          teacher_id: currentUser.id,
+          teacher_id: userId,
           teacher_name: teacherName,
           agreement_version: CURRENT_AGREEMENT_VERSION,
           confirmations
@@ -973,20 +1188,23 @@
         .select("id, teacher_id, teacher_name, agreement_version, confirmations, agreed_at")
         .single();
 
+      if (!sessionIsCurrent(userId, generation)) return;
       if (error && error.code !== "23505") throw error;
       if (error?.code === "23505") {
         const { data: existing, error: reloadError } = await supabase
           .from("teacher_agreements")
           .select("id, teacher_id, teacher_name, agreement_version, confirmations, agreed_at")
-          .eq("teacher_id", currentUser.id)
+          .eq("teacher_id", userId)
           .eq("agreement_version", CURRENT_AGREEMENT_VERSION)
           .single();
+        if (!sessionIsCurrent(userId, generation)) return;
         if (reloadError) throw reloadError;
         agreementRecord = existing;
       } else {
         agreementRecord = data;
       }
     } catch (error) {
+      if (!sessionIsCurrent(userId, generation)) return;
       console.error("Agreement acceptance failed:", error);
       const setupMissing = /teacher_agreement|relation|does not exist|permission/i.test(error?.message || "");
       showToast(setupMissing
@@ -1019,6 +1237,7 @@
     try {
       await initializeDashboardData(location.hash.replace("#", "") || "dashboard");
     } catch (error) {
+      if (!sessionIsCurrent(userId, generation)) return;
       console.error("Post-agreement dashboard initialization failed:", error);
       $("appView").classList.remove("hidden");
       switchPage("dashboard");
@@ -1346,13 +1565,15 @@
   }
 
   function showOnboarding() {
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
     onboardingRequired = true;
     $("onboardingEmail").textContent = currentUser?.email || "-";
     $("loginView").classList.add("hidden");
     $("appView").classList.add("hidden");
     $("onboardingView").classList.remove("hidden");
     document.body.classList.add("onboarding-open");
-    window.setTimeout(showProfileUsageModal, 80);
+    window.setTimeout(() => { if (sessionIsCurrent(userId, generation) && onboardingRequired) showProfileUsageModal(); }, 80);
   }
 
   function hideOnboarding() {
@@ -1362,6 +1583,9 @@
   }
 
   async function initializeDashboardData(requestedPage = "dashboard") {
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
+    if (!userId || isTeacherAccountInactive(profile)) return;
     $("appView").classList.remove("hidden");
     if (!dashboardInitialized) {
       await Promise.all([
@@ -1371,6 +1595,7 @@
         loadResources(),
         loadVideos()
       ]);
+      if (!sessionIsCurrent(userId, generation)) return;
       renderGuideProgress();
       dashboardInitialized = true;
     }
@@ -1380,14 +1605,17 @@
 
   async function initializeSession(existingSession = null) {
     if (!checkConfiguration()) return;
+    const generation = ++sessionGeneration;
+    stopAccountAccessMonitor();
 
     let session = existingSession;
     if (!session) {
       const { data, error } = await supabase.auth.getSession();
+      if (generation !== sessionGeneration) return;
       if (error) {
         console.error("Session lookup failed:", error);
         renderSignedOutState();
-        showToast("로그인 상태를 확인하지 못했습니다. 다시 로그인해주세요.", "error");
+        showToast(isInactiveAccountError(error) ? inactiveAccountMessage() : "로그인 상태를 확인하지 못했습니다. 다시 로그인해주세요.", "error");
         return;
       }
       session = data?.session || null;
@@ -1408,8 +1636,9 @@
     $("onboardingView").classList.add("hidden");
 
     try {
-      await loadProfile();
+      if (!await loadProfile(session.user.id, generation)) return;
     } catch (error) {
+      if (!sessionIsCurrent(session.user.id, generation)) return;
       console.error("Profile initialization failed:", error);
       renderSignedOutState();
       showToast("프로필 정보를 불러오지 못했습니다. 잠시 후 다시 로그인해주세요.", "error");
@@ -1418,7 +1647,9 @@
 
     try {
       await loadAgreementState();
+      if (!sessionIsCurrent(session.user.id, generation)) return;
     } catch (error) {
+      if (!sessionIsCurrent(session.user.id, generation)) return;
       console.error("Agreement initialization failed:", error);
       $("loginView").classList.add("hidden");
       $("appView").classList.add("hidden");
@@ -1441,6 +1672,7 @@
     try {
       await initializeDashboardData(location.hash.replace("#", "") || "dashboard");
     } catch (error) {
+      if (!sessionIsCurrent(session.user.id, generation)) return;
       console.error("Dashboard initialization failed:", error);
       $("appView").classList.remove("hidden");
       switchPage("dashboard");
@@ -1448,28 +1680,39 @@
     }
   }
 
-  async function loadProfile() {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", currentUser.id).maybeSingle();
+  async function loadProfile(userId = currentUser?.id, generation = sessionGeneration) {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    if (!sessionIsCurrent(userId, generation)) return false;
     if (error) {
+      if (isInactiveAccountError(error)) { await endInactiveSession(); return false; }
       console.error("Profile lookup failed:", error);
       throw error;
     }
-    profile = data || { id: currentUser.id, full_name: currentUser.user_metadata?.full_name || "선생님", email: currentUser.email, role: "teacher", profile_completed_at: null, profile_photo_path: null };
+    if (!data) throw new Error("The signed-in account has no accessible profile.");
+    if (isTeacherAccountInactive(data)) { await endInactiveSession(); return false; }
+    profile = data;
+    scheduleAccountAccessCheck();
     updateProfileHeader(profile);
     syncProfileFields(profile);
     await refreshProfilePhoto();
+    if (!sessionIsCurrent(userId, generation)) return false;
     $("adminLink").classList.toggle("hidden", profile.role !== "admin");
     updateAgreementProfileCard();
+    return true;
   }
 
   async function loadAssignments() {
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
+    if (!userId) return;
     const { data, error } = await supabase
       .from("student_assignments")
       .select("id, student_id, student_name, student_email, group_size, group_members, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status")
-      .eq("teacher_id", currentUser.id)
+      .eq("teacher_id", userId)
       .order("settlement_date", { ascending: true })
       .order("student_name", { ascending: true });
 
+    if (!sessionIsCurrent(userId, generation)) return;
     if (error) {
       console.error("Assignment lookup failed:", error);
       assignments = [];
@@ -1659,21 +1902,27 @@
   }
 
   async function persistProfile(payload) {
-    const columns = "id, email, full_name, school, major, phone, kakao_id, bank_name, account_number, bio, experience, profile_photo_path, role, profile_completed_at, updated_at";
+    const userId = currentUser?.id;
+    const userEmail = currentUser?.email;
+    const generation = sessionGeneration;
+    if (!userId) throw new Error("No signed-in account.");
+    const columns = "id, email, full_name, school, major, phone, kakao_id, bank_name, account_number, bio, experience, profile_photo_path, role, is_active, account_status, profile_completed_at, updated_at";
     let result = await supabase
       .from("profiles")
       .update(payload)
-      .eq("id", currentUser.id)
+      .eq("id", userId)
       .select(columns)
       .maybeSingle();
 
+    if (!sessionIsCurrent(userId, generation)) throw new Error("The account session changed.");
     if (!result.error && !result.data) {
       result = await supabase
         .from("profiles")
-        .insert({ id: currentUser.id, email: currentUser.email, ...payload })
+        .insert({ id: userId, email: userEmail, ...payload })
         .select(columns)
         .single();
     }
+    if (!sessionIsCurrent(userId, generation)) throw new Error("The account session changed.");
     if (result.error) throw result.error;
     return result.data || payload;
   }
@@ -1689,6 +1938,9 @@
     const form = $("profileForm");
     const button = event.submitter || form.querySelector('button[type="submit"]');
     if (!validateProfileLanguage("profile")) return;
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
+    if (!userId) return;
     const payload = collectProfilePayload(profileFieldIds);
     const selectedPhotoFile = pendingProfilePhotoFile;
     if (!validateProfilePayload(payload, profileFieldIds)) return;
@@ -1702,8 +1954,10 @@
       if (selectedPhotoFile) {
         try {
           await uploadProfilePhotoFile(selectedPhotoFile);
+          if (!sessionIsCurrent(userId, generation)) return;
           clearSelectedProfilePhoto("profile");
         } catch (photoError) {
+          if (!sessionIsCurrent(userId, generation)) return;
           console.error("Profile photo save failed:", photoError);
           const setupMissing = /bucket|profile_photo_path|row-level security|policy/i.test(photoError?.message || "");
           showToast(
@@ -1720,6 +1974,7 @@
         ? "내 정보와 프로필 사진이 함께 저장되었습니다."
         : "내 정보가 저장되었습니다.");
     } catch (error) {
+      if (!sessionIsCurrent(userId, generation)) return;
       console.error("Profile update failed:", error);
       if (reportProfileLanguageServerError(error, "profile")) return;
       const missingColumn = /bank_name|account_number|kakao_id|profile_completed_at|profile_photo_path|experience/i.test(error?.message || "");
@@ -1739,6 +1994,9 @@
     const form = $("onboardingForm");
     const button = event.submitter || form.querySelector('button[type="submit"]');
     if (!validateProfileLanguage("onboarding")) return;
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
+    if (!userId) return;
     const basePayload = collectProfilePayload(onboardingFieldIds);
     if (!validateProfilePayload(basePayload, onboardingFieldIds)) return;
     if (!validateExperience("onboarding")) return;
@@ -1758,8 +2016,10 @@
       if (pendingOnboardingPhotoFile) {
         try {
           await uploadProfilePhotoFile(pendingOnboardingPhotoFile);
+          if (!sessionIsCurrent(userId, generation)) return;
           clearSelectedProfilePhoto("onboarding");
         } catch (photoError) {
+          if (!sessionIsCurrent(userId, generation)) return;
           console.error("Onboarding profile photo upload failed:", photoError);
           showToast("프로필 사진 저장에 실패했습니다. 사진을 다시 확인한 뒤 저장해주세요.", "error");
           setLoading(button, false, onboardingSubmitLabel());
@@ -1781,6 +2041,7 @@
       });
       applySavedProfile(completedProfile);
     } catch (error) {
+      if (!sessionIsCurrent(userId, generation)) return;
       console.error("Profile onboarding failed:", error);
       if (reportProfileLanguageServerError(error, "onboarding")) {
         setLoading(button, false, onboardingSubmitLabel());
@@ -1805,6 +2066,7 @@
     try {
       await initializeDashboardData("dashboard");
     } catch (error) {
+      if (!sessionIsCurrent(userId, generation)) return;
       console.error("Post-onboarding dashboard initialization failed:", error);
       $("appView").classList.remove("hidden");
       switchPage(scheduleOnboardingRequired ? "schedule" : "dashboard");
@@ -2019,6 +2281,7 @@
 
   async function loadAvailability({ preserveEditor = false } = {}) {
     const teacherId = currentUser?.id;
+    const generation = sessionGeneration;
     if (!teacherId) return;
     const { data, error } = await supabase
       .from("availability")
@@ -2026,7 +2289,7 @@
       .eq("teacher_id", teacherId)
       .order("day_of_week")
       .order("start_time");
-    if (currentUser?.id !== teacherId) return;
+    if (!sessionIsCurrent(teacherId, generation)) return;
     if (error) return showToast("스케줄을 불러오지 못했습니다.", "error");
     updateScheduleOnboarding(data || []);
     if (preserveEditor) {
@@ -2167,12 +2430,16 @@
   }
 
   async function loadAnnouncements() {
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
+    if (!userId) return;
     const { data, error } = await supabase
       .from("announcements")
       .select("title, body, title_en, body_en, published_at")
       .eq("is_active", true)
       .order("published_at", { ascending: false })
       .limit(5);
+    if (!sessionIsCurrent(userId, generation)) return;
     if (error || !data?.length) {
       $("announcementList").innerHTML = '<div class="empty-state announcement-empty">현재 등록된 공지사항이 없습니다.</div>';
       return;
@@ -2323,9 +2590,9 @@ function loadGuideChecks() {
     $("profileUsageModal").addEventListener("click", (event) => {
       if (event.target === $("profileUsageModal")) hideProfileUsageModal();
     });
-    $("userAvatarImage").addEventListener("error", () => updateTopbarPhoto(""));
-    $("profilePhotoImage").addEventListener("error", () => renderPhotoPreview("profile", ""));
-    $("onboardingPhotoImage").addEventListener("error", () => renderPhotoPreview("onboarding", ""));
+    $("userAvatarImage").addEventListener("error", () => handleProfilePhotoError("topbar"));
+    $("profilePhotoImage").addEventListener("error", () => handleProfilePhotoError("profile"));
+    $("onboardingPhotoImage").addEventListener("error", () => handleProfilePhotoError("onboarding"));
     buildAvailabilityGrid();
     $("availabilityGrid").addEventListener("pointerdown", handleGridPointerDown);
     $("availabilityGrid").addEventListener("click", handleGridClick);
@@ -2347,8 +2614,9 @@ function loadGuideChecks() {
     $("sidebarClose").addEventListener("click", () => closeSidebar({ restoreFocus: true }));
     $("sidebarBackdrop").addEventListener("click", () => closeSidebar({ restoreFocus: true }));
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden && currentUser) renderAssignments();
+      if (!document.hidden && currentUser) { renderAssignments(); checkAccountAccess(); refreshProfilePhotoIfNeeded(); }
     });
+    window.addEventListener("focus", () => { if (currentUser) checkAccountAccess(); });
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !$("profileUsageModal").classList.contains("hidden")) {
         hideProfileUsageModal();
@@ -2370,11 +2638,17 @@ function loadGuideChecks() {
 
   bindEvents();
   if (supabase) {
-    supabase.auth.onAuthStateChange((event) => {
+    supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         // Auth 이벤트 안에서 signOut 같은 비동기 Auth API를 다시 호출하면
         // 재귀 호출 또는 교착 상태가 생길 수 있으므로 화면만 정리합니다.
-        window.setTimeout(renderSignedOutState, 0);
+        const generation = sessionGeneration;
+        window.setTimeout(() => { if (generation === sessionGeneration) renderSignedOutState(); }, 0);
+      } else if (["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event) && session?.user) {
+        // Supabase holds its Auth lock while notifying listeners. Query only after it returns.
+        window.setTimeout(() => {
+          if (currentUser?.id === session.user.id) checkAccountAccess();
+        }, 0);
       }
     });
     initializeSession();

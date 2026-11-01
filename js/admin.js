@@ -5,6 +5,8 @@
   const supabase = configured ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
   const PROFILE_PHOTO_BUCKET = "profile-photos";
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
+  const PROFILE_PHOTO_REFRESH_MARGIN_MS = 5 * 60 * 1000;
+  const teacherPhotoStates = new Map();
   const CURRENT_AGREEMENT_VERSION = "v1.4";
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
@@ -87,20 +89,111 @@
 
   async function signedProfilePhotoUrl(photoPath) {
     if (!photoPath) return "";
-    const { data, error } = await supabase.storage
-      .from(PROFILE_PHOTO_BUCKET)
-      .createSignedUrl(photoPath, PROFILE_PHOTO_SIGNED_URL_SECONDS);
-    if (error) {
-      console.warn("Admin profile photo signed URL failed:", error);
+    try {
+      const { data, error } = await supabase.storage
+        .from(PROFILE_PHOTO_BUCKET)
+        .createSignedUrl(photoPath, PROFILE_PHOTO_SIGNED_URL_SECONDS);
+      if (error) throw error;
+      return data?.signedUrl || "";
+    } catch (error) {
+      console.warn("Admin profile photo could not be loaded:", error?.message || "Storage request failed");
       return "";
     }
-    return data?.signedUrl || "";
+  }
+
+  function teacherPhotoState(path) {
+    if (!teacherPhotoStates.has(path)) teacherPhotoStates.set(path, { url: "", expiresAt: 0, retries: 0, failed: false, pending: null });
+    return teacherPhotoStates.get(path);
+  }
+
+  async function refreshTeacherPhotoUrl(teacher, force = false) {
+    const path = teacher.profile_photo_path;
+    if (!path) return "";
+    const state = teacherPhotoState(path);
+    if (state.pending) return state.pending;
+    if (!force && (state.failed || (state.url && state.expiresAt > Date.now() + PROFILE_PHOTO_REFRESH_MARGIN_MS))) return state.url;
+    state.pending = (async () => {
+      const url = await signedProfilePhotoUrl(path);
+      // A temporary renewal failure should not replace a still-valid photo.
+      if (!url && !force && state.url && state.expiresAt > Date.now()) return state.url;
+      state.url = url;
+      state.expiresAt = url ? Date.now() + PROFILE_PHOTO_SIGNED_URL_SECONDS * 1000 : 0;
+      state.failed = !url;
+      return url;
+    })();
+    try { return await state.pending; }
+    finally { state.pending = null; }
+  }
+
+  function setTeacherPhotoElement(image, url) {
+    if (!image?.isConnected) return;
+    const fallback = image.parentElement?.querySelector("[data-teacher-photo-fallback]");
+    if (!url) {
+      image.hidden = true;
+      image.removeAttribute("src");
+      if (fallback) fallback.hidden = false;
+      return;
+    }
+    if (image.getAttribute("src") !== url) {
+      // A hidden lazy image is not fetched until it becomes visible.
+      image.loading = "eager";
+      image.src = url;
+    }
   }
 
   async function hydrateTeacherPhotos() {
     await Promise.all(teachers.map(async (teacher) => {
-      teacher.profile_photo_url = await signedProfilePhotoUrl(teacher.profile_photo_path);
+      teacher.profile_photo_url = await refreshTeacherPhotoUrl(teacher);
     }));
+  }
+
+  async function refreshDisplayedTeacherPhotos() {
+    if (document.hidden || adminLogoutInProgress) return;
+    await Promise.all(teachers.map(async (teacher) => {
+      const path = teacher.profile_photo_path;
+      const url = await refreshTeacherPhotoUrl(teacher);
+      if (!teachers.includes(teacher) || teacher.profile_photo_path !== path) return;
+      if (teacher.profile_photo_url === url) return;
+      teacher.profile_photo_url = url;
+      $("adminTeacherList")?.querySelectorAll("[data-teacher-photo]").forEach((image) => {
+        if (image.dataset.teacherPhoto === teacher.id) setTeacherPhotoElement(image, url);
+      });
+    }));
+  }
+
+  async function recoverTeacherPhoto(image) {
+    if (!image?.matches?.("[data-teacher-photo]")) return;
+    const teacher = teachers.find((item) => item.id === image.dataset.teacherPhoto);
+    if (!teacher?.profile_photo_path) return;
+    const path = teacher.profile_photo_path;
+    const state = teacherPhotoState(path);
+    image.hidden = true;
+    const fallback = image.parentElement?.querySelector("[data-teacher-photo-fallback]");
+    if (fallback) fallback.hidden = false;
+    if (state.retries >= 1 || state.failed) {
+      state.failed = true;
+      state.url = "";
+      teacher.profile_photo_url = "";
+      setTeacherPhotoElement(image, "");
+      return;
+    }
+    state.retries++;
+    const url = await refreshTeacherPhotoUrl(teacher, true);
+    if (teacher.profile_photo_path !== path) return;
+    teacher.profile_photo_url = url;
+    setTeacherPhotoElement(image, url);
+  }
+
+  function teacherPhotoLoaded(image) {
+    if (!image?.matches?.("[data-teacher-photo]")) return;
+    const teacher = teachers.find((item) => item.id === image.dataset.teacherPhoto);
+    if (!teacher?.profile_photo_path) return;
+    const state = teacherPhotoState(teacher.profile_photo_path);
+    state.retries = 0;
+    state.failed = false;
+    image.hidden = false;
+    const fallback = image.parentElement?.querySelector("[data-teacher-photo-fallback]");
+    if (fallback) fallback.hidden = true;
   }
 
 
@@ -1213,9 +1306,9 @@
       return `<article class="panel teacher-admin-card${teacher.is_active === false ? " teacher-admin-card-inactive" : ""}" data-teacher-id="${escapeHtml(teacher.id)}">
         <div class="teacher-admin-head">
           <div class="teacher-admin-profile">
-            <span class="teacher-admin-avatar">${teacher.profile_photo_url
-              ? `<img src="${escapeHtml(teacher.profile_photo_url)}" alt="${escapeHtml(teacher.full_name || "선생님")} 프로필 사진" loading="lazy" />`
-              : `<b>${escapeHtml((teacher.full_name || "T").slice(0,1).toUpperCase())}</b>`}</span>
+            <span class="teacher-admin-avatar"><b data-teacher-photo-fallback ${teacher.profile_photo_url ? "hidden" : ""}>${escapeHtml((teacher.full_name || "T").slice(0,1).toUpperCase())}</b>${teacher.profile_photo_path
+              ? `<img data-teacher-photo="${escapeHtml(teacher.id)}" ${teacher.profile_photo_url ? `src="${escapeHtml(teacher.profile_photo_url)}"` : "hidden"} alt="${escapeHtml(teacher.full_name || "선생님")} 프로필 사진" loading="lazy" />`
+              : ""}</span>
             <div><strong>${escapeHtml(teacher.full_name || "이름 미입력")}</strong><span>${escapeHtml(teacher.email || "")} · ${escapeHtml(teacher.school || "학교 미입력")} ${teacher.major ? `· ${escapeHtml(teacher.major)}` : ""}</span></div>
           </div>
           <div class="teacher-admin-head-actions">
@@ -2024,6 +2117,11 @@
     const button = event.target.closest("[data-download-teacher-photo]");
     if (button) downloadTeacherProfilePhoto(button.dataset.downloadTeacherPhoto, button);
   });
+  $("adminTeacherList").addEventListener("error", (event) => { void recoverTeacherPhoto(event.target); }, true);
+  $("adminTeacherList").addEventListener("load", (event) => teacherPhotoLoaded(event.target), true);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) void refreshDisplayedTeacherPhotos(); });
+  window.addEventListener("focus", () => { void refreshDisplayedTeacherPhotos(); });
+  window.setInterval(() => { void refreshDisplayedTeacherPhotos(); }, 60 * 1000);
   $("adminTeacherList").addEventListener("change", (event) => {
     const input = event.target.closest("[data-teacher-active]");
     if (input) changeTeacherActive(input);
