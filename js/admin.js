@@ -40,6 +40,7 @@
   let assignmentFilter = "current";
   let editingAssignmentId = null;
   let reactivatingAssignmentId = null;
+  let assignmentPaymentStatus = "unpaid";
   let adminLogoutInProgress = false;
   let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const contentCache = { announcement: [], resource: [], video: [] };
@@ -515,6 +516,37 @@
       }
     }
     syncGroupSizeForPlan();
+    syncAssignmentPaymentField();
+  }
+
+  function normalizeAssignmentPaymentStatus(value) {
+    return value === "paid" || value === "unpaid" ? value : null;
+  }
+
+  function syncAssignmentPaymentField() {
+    const select = $("assignmentPaymentStatus");
+    if (!select) return;
+    const isFreeTrial = $("assignmentType")?.value === "trial";
+    const english = currentLanguage() === "en";
+    select.disabled = isFreeTrial;
+    select.innerHTML = isFreeTrial
+      ? `<option value="">${english ? "No payment required" : "입금 불필요"}</option>`
+      : `${assignmentPaymentStatus === null ? `<option value="">${english ? "Not set" : "미설정"}</option>` : ""}<option value="unpaid">${english ? "Unpaid" : "미입금"}</option><option value="paid">${english ? "Paid" : "입금 완료"}</option>`;
+    select.value = isFreeTrial ? "" : (assignmentPaymentStatus || "");
+    const note = $("assignmentPaymentNote");
+    if (note) note.textContent = isFreeTrial
+      ? (english ? "Free trial lessons do not require student payment." : "무료 체험수업은 학생 입금이 필요하지 않습니다.")
+      : assignmentPaymentStatus === null
+        ? (english ? "Payment has not been recorded for this assignment. Select a status after checking." : "기존 배정의 입금 상태가 기록되지 않았습니다. 확인 후 선택해주세요.")
+        : (english ? "Record the student's payment status after the NADO team checks it." : "운영팀이 확인한 학생 입금 여부를 기록합니다.");
+  }
+
+  function renderAssignmentPaymentBadge(assignment) {
+    const status = assignment.assignment_type === "trial" ? "not-required" : normalizeAssignmentPaymentStatus(assignment.payment_status) || "unset";
+    const labels = currentLanguage() === "en"
+      ? { paid: "Paid", unpaid: "Unpaid", unset: "Payment not set", "not-required": "No payment required" }
+      : { paid: "입금 완료", unpaid: "미입금", unset: "입금 미설정", "not-required": "입금 불필요" };
+    return `<span class="assignment-payment-badge ${status}">${escapeHtml(labels[status])}</span>`;
   }
 
   function assignmentHasPricing(assignment) {
@@ -1373,7 +1405,7 @@
 
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, teacher_id, student_id, student_name, student_email, group_size, group_members, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status, ended_at, created_at, updated_at")
+      .select("id, teacher_id, student_id, student_name, student_email, group_size, group_members, assignment_type, plan, payment_status, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status, ended_at, created_at, updated_at")
       .order("first_lesson_date", { ascending: true })
       .order("student_name", { ascending: true });
 
@@ -1543,6 +1575,7 @@
             ${typeBadge}
             <span class="plan-badge plan-${escapeHtml(plan)}">${escapeHtml(planLabel(assignment.plan))}</span>
             <span class="assignment-status-badge ${isHistory ? "completed" : "current"}">${isHistory ? "학생 기록" : "현재 학생"}</span>
+            ${renderAssignmentPaymentBadge(assignment)}
           </div>
           <strong>${escapeHtml(assignment.student_name)}</strong>
           ${Array.isArray(assignment.group_members) && assignment.group_members.length > 1 ? `<small>구성원: ${assignment.group_members.map((member) => escapeHtml(member.name || "이름 미입력")).join(" · ")}</small>` : ""}
@@ -1577,6 +1610,7 @@
   function resetAssignmentForm() {
     editingAssignmentId = null;
     reactivatingAssignmentId = null;
+    assignmentPaymentStatus = "unpaid";
     $("assignmentForm").reset();
     setSelectedTeacher("");
     $("assignmentSettlementDate").removeAttribute("min");
@@ -1596,6 +1630,7 @@
     if (!assignment) return;
     editingAssignmentId = id;
     reactivatingAssignmentId = reactivate ? id : null;
+    assignmentPaymentStatus = assignment.assignment_type === "trial" ? "unpaid" : normalizeAssignmentPaymentStatus(assignment.payment_status);
     setSelectedTeacher(assignment.teacher_id);
     $("assignmentStudentName").value = assignment.student_name;
     $("assignmentStudentEmail").value = assignment.student_email || "";
@@ -1665,6 +1700,7 @@
       group_size: groupSize,
       group_members: groupMembers,
       assignment_type: assignmentType,
+      payment_status: isFreeTrial ? null : normalizeAssignmentPaymentStatus($("assignmentPaymentStatus").value),
       plan,
       lesson_duration_minutes: lessonDurationMinutes,
       weekly_frequency: weeklyFrequency,
@@ -2044,6 +2080,10 @@
 
   $("assignmentForm").addEventListener("submit", saveAssignment);
   $("assignmentCancelButton").addEventListener("click", resetAssignmentForm);
+  $("assignmentPaymentStatus").addEventListener("change", () => {
+    assignmentPaymentStatus = normalizeAssignmentPaymentStatus($("assignmentPaymentStatus").value);
+    syncAssignmentPaymentField();
+  });
   $("assignmentTeacherSearch").addEventListener("input", resolveTeacherSearchValue);
   $("assignmentTeacherSearch").addEventListener("change", resolveTeacherSearchValue);
   $("assignmentType").addEventListener("change", () => {

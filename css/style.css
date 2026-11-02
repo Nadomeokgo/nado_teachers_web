@@ -810,6 +810,10 @@ input[type="time"], input[type="date"], input[type="datetime-local"] {
 .plan-unassigned { color: #667085; background: #f0f2f5; }
 .assignment-status-badge.current { color: #17663a; background: #e7f8ee; }
 .assignment-status-badge.completed { color: #5f6873; background: #eceff2; }
+.assignment-payment-badge { display: inline-flex; align-items: center; width: fit-content; padding: 5px 9px; border: 1px solid transparent; border-radius: 999px; font-size: .66rem; font-weight: 900; line-height: 1; }
+.assignment-payment-badge.paid { color: #17663a; background: #e7f8ee; border-color: #bce5cb; }
+.assignment-payment-badge.unpaid { color: #8b420c; background: #fff2e3; border-color: #f1c99d; }
+.assignment-payment-badge.unset, .assignment-payment-badge.not-required { color: #5f6873; background: #f0f2f5; border-color: #dce1e7; }
 .assignment-card-history { border-color: #e3e7eb; background: linear-gradient(145deg, #fbfcfd, #f2f4f6); }
 .assignment-card-history .settlement-date-row { background: #f9fafb; }
 .assignment-history-panel { padding: 24px; }

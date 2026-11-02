@@ -68,6 +68,17 @@ Deno.serve(async (request) => {
     const email = String(input.student_email || "").trim().toLowerCase();
     const teacherId = String(input.teacher_id || "");
     const assignmentId = input.assignment_id ? String(input.assignment_id) : null;
+    const hasPaymentStatus = Object.prototype.hasOwnProperty.call(input, "payment_status");
+    if (hasPaymentStatus && input.payment_status !== null && !["paid", "unpaid"].includes(input.payment_status)) {
+      return json({ error: "입금 상태는 미입금 또는 입금 완료로 선택해주세요." }, 400);
+    }
+    // Older clients omit this field. Preserve an existing assignment's status,
+    // default new paid lessons to unpaid, and never mark free trials as owing.
+    const paymentFields = assignmentType === "trial"
+      ? { payment_status: null }
+      : hasPaymentStatus
+        ? { payment_status: input.payment_status }
+        : assignmentId ? {} : { payment_status: "unpaid" };
     if (!name || !teacherId || !input.first_lesson_date || !input.settlement_date) {
       return json({ error: "필수 배정 정보를 입력해주세요." }, 400);
     }
@@ -195,6 +206,7 @@ Deno.serve(async (request) => {
       group_size: Number(input.group_size) || 1,
       group_members: Array.isArray(input.group_members) ? input.group_members : [{ name, email: email || null }],
       assignment_type: assignmentType,
+      ...paymentFields,
       plan: input.plan || null,
       lesson_duration_minutes: input.lesson_duration_minutes || null,
       weekly_frequency: assignmentType === "paid_trial" ? 1 : (input.weekly_frequency || null),
@@ -214,7 +226,7 @@ Deno.serve(async (request) => {
     const query = assignmentId
       ? admin.from("student_assignments").update(payload).eq("id", assignmentId)
       : admin.from("student_assignments").insert(payload);
-    const { data: assignment, error: assignmentError } = await query.select("id,student_id,teacher_id,status").single();
+    const { data: assignment, error: assignmentError } = await query.select("id,student_id,teacher_id,status,payment_status").single();
     if (assignmentError) throw assignmentError;
 
     return json({ ok: true, assignment, invitation_sent: invitationSent });

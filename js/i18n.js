@@ -4,6 +4,14 @@
   const STORAGE_KEY = "nado-ui-language";
   const SUPPORTED = new Set(["ko", "en"]);
   const translations = {
+  "입금 상태": "Payment status",
+  "미입금": "Unpaid",
+  "입금 완료": "Paid",
+  "입금 미설정": "Payment not set",
+  "입금 불필요": "No payment required",
+  "운영팀이 확인한 학생 입금 여부를 기록합니다.": "Record the student's payment status after the NADO team checks it.",
+  "무료 체험수업은 학생 입금이 필요하지 않습니다.": "Free trial lessons do not require student payment.",
+  "기존 배정의 입금 상태가 기록되지 않았습니다. 확인 후 선택해주세요.": "Payment has not been recorded for this assignment. Select a status after checking.",
   "관리 영역 선택": "Choose management area",
   "관리 영역": "Management area",
   "선생님 관리": "Teacher Management",
