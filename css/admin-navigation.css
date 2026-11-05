@@ -69,6 +69,29 @@
   outline-offset: 3px;
 }
 
+button.calendar-event {
+  width: 100%;
+  min-width: 0;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  text-align: start;
+  cursor: pointer;
+}
+
+button.calendar-event:hover,
+button.calendar-event:focus-visible {
+  outline: 2px solid #3378b5;
+  outline-offset: 1px;
+}
+
+.admin-assignment-item:focus {
+  outline: 3px solid #3378b5;
+  outline-offset: -3px;
+}
+
+.admin-assignment-dates .assignment-teacher-payout-details { grid-column: 1 / -1; }
+
 /* Keep hidden panels out of layout even when their original styles use grid. */
 [data-admin-panel][hidden],
 [data-admin-content-panel][hidden],

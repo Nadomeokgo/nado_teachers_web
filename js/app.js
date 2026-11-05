@@ -1252,6 +1252,7 @@
       Major: data.major || "",
       Phone: data.phone || "",
       KakaoId: data.kakao_id || "",
+      PayoutMethod: data.payout_method === "cash" ? "cash" : "bank_transfer",
       BankName: data.bank_name || "",
       AccountNumber: data.account_number || "",
       Bio: data.bio || ""
@@ -1263,9 +1264,29 @@
       if (profileField) profileField.value = value;
       if (onboardingField) onboardingField.value = value;
     });
+    syncPayoutMethodFields("profile");
+    syncPayoutMethodFields("onboarding");
     refreshProfileBioCounters();
     renderExperienceEditor("profile", data.experience);
     renderExperienceEditor("onboarding", data.experience);
+  }
+
+  function syncPayoutMethodFields(scope) {
+    const method = $(`${scope}PayoutMethod`);
+    if (!method) return;
+    const cash = method.value === "cash";
+    method.disabled = Boolean(profile && profile.role !== "teacher");
+    method.closest("label").hidden = method.disabled;
+    const note = $(`${scope}CashChangeNote`);
+    note.hidden = !cash || !(profile?.bank_name || profile?.account_number);
+    method.setAttribute("aria-describedby", note.hidden ? `${scope}PayoutHelp` : `${scope}PayoutHelp ${note.id}`);
+    for (const suffix of ["BankName", "AccountNumber"]) {
+      const field = $(`${scope}${suffix}`);
+      field.disabled = cash;
+      field.required = !cash;
+      field.closest("label").hidden = cash;
+    }
+    $(`${scope}BankNotice`).hidden = cash;
   }
 
   function profileBioLimitMessage() {
@@ -1837,6 +1858,7 @@
     major: "profileMajor",
     phone: "profilePhone",
     kakao_id: "profileKakaoId",
+    payout_method: "profilePayoutMethod",
     bank_name: "profileBankName",
     account_number: "profileAccountNumber",
     bio: "profileBio"
@@ -1848,6 +1870,7 @@
     major: "onboardingMajor",
     phone: "onboardingPhone",
     kakao_id: "onboardingKakaoId",
+    payout_method: "onboardingPayoutMethod",
     bank_name: "onboardingBankName",
     account_number: "onboardingAccountNumber",
     bio: "onboardingBio"
@@ -1865,14 +1888,16 @@
   };
 
   function collectProfilePayload(fieldIds = profileFieldIds) {
+    const cash = $(fieldIds.payout_method)?.value === "cash";
     return {
       full_name: $(fieldIds.full_name).value.trim(),
       school: $(fieldIds.school).value.trim(),
       major: $(fieldIds.major).value.trim(),
       phone: $(fieldIds.phone).value.trim(),
       kakao_id: $(fieldIds.kakao_id).value.trim(),
-      bank_name: $(fieldIds.bank_name).value.trim(),
-      account_number: $(fieldIds.account_number).value.trim().replace(/\s+/g, ""),
+      payout_method: cash ? "cash" : "bank_transfer",
+      bank_name: cash ? null : $(fieldIds.bank_name).value.trim(),
+      account_number: cash ? null : $(fieldIds.account_number).value.trim().replace(/\s+/g, ""),
       bio: $(fieldIds.bio).value.trim(),
       experience: collectExperience(fieldIds === onboardingFieldIds ? "onboarding" : "profile"),
       updated_at: new Date().toISOString()
@@ -1887,13 +1912,17 @@
       return false;
     }
     if (!validateProfileLanguage(fieldIds === onboardingFieldIds ? "onboarding" : "profile")) return false;
-    const missingKey = Object.keys(profileFieldLabels).find((key) => !payload[key]);
+    const cash = payload.payout_method === "cash";
+    const missingKey = Object.keys(profileFieldLabels).find((key) => {
+      if (cash && (key === "bank_name" || key === "account_number")) return false;
+      return !payload[key];
+    });
     if (missingKey) {
       $(fieldIds[missingKey]).focus();
       showToast(`${profileFieldLabels[missingKey]} 항목을 입력해주세요.`, "error");
       return false;
     }
-    if (!/^[0-9-]{8,40}$/.test(payload.account_number)) {
+    if (!cash && !/^[0-9-]{8,40}$/.test(payload.account_number)) {
       $(fieldIds.account_number).focus();
       showToast("계좌번호는 숫자와 하이픈(-)만 사용해 8자 이상 입력해주세요.", "error");
       return false;
@@ -1906,7 +1935,7 @@
     const userEmail = currentUser?.email;
     const generation = sessionGeneration;
     if (!userId) throw new Error("No signed-in account.");
-    const columns = "id, email, full_name, school, major, phone, kakao_id, bank_name, account_number, bio, experience, profile_photo_path, role, is_active, account_status, profile_completed_at, updated_at";
+    const columns = "id, email, full_name, school, major, phone, kakao_id, payout_method, bank_name, account_number, bio, experience, profile_photo_path, role, is_active, account_status, profile_completed_at, updated_at";
     let result = await supabase
       .from("profiles")
       .update(payload)
@@ -1977,7 +2006,7 @@
       if (!sessionIsCurrent(userId, generation)) return;
       console.error("Profile update failed:", error);
       if (reportProfileLanguageServerError(error, "profile")) return;
-      const missingColumn = /bank_name|account_number|kakao_id|profile_completed_at|profile_photo_path|experience/i.test(error?.message || "");
+      const missingColumn = /payout_method|bank_name|account_number|kakao_id|profile_completed_at|profile_photo_path|experience/i.test(error?.message || "");
       showToast(
         missingColumn
           ? "프로필 데이터베이스 설정이 필요합니다. 운영팀에 문의해주세요."
@@ -2047,7 +2076,7 @@
         setLoading(button, false, onboardingSubmitLabel());
         return;
       }
-      const missingColumn = /profile_completed_at|experience/i.test(error?.message || "");
+      const missingColumn = /payout_method|profile_completed_at|experience/i.test(error?.message || "");
       showToast(
         missingColumn
           ? "최초 프로필 설정용 데이터베이스 업데이트가 필요합니다."
@@ -2567,6 +2596,9 @@ function loadGuideChecks() {
     $("logoutButton").addEventListener("click", logout);
     $("profileForm").addEventListener("submit", saveProfile);
     $("onboardingForm").addEventListener("submit", completeOnboarding);
+    for (const scope of ["profile", "onboarding"]) {
+      $(`${scope}PayoutMethod`).addEventListener("change", () => syncPayoutMethodFields(scope));
+    }
     document.addEventListener("nado:schedule-saved", (event) => {
       handleScheduleSaved(event).catch((error) => console.warn("Schedule summary refresh failed:", error));
     });

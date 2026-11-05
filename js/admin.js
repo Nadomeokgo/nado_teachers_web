@@ -687,7 +687,7 @@
   async function loadData() {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, school, major, phone, kakao_id, bio, experience, bank_name, account_number, profile_photo_path, is_active, created_at, availability(id, day_of_week, start_time, end_time, location, service_area, memo, updated_at)")
+      .select("id, full_name, email, school, major, phone, kakao_id, bio, experience, payout_method, bank_name, account_number, profile_photo_path, is_active, created_at, availability(id, day_of_week, start_time, end_time, location, service_area, memo, updated_at)")
       .neq("role", "admin")
       .order("created_at", { ascending: false, nullsFirst: false })
       .order("id", { ascending: false });
@@ -1356,7 +1356,7 @@
         <div class="teacher-admin-details">
           <div><span>연락처</span><strong>${escapeHtml(teacher.phone || "미입력")}</strong></div>
           <div><span>카카오톡 ID</span><strong>${escapeHtml(teacher.kakao_id || "미입력")}</strong></div>
-          <div><span>정산 계좌</span><strong>${escapeHtml(teacher.bank_name || "은행 미입력")} ${escapeHtml(teacher.account_number || "계좌번호 미입력")}</strong></div>
+          <div><span>${currentLanguage() === "en" ? "Payout details" : "정산 정보"}</span><strong>${escapeHtml(teacherPayoutDetails(teacher))}</strong></div>
           <div class="teacher-admin-bio"><span>한 줄 소개</span><strong class="teacher-bio-value">${escapeHtml(teacher.bio || "미입력")}</strong></div>
           <div class="teacher-admin-experience"><span>경험 및 활동</span>${renderTeacherExperience(teacher.experience)}</div>
           <div class="teacher-admin-bio"><span>가능 장소</span><strong>${groupedTeacherAreas(teacher).length ? groupedTeacherAreas(teacher).map(([label, areas]) => `${escapeHtml(label)}: ${escapeHtml(areas.join(" · "))}`).join("<br>") : "미입력"}</strong></div>
@@ -1428,6 +1428,14 @@
     return teachers.find((teacher) => teacher.id === id) || null;
   }
 
+  function teacherPayoutDetails(teacher) {
+    const english = currentLanguage() === "en";
+    if (teacher?.payout_method === "cash") return english ? "Cash · No bank account" : "현금 수령 · 계좌번호 없음";
+    const bank = teacher?.bank_name?.trim() || (english ? "Bank not provided" : "은행명 미등록");
+    const number = teacher?.account_number?.trim() || (english ? "Account number not provided" : "계좌번호 미등록");
+    return `${bank} · ${number}`;
+  }
+
   function calendarDateKey(year, monthIndex, day) {
     return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
@@ -1467,11 +1475,13 @@
     const typeLabel = event.type === "first"
       ? (isTrial ? assignmentTypeLabel(event.assignment.assignment_type) : (currentLanguage() === "en" ? "First lesson" : "첫 수업"))
       : (currentLanguage() === "en" ? "Payout" : "정산");
-    return `<div class="calendar-event calendar-event-${event.type}${isTrial ? " calendar-event-trial" : ""}" data-calendar-assignment="${escapeHtml(event.assignment.id)}">
-      <span class="calendar-event-type">${typeLabel}</span>
+    const actionLabel = currentLanguage() === "en" ? "View student assignment" : "학생 배정 보기";
+    const label = `${typeLabel} · ${event.assignment.student_name} · ${event.teacherName} · ${actionLabel}`;
+    return `<button type="button" class="calendar-event calendar-event-${event.type}${isTrial ? " calendar-event-trial" : ""}" data-calendar-assignment="${escapeHtml(event.assignment.id)}" aria-label="${escapeHtml(label)}">
+      <span class="calendar-event-type">${escapeHtml(typeLabel)}</span>
       <strong class="calendar-student-name" style="--calendar-name-hue:${event.studentHue}">${escapeHtml(event.assignment.student_name)}</strong>
       <span class="calendar-teacher-name" style="--calendar-name-hue:${event.teacherHue}">${escapeHtml(event.teacherName)}</span>
-    </div>`;
+    </button>`;
   }
 
   function renderAssignmentCalendar() {
@@ -1506,6 +1516,20 @@
   function moveCalendarMonth(amount) {
     calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + amount, 1);
     renderAssignmentCalendar();
+  }
+
+  function focusCalendarAssignment(id) {
+    const assignment = assignments.find((item) => item.id === id);
+    if (!assignment) return;
+    const filter = isAssignmentHistory(assignment) ? "history" : "current";
+    if (assignmentFilter !== "all" && assignmentFilter !== filter) {
+      assignmentFilter = filter;
+      renderAssignmentList();
+    }
+    const card = $(`assignment-card-${id}`);
+    if (!card) return;
+    card.focus({ preventScroll: true });
+    card.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
   }
 
   function renderAssignmentList() {
@@ -1569,7 +1593,7 @@
               : `${packageSessions}회 기준 ${formatWon(packageTeacherPayout)} · 학생 수업료 ${formatWon(packageTuition)}`;
           })();
 
-      return `<article class="admin-assignment-item${isHistory ? " is-history" : ""}${isTrial ? " is-trial" : ""}">
+      return `<article id="assignment-card-${escapeHtml(assignment.id)}" tabindex="-1" aria-labelledby="assignment-name-${escapeHtml(assignment.id)}" class="admin-assignment-item${isHistory ? " is-history" : ""}${isTrial ? " is-trial" : ""}">
         <div class="admin-assignment-person">
           <div class="admin-assignment-badges">
             ${typeBadge}
@@ -1577,7 +1601,7 @@
             <span class="assignment-status-badge ${isHistory ? "completed" : "current"}">${isHistory ? "학생 기록" : "현재 학생"}</span>
             ${renderAssignmentPaymentBadge(assignment)}
           </div>
-          <strong>${escapeHtml(assignment.student_name)}</strong>
+          <strong id="assignment-name-${escapeHtml(assignment.id)}">${escapeHtml(assignment.student_name)}</strong>
           ${Array.isArray(assignment.group_members) && assignment.group_members.length > 1 ? `<small>구성원: ${assignment.group_members.map((member) => escapeHtml(member.name || "이름 미입력")).join(" · ")}</small>` : ""}
           <small>${assignment.student_email ? `${escapeHtml(assignment.student_email)} · ` : ""}담당: ${escapeHtml(teacher?.full_name || "삭제된 선생님")} ${teacher?.email ? `· ${escapeHtml(teacher.email)}` : ""}</small>
           ${!isTrial ? `<small class="assignment-account-state">${assignment.student_id ? "학생 계정 연결됨" : assignment.student_email ? "학생 계정 초대 대기" : "이메일 없이 배정"}</small>` : ""}
@@ -1587,6 +1611,7 @@
           <dl class="admin-assignment-dates">
             <div><dt>${escapeHtml(isTrial ? (currentLanguage() === "en" ? "Trial lesson date" : "체험수업일") : (currentLanguage() === "en" ? "First lesson date" : "첫 수업일"))}</dt><dd>${escapeHtml(formatKoreanDate(assignment.first_lesson_date))}</dd></div>
             <div><dt>${escapeHtml(currentLanguage() === "en" ? (isHistory ? "Payout date" : "Scheduled payout date") : (isHistory ? "정산일" : "정산 예정일"))}</dt><dd>${escapeHtml(formatKoreanDate(assignment.settlement_date))}</dd></div>
+            <div class="assignment-teacher-payout-details"><dt>${currentLanguage() === "en" ? "Teacher payout details" : "선생님 정산 정보"}</dt><dd>${escapeHtml(teacherPayoutDetails(teacher))}</dd></div>
           </dl>
           ${assignmentHasPricing(assignment) ? `<div class="admin-assignment-payout${isTrial ? " trial" : ""}">
             <span>${escapeHtml(isTrial
@@ -2120,6 +2145,10 @@
     if (endButton) return endAssignment(endButton.dataset.endAssignment);
     const deleteButton = event.target.closest("[data-delete-assignment]");
     if (deleteButton) deleteAssignmentPermanently(deleteButton.dataset.deleteAssignment);
+  });
+  $("adminCalendar").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-calendar-assignment]");
+    if (button) focusCalendarAssignment(button.dataset.calendarAssignment);
   });
   $("calendarPrevButton").addEventListener("click", () => moveCalendarMonth(-1));
   $("calendarNextButton").addEventListener("click", () => moveCalendarMonth(1));
