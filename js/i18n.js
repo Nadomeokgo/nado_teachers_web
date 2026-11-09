@@ -7,6 +7,7 @@
   "입금 상태": "Payment status",
   "미입금": "Unpaid",
   "입금 완료": "Paid",
+  "IGC 정규 수업 할인 · 패키지당 10,000원": "IGC regular lesson discount · ₩10,000 per package",
   "입금 미설정": "Payment not set",
   "입금 불필요": "No payment required",
   "운영팀이 확인한 학생 입금 여부를 기록합니다.": "Record the student's payment status after the NADO team checks it.",

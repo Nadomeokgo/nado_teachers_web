@@ -1728,7 +1728,7 @@
     if (!userId) return;
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, student_id, student_name, student_email, group_size, group_members, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status")
+      .select("id, student_id, student_name, student_email, group_size, group_members, assignment_type, igc_discount, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status")
       .eq("teacher_id", userId)
       .order("settlement_date", { ascending: true })
       .order("student_name", { ascending: true });
@@ -1750,6 +1750,7 @@
     const plan = assignment.plan || "unassigned";
     const isPaidTrial = assignment.assignment_type === "paid_trial";
     const isTrial = assignment.assignment_type === "trial" || isPaidTrial;
+    const hasIgcDiscount = assignment.assignment_type === "regular" && assignment.igc_discount === true;
     const statusLabel = isHistory
       ? (currentLanguage() === "en" ? "Payout complete" : "정산 완료")
       : (currentLanguage() === "en" ? "Current student" : "현재 학생");
@@ -1763,6 +1764,7 @@
       <article class="assignment-card${isHistory ? " assignment-card-history" : ""}${isTrial ? " assignment-card-trial" : ""}">
         <div class="assignment-card-topline">
           ${trialBadge}
+          ${hasIgcDiscount ? `<span class="assignment-type-badge igc-discount">${escapeHtml(currentLanguage() === "en" ? "IGC · ₩10,000 discount" : "IGC · 10,000원 할인")}</span>` : ""}
           <span class="plan-badge plan-${escapeHtml(plan)}">${escapeHtml(planLabel(assignment.plan))}</span>
           <span class="assignment-status-badge ${isHistory ? "completed" : "current"}">${escapeHtml(statusLabel)}</span>
         </div>
@@ -1801,6 +1803,14 @@
                 }
                 return `<small>${escapeHtml(currentLanguage() === "en" ? `${packageSessions}-session payout` : `${packageSessions}회 기준 정산액`)}</small>`;
               })()}
+          ${hasIgcDiscount ? (() => {
+            const weekly = Number(assignment.weekly_frequency) === 2 ? 2 : 1;
+            const tuition = Number(assignment.four_lesson_tuition) * weekly;
+            const fee = tuition - Number(assignment.four_lesson_teacher_payout) * weekly;
+            return `<small>${escapeHtml(currentLanguage() === "en"
+              ? `Package tuition after IGC discount ${formatWon(tuition)} · NADO fee 35% ${formatWon(fee)}`
+              : `IGC 할인 후 패키지 수업료 ${formatWon(tuition)} · NADO 수수료 35% ${formatWon(fee)}`)}</small>`;
+          })() : ""}
         </div>` : ""}
         <dl class="assignment-date-list">
           <div>

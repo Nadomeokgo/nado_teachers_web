@@ -33,6 +33,38 @@ async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email
   throw new Error("기존 학생 계정 확인 범위를 초과했습니다. 운영팀에 문의해주세요.");
 }
 
+const igcPricingKeys = [
+  "four_lesson_tuition", "nado_fee_percent", "four_lesson_nado_fee",
+  "four_lesson_teacher_payout", "teacher_payout_amount", "pricing_version",
+] as const;
+
+// Keep this table aligned with js/pricing.js and the IGC database CHECK.
+// The discount is once per full 4/8-session package, not once per student or lesson.
+function expectedIgcPricing(input: Record<string, unknown>) {
+  const rates: Record<string, Record<number, number>> = {
+    economy: { 1: 140000, 2: 200000, 3: 270000, 4: 320000 },
+    standard: { 1: 180000, 2: 260000, 3: 360000, 4: 440000 },
+    premium: { 1: 220000 },
+  };
+  const duration = Number(input.lesson_duration_minutes);
+  const weekly = Number(input.weekly_frequency);
+  const sessions = Number(input.settlement_sessions);
+  const groupSize = Number(input.group_size) || 1;
+  const hourly = rates[String(input.plan)]?.[groupSize];
+  if (!hourly || ![60, 120].includes(duration) || ![1, 2].includes(weekly)
+    || !Number.isInteger(sessions) || sessions < 1 || sessions > weekly * 4) return null;
+  const tuition = hourly * (duration / 60) - 10000 / weekly;
+  const fee = Math.round(tuition * 0.35);
+  const payout = tuition - fee;
+  return {
+    four_lesson_tuition: tuition,
+    nado_fee_percent: 35,
+    four_lesson_nado_fee: fee,
+    four_lesson_teacher_payout: payout,
+    teacher_payout_amount: Math.round(payout * sessions / 4),
+  };
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -84,6 +116,47 @@ Deno.serve(async (request) => {
     }
     if (assignmentType === "regular" && !email.includes("@")) {
       return json({ error: "학생 이메일 형식을 확인해주세요." }, 400);
+    }
+
+    const hasIgcDiscount = Object.prototype.hasOwnProperty.call(input, "igc_discount");
+    if (hasIgcDiscount && typeof input.igc_discount !== "boolean") {
+      return json({ error: "IGC 할인 적용 여부를 확인해주세요." }, 400);
+    }
+    if (input.igc_discount === true && assignmentType !== "regular") {
+      return json({ error: "IGC 할인은 정규 수업에만 적용할 수 있습니다." }, 400);
+    }
+    const igcFields: Record<string, unknown> = { igc_discount: input.igc_discount === true };
+    // A cached older admin page does not know about the discount. Its usual
+    // recalculation must never overwrite an existing discounted snapshot.
+    if (assignmentId && !hasIgcDiscount) {
+      const { data: existingAssignment, error: discountLookupError } = await admin
+        .from("student_assignments")
+        .select("igc_discount, assignment_type, plan, lesson_duration_minutes, weekly_frequency, settlement_sessions, group_size, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version")
+        .eq("id", assignmentId)
+        .maybeSingle();
+      if (discountLookupError) throw discountLookupError;
+      if (!existingAssignment) return json({ error: "수정할 학생 배정을 찾을 수 없습니다." }, 404);
+      if (existingAssignment.igc_discount) {
+        const sameDimensions = assignmentType === existingAssignment.assignment_type
+          && input.plan === existingAssignment.plan
+          && Number(input.lesson_duration_minutes) === existingAssignment.lesson_duration_minutes
+          && Number(input.weekly_frequency) === existingAssignment.weekly_frequency
+          && Number(input.settlement_sessions) === existingAssignment.settlement_sessions
+          && (Number(input.group_size) || 1) === existingAssignment.group_size;
+        if (!sameDimensions) {
+          return json({ error: "IGC 할인이 적용된 배정입니다. 페이지를 새로고침한 후 수업 조건을 수정해주세요." }, 400);
+        }
+        igcFields.igc_discount = true;
+        for (const key of igcPricingKeys) igcFields[key] = existingAssignment[key];
+      }
+    }
+    if (hasIgcDiscount && input.igc_discount) {
+      const expected = expectedIgcPricing(input);
+      if (!expected || !Object.entries(expected).every(([key, value]) => Number(input[key]) === value)
+        || input.pricing_version !== "NADO-2026-11-IGC-10000") {
+        return json({ error: "IGC 할인 금액이 올바르지 않습니다. 정규 패키지 총액에서 10,000원을 할인한 뒤 수수료 35%로 다시 계산해주세요." }, 400);
+      }
+      Object.assign(igcFields, expected);
     }
 
     let studentRecord: { id: string; auth_user_id: string | null; invitation_status: string } | null = null;
@@ -217,6 +290,7 @@ Deno.serve(async (request) => {
       four_lesson_teacher_payout: input.four_lesson_teacher_payout ?? null,
       teacher_payout_amount: input.teacher_payout_amount ?? null,
       pricing_version: input.pricing_version || null,
+      ...igcFields,
       first_lesson_date: input.first_lesson_date,
       settlement_date: input.settlement_date,
       status: "active",
@@ -226,7 +300,7 @@ Deno.serve(async (request) => {
     const query = assignmentId
       ? admin.from("student_assignments").update(payload).eq("id", assignmentId)
       : admin.from("student_assignments").insert(payload);
-    const { data: assignment, error: assignmentError } = await query.select("id,student_id,teacher_id,status,payment_status").single();
+    const { data: assignment, error: assignmentError } = await query.select("id,student_id,teacher_id,status,payment_status,igc_discount").single();
     if (assignmentError) throw assignmentError;
 
     return json({ ok: true, assignment, invitation_sent: invitationSent });

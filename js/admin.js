@@ -13,6 +13,8 @@
   const pricingCatalog = window.NADO_PRICING || {};
   const NADO_FEE_RATE = pricingCatalog.NADO_FEE_RATE ?? 0.35;
   const PACKAGE_SESSIONS = pricingCatalog.PACKAGE_SESSIONS ?? 4;
+  const IGC_DISCOUNT_AMOUNT = pricingCatalog.IGC_DISCOUNT_AMOUNT ?? 10000;
+  const IGC_PRICING_VERSION = pricingCatalog.IGC_PRICING_VERSION || "NADO-2026-11-IGC-10000";
   const PRICING_VERSION = pricingCatalog.PRICING_VERSION || "NADO-2026-08-60-120-W2";
   const TRIAL_PLAN = pricingCatalog.TRIAL_PLAN || "economy";
   const TRIAL_TEACHER_PAYOUT = pricingCatalog.TRIAL_TEACHER_PAYOUT ?? 20000;
@@ -351,20 +353,25 @@
     return PACKAGE_SESSIONS * (weekly === 2 ? 2 : 1);
   }
 
-  function pricingFor(plan, durationMinutes, weeklyFrequency, settlementSessions, groupSize = 1) {
+  function pricingFor(plan, durationMinutes, weeklyFrequency, settlementSessions, groupSize = 1, igcDiscount = false) {
+    if (pricingCatalog.regularPricing) return pricingCatalog.regularPricing(plan, durationMinutes, weeklyFrequency, settlementSessions, groupSize, igcDiscount);
     const duration = Number(durationMinutes);
     const size = Number(groupSize) || 1;
     const oneHourGroupTuition = groupLessonPriceTable[plan]?.[size];
-    const baseTuition = oneHourGroupTuition && [60, 120].includes(duration)
+    const grossBaseTuition = oneHourGroupTuition && [60, 120].includes(duration)
       ? oneHourGroupTuition * (duration / 60)
       : (size === 1 ? lessonPriceTable[plan]?.[duration] : null);
     const weekly = Number(weeklyFrequency);
     const sessions = Number(settlementSessions);
-    if (!baseTuition || ![1, 2].includes(weekly)) return null;
+    if (!grossBaseTuition || ![1, 2].includes(weekly)) return null;
+    if (igcDiscount === true && ![60, 120].includes(duration)) return null;
 
     const packageSessions = packageSessionCount(weekly);
     if (!Number.isInteger(sessions) || sessions < 1 || sessions > packageSessions) return null;
 
+    const grossTuition = grossBaseTuition * weekly;
+    const discountAmount = igcDiscount === true ? IGC_DISCOUNT_AMOUNT : 0;
+    const baseTuition = (grossTuition - discountAmount) / weekly;
     const baseNadoFee = Math.round(baseTuition * NADO_FEE_RATE);
     const baseTeacherPayout = baseTuition - baseNadoFee;
     const tuition = baseTuition * weekly;
@@ -373,6 +380,8 @@
     const teacherPayout = Math.round((baseTeacherPayout * sessions) / PACKAGE_SESSIONS);
 
     return {
+      grossTuition,
+      discountAmount,
       baseTuition,
       baseNadoFee,
       baseTeacherPayout,
@@ -517,6 +526,23 @@
     }
     syncGroupSizeForPlan();
     syncAssignmentPaymentField();
+    syncIgcDiscountField();
+  }
+
+  function currentIgcDiscount() {
+    return $("assignmentType")?.value === "regular" && $("assignmentIgcDiscount")?.checked === true;
+  }
+
+  function syncIgcDiscountField() {
+    const checkbox = $("assignmentIgcDiscount");
+    if (!checkbox) return;
+    const isRegular = $("assignmentType")?.value === "regular";
+    checkbox.disabled = !isRegular;
+    if (!isRegular) checkbox.checked = false;
+    const note = $("assignmentIgcDiscountNote");
+    if (note) note.textContent = currentLanguage() === "en"
+      ? "Select only for regular lessons held at IGC. Deduct ₩10,000 once from the total package tuition, then calculate the 35% NADO fee. Trial and free lessons are excluded."
+      : "IGC에서 진행하는 정규 수업만 선택해주세요. 패키지 총 수업료에서 10,000원을 할인한 후 NADO 수수료 35%를 계산합니다. 체험·무료 수업에는 적용되지 않습니다.";
   }
 
   function normalizeAssignmentPaymentStatus(value) {
@@ -612,7 +638,7 @@
     }
     const sessions = Number($("assignmentSettlementSessions").value);
     const weekly = Number($("assignmentWeeklyFrequency").value);
-    const pricing = pricingFor(plan, duration, weekly, sessions, groupSize);
+    const pricing = pricingFor(plan, duration, weekly, sessions, groupSize, currentIgcDiscount());
     if (!pricing) {
       target.innerHTML = `<div class="assignment-pricing-placeholder">${escapeHtml(currentLanguage() === "en"
         ? "Select a plan and lesson duration to calculate the first-month payout."
@@ -626,6 +652,8 @@
         <span class="assignment-pricing-rate">첫 달 정산</span>
       </div>
       <dl class="assignment-pricing-grid">
+        ${pricing.discountAmount ? `<div><dt>${escapeHtml(currentLanguage() === "en" ? "Tuition before discount" : "할인 전 학생 수업료")}</dt><dd>${escapeHtml(formatWon(pricing.grossTuition))}</dd></div>
+        <div><dt>${escapeHtml(currentLanguage() === "en" ? "IGC discount · once per package" : "IGC 할인 · 패키지당 1회")}</dt><dd>−${escapeHtml(formatWon(pricing.discountAmount))}</dd></div>` : ""}
         <div><dt>${escapeHtml(currentLanguage() === "en" ? `Student tuition (${pricing.packageSessions} sessions)` : `${basisLabel} 학생 수업료`)}</dt><dd>${escapeHtml(formatWon(pricing.tuition))}</dd></div>
         <div><dt>${escapeHtml(currentLanguage() === "en" ? "First-month NADO fee" : "첫 달 NADO 수수료")}</dt><dd>${escapeHtml(formatWon(pricing.nadoFee))}</dd></div>
         <div><dt>${escapeHtml(currentLanguage() === "en" ? `Teacher payout (${pricing.packageSessions} sessions)` : `${basisLabel} Teacher 정산액`)}</dt><dd>${escapeHtml(formatWon(pricing.fullTeacherPayout))}</dd></div>
@@ -1405,7 +1433,7 @@
 
     const { data, error } = await supabase
       .from("student_assignments")
-      .select("id, teacher_id, student_id, student_name, student_email, group_size, group_members, assignment_type, plan, payment_status, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status, ended_at, created_at, updated_at")
+      .select("id, teacher_id, student_id, student_name, student_email, group_size, group_members, assignment_type, plan, payment_status, igc_discount, lesson_duration_minutes, weekly_frequency, settlement_sessions, four_lesson_tuition, nado_fee_percent, four_lesson_nado_fee, four_lesson_teacher_payout, teacher_payout_amount, pricing_version, first_lesson_date, settlement_date, status, ended_at, created_at, updated_at")
       .order("first_lesson_date", { ascending: true })
       .order("student_name", { ascending: true });
 
@@ -1600,6 +1628,7 @@
             <span class="plan-badge plan-${escapeHtml(plan)}">${escapeHtml(planLabel(assignment.plan))}</span>
             <span class="assignment-status-badge ${isHistory ? "completed" : "current"}">${isHistory ? "학생 기록" : "현재 학생"}</span>
             ${renderAssignmentPaymentBadge(assignment)}
+            ${!isTrial && assignment.igc_discount === true ? `<span class="assignment-type-badge igc-discount">${escapeHtml(currentLanguage() === "en" ? "IGC discount · −₩10,000" : "IGC 할인 · −10,000원")}</span>` : ""}
           </div>
           <strong id="assignment-name-${escapeHtml(assignment.id)}">${escapeHtml(assignment.student_name)}</strong>
           ${Array.isArray(assignment.group_members) && assignment.group_members.length > 1 ? `<small>구성원: ${assignment.group_members.map((member) => escapeHtml(member.name || "이름 미입력")).join(" · ")}</small>` : ""}
@@ -1640,6 +1669,7 @@
     setSelectedTeacher("");
     $("assignmentSettlementDate").removeAttribute("min");
     $("assignmentType").value = "regular";
+    $("assignmentIgcDiscount").checked = false;
     $("assignmentGroupSize").value = "1";
     $("assignmentWeeklyFrequency").value = "1";
     syncAssignmentTypeFields(4);
@@ -1662,6 +1692,7 @@
     $("assignmentGroupSize").value = String(Number(assignment.group_size) || 1);
     renderGroupMemberFields(Array.isArray(assignment.group_members) ? assignment.group_members.slice(1) : []);
     $("assignmentType").value = assignment.assignment_type || "regular";
+    $("assignmentIgcDiscount").checked = assignment.igc_discount === true;
     $("assignmentPlan").value = assignment.plan || "";
     $("assignmentLessonDuration").value = assignment.lesson_duration_minutes ? String(assignment.lesson_duration_minutes) : "";
     $("assignmentWeeklyFrequency").value = assignment.weekly_frequency ? String(assignment.weekly_frequency) : "1";
@@ -1712,11 +1743,12 @@
     const lessonDurationMinutes = Number($("assignmentLessonDuration").value);
     const weeklyFrequency = isTrial ? 1 : Number($("assignmentWeeklyFrequency").value);
     const settlementSessions = isTrial ? 1 : Number($("assignmentSettlementSessions").value);
+    const igcDiscount = currentIgcDiscount();
     const pricing = isFreeTrial
       ? trialPricingFor(lessonDurationMinutes)
       : isPaidTrial
         ? paidTrialPricingFor(plan, lessonDurationMinutes, groupSize)
-        : pricingFor(plan, lessonDurationMinutes, weeklyFrequency, settlementSessions, groupSize);
+        : pricingFor(plan, lessonDurationMinutes, weeklyFrequency, settlementSessions, groupSize, igcDiscount);
 
     const payload = {
       teacher_id: selectedTeacher?.id || "",
@@ -1725,6 +1757,7 @@
       group_size: groupSize,
       group_members: groupMembers,
       assignment_type: assignmentType,
+      igc_discount: igcDiscount,
       payment_status: isFreeTrial ? null : normalizeAssignmentPaymentStatus($("assignmentPaymentStatus").value),
       plan,
       lesson_duration_minutes: lessonDurationMinutes,
@@ -1735,7 +1768,7 @@
       four_lesson_nado_fee: isFreeTrial ? null : (pricing?.baseNadoFee ?? null),
       four_lesson_teacher_payout: isFreeTrial ? null : (pricing?.baseTeacherPayout ?? null),
       teacher_payout_amount: pricing?.teacherPayout ?? null,
-      pricing_version: isFreeTrial ? TRIAL_PRICING_VERSION : isPaidTrial ? PAID_TRIAL_PRICING_VERSION : PRICING_VERSION,
+      pricing_version: isFreeTrial ? TRIAL_PRICING_VERSION : isPaidTrial ? PAID_TRIAL_PRICING_VERSION : igcDiscount ? IGC_PRICING_VERSION : PRICING_VERSION,
       first_lesson_date: $("assignmentFirstLessonDate").value,
       settlement_date: $("assignmentSettlementDate").value
     };
@@ -2105,6 +2138,7 @@
 
   $("assignmentForm").addEventListener("submit", saveAssignment);
   $("assignmentCancelButton").addEventListener("click", resetAssignmentForm);
+  $("assignmentIgcDiscount").addEventListener("change", renderAssignmentPricingPreview);
   $("assignmentPaymentStatus").addEventListener("change", () => {
     assignmentPaymentStatus = normalizeAssignmentPaymentStatus($("assignmentPaymentStatus").value);
     syncAssignmentPaymentField();

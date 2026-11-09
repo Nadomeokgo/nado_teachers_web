@@ -92,6 +92,29 @@ button.calendar-event:focus-visible {
 
 .admin-assignment-dates .assignment-teacher-payout-details { grid-column: 1 / -1; }
 
+.assignment-igc-discount {
+  display: flex !important;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #cce1d7;
+  border-radius: 12px;
+  background: #f2faf6;
+  cursor: pointer;
+}
+
+.assignment-igc-discount input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: none;
+  margin-top: 3px;
+  accent-color: #21755a;
+}
+
+.assignment-igc-discount:has(input:disabled) { opacity: .6; cursor: default; }
+
 /* Keep hidden panels out of layout even when their original styles use grid. */
 [data-admin-panel][hidden],
 [data-admin-content-panel][hidden],

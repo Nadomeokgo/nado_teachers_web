@@ -3,6 +3,8 @@
 
   const NADO_FEE_RATE = 0.35;
   const PACKAGE_SESSIONS = 4;
+  const IGC_DISCOUNT_AMOUNT = 10000;
+  const IGC_PRICING_VERSION = "NADO-2026-11-IGC-10000";
   const PRICING_VERSION = "NADO-2026-09-GROUP-1TO4";
   const TRIAL_PLAN = "economy";
   const TRIAL_TEACHER_PAYOUT = 20000;
@@ -63,6 +65,39 @@
     };
   }
 
+  function regularPricing(plan, durationMinutes, weeklyFrequency, settlementSessions, groupSize = 1, igcDiscount = false) {
+    const grossBaseTuition = tuitionFor(plan, durationMinutes, groupSize);
+    const weekly = Number(weeklyFrequency);
+    const sessions = Number(settlementSessions);
+    if (!grossBaseTuition || ![1, 2].includes(weekly)) return null;
+    const packageSessions = packageSessionCount(weekly);
+    if (!Number.isInteger(sessions) || sessions < 1 || sessions > packageSessions) return null;
+    if (igcDiscount === true && !durationOptions.includes(Number(durationMinutes))) return null;
+
+    // The discount belongs to the complete regular package, not each lesson or student.
+    // Persist the discounted amounts normalized to four sessions for existing readers.
+    const discountAmount = igcDiscount === true ? IGC_DISCOUNT_AMOUNT : 0;
+    const grossTuition = grossBaseTuition * weekly;
+    const baseTuition = (grossTuition - discountAmount) / weekly;
+    const baseNadoFee = Math.round(baseTuition * NADO_FEE_RATE);
+    const baseTeacherPayout = baseTuition - baseNadoFee;
+    return {
+      grossTuition,
+      discountAmount,
+      baseTuition,
+      baseNadoFee,
+      baseTeacherPayout,
+      tuition: baseTuition * weekly,
+      nadoFee: baseNadoFee * weekly,
+      fullTeacherPayout: baseTeacherPayout * weekly,
+      teacherPayout: Math.round((baseTeacherPayout * sessions) / PACKAGE_SESSIONS),
+      sessions,
+      packageSessions,
+      weekly,
+      groupSize: Number(groupSize) || 1
+    };
+  }
+
   function trialPricing(durationMinutes) {
     const minutes = Number(durationMinutes);
     if (!durationOptions.includes(minutes)) return null;
@@ -103,6 +138,8 @@
   window.NADO_PRICING = Object.freeze({
     NADO_FEE_RATE,
     PACKAGE_SESSIONS,
+    IGC_DISCOUNT_AMOUNT,
+    IGC_PRICING_VERSION,
     PRICING_VERSION,
     TRIAL_PLAN,
     TRIAL_TEACHER_PAYOUT,
@@ -117,6 +154,7 @@
     basePricing,
     teacherPayoutForSessions,
     hourlyRates,
+    regularPricing,
     trialPricing,
     paidTrialPricing
   });

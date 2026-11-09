@@ -1218,6 +1218,7 @@ body.agreement-open { overflow: hidden; }
 .assignment-payout-box span { display: block; color: var(--gray); font-size: .68rem; font-weight: 850; }
 .assignment-payout-box strong { display: block; margin-top: 3px; color: var(--accent-deep); font-size: 1.18rem; letter-spacing: -.02em; }
 .assignment-payout-box small { display: block; margin-top: 4px; color: var(--gray); font-size: .67rem; line-height: 1.45; }
+.assignment-type-badge.igc-discount { color: #1d654c; background: #e4f4eb; border: 1px solid #c4dfd0; }
 
 @media (max-width: 560px) {
   .assignment-service-fields, .assignment-pricing-grid { grid-template-columns: minmax(0, 1fr); }
