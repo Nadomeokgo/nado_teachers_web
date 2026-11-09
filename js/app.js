@@ -18,7 +18,7 @@
     { key: "internship", title: "Internship", help: "인턴십에서 맡은 업무를 적어주세요." },
     { key: "activities", title: "활동/리더십", help: "동아리, 봉사, 대표 활동과 맡은 역할을 적어주세요." }
   ];
-  const CURRENT_AGREEMENT_VERSION = "v1.5";
+  const CURRENT_AGREEMENT_VERSION = "v1.6";
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   const scheduleDayOrder = [1, 2, 3, 4, 5, 6, 0];
   const scheduleStartMinutes = 8 * 60;

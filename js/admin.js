@@ -7,7 +7,7 @@
   const PROFILE_PHOTO_SIGNED_URL_SECONDS = 60 * 60;
   const PROFILE_PHOTO_REFRESH_MARGIN_MS = 5 * 60 * 1000;
   const teacherPhotoStates = new Map();
-  const CURRENT_AGREEMENT_VERSION = "v1.5";
+  const CURRENT_AGREEMENT_VERSION = "v1.6";
   const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
   const planLabels = { economy: "이코노미", standard: "스탠다드", premium: "프리미엄" };
   const pricingCatalog = window.NADO_PRICING || {};
